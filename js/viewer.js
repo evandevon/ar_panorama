@@ -539,7 +539,7 @@
       setSpotsMuted(false);
     }
     if (PREVIEW) $('spots').classList.add('editing');
-    else if (spots.hasLook) { $('crosshair').classList.add('dot'); $('crosshair').hidden = false; }
+    else { $('crosshair').classList.add('dot'); $('crosshair').hidden = false; }   // always: it shows where "looking at" aims
 
     if (PREVIEW) {
       // The author's preview: straight in, mouse only. Sound waits for a click on Play.

@@ -52,6 +52,7 @@
     ['db:', 'https://www.dropbox.com/'],
     ['od:', 'https://1drv.ms/'],
     ['gx:', 'https://docs.google.com/'],
+    ['gr:', 'https://raw.githubusercontent.com/'],
     ['w:', 'https://www.'],
     ['h:', 'https://']
   ];
@@ -62,10 +63,24 @@
     return token;
   }
 
+  // A GitHub file *page* (github.com/user/repo/blob/branch/path) → the file itself
+  function gitHubRaw(url) {
+    const m = String(url || '').match(/^(?:https?:\/\/)?(?:www\.)?github\.com\/([^\/]+)\/([^\/]+)\/(?:blob|raw)\/(.+?)(?:[?#].*)?$/i);
+    return m ? 'https://raw.githubusercontent.com/' + m[1] + '/' + m[2] + '/' + m[3] : '';
+  }
+
   /** Pasted link → short token for the QR code (or the link unchanged). */
   function shorten(url) {
     url = (url || '').trim();
     if (!url) return '';
+    const raw = gitHubRaw(url) || (/^https:\/\/raw\.githubusercontent\.com\//i.test(url) ? url : '');
+    if (raw) {
+      // A file in this site's own repo (user.github.io/repo/): just its path
+      const m = raw.match(/^https:\/\/raw\.githubusercontent\.com\/([^\/]+)\/([^\/]+)\/[^\/]+\/(.+)$/);
+      const host = location.hostname.toLowerCase(), first = location.pathname.split('/')[1] || '';
+      if (m && host === m[1].toLowerCase() + '.github.io' && first.toLowerCase() === m[2].toLowerCase()) return decodeURIComponent(m[3]);
+      url = raw;
+    }
     const yt = youTubeId(url);
     if (yt) { const s = youTubeStart(url); return 'yt:' + yt + (s ? '.' + s : ''); }
     const gd = googleDriveId(url);
@@ -134,6 +149,9 @@
       const u = url.replace(/([?&])dl=0/, '$1raw=1');
       return { url: /[?&](raw|dl)=1/.test(u) ? u : u + (u.includes('?') ? '&' : '?') + 'raw=1', provider: 'dropbox' };
     }
+
+    const gh = gitHubRaw(url);
+    if (gh) return { url: gh, provider: 'web' };
 
     if (/^www\./i.test(url)) url = 'https://' + url;
     return { url: url, provider: /^https?:/i.test(url) ? 'web' : 'this-site' };

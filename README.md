@@ -56,7 +56,7 @@ Spots place videos, sounds, pictures, text, links and 3D models around the room.
 | 3D model | A `.glb` file (best), or `.gltf`, `.obj` or `.stl`. See **3D models** below. |
 | Link | A web page address. It shows as a button that opens the page in a new tab; the label is the button text. Only ordinary `https://` addresses are allowed. |
 
-Pick a spot's kind with **Type**. It's set automatically when the link ends in a file type, but Google Drive and OneDrive links don't show the file type, so choose it yourself for those. HEIC photos from iPhones and TIFFs won't display in most phone browsers; save them as JPEG or PNG first.
+Pick a spot's kind with **Type**, at the top of each spot's card. It's set automatically when the link ends in a file type, but Google Drive and OneDrive links don't show the file type, so choose it yourself for those. HEIC photos from iPhones and TIFFs won't display in most phone browsers; save them as JPEG or PNG first.
 
 1. Turn the preview so the **crosshair** is where you want the spot.
 2. Press **+ Add a spot at the crosshair** and paste the link.
@@ -73,7 +73,7 @@ Use **📱 Phone** view when sizing videos. A phone held upright sees much less 
 | Option | What it does |
 |---|---|
 | **Plays when the viewer taps it** | Videos show a poster with a play button. Sounds show a speaker marker to tap. |
-| **Plays automatically when the viewer looks at it** | Plays while the centre of the screen (the crosshair) is on the video, and pauses as soon as it moves off. For sounds, the centre needs to be within about 12° of the marker. Viewers see a small dot in the centre of the screen so they know where they're aiming. |
+| **Plays automatically when the viewer looks at it** | Plays while the centre of the screen (the crosshair) is on the video at the size you set, and pauses as soon as it moves off, however the video was started. (A YouTube player grows while it plays, but only your original size counts.) For sounds, the centre needs to be within about 12° of the marker. Viewers always see a small dot in the centre of the screen so they know where they're aiming. |
 | **Plays automatically as soon as it opens** | Starts when the viewer taps to enter. |
 | **Sound only** | No picture, just a speaker marker. MP3 links are always sound only. |
 | **Hidden** | Nothing shows; it just plays. Only available with one of the automatic options. In the preview, hidden spots appear faintly so you can still move them. |
@@ -102,7 +102,7 @@ A 3D model sits in the room as a real object: as viewers look around, they see i
 
 **Formats:** `.glb` is best: one file with colours and textures included. Tinkercad, SketchUp, Blender and Sketchfab downloads can all export it. `.stl` files (3D-printing files from Tinkercad or Thingiverse) work too but have no colours, so they show in a plain stone colour; they're turned upright automatically. `.obj` works but loses its colours unless they're baked in. `.gltf` files that come with separate texture files won't find them, so export as `.glb` instead.
 
-**Hosting:** put the file in this site's `models/` folder on GitHub (most reliable), or use a Dropbox link. Google Drive and OneDrive don't work for 3D models, because they don't let other sites load the file. Keep files under about 5 MB so they load quickly on phones; the sample inkwell is 23 KB.
+**Hosting:** put the file in this site's `models/` folder on GitHub (most reliable), or use a Dropbox link. You can paste the GitHub page link for a file (`github.com/…/blob/…`): it's converted to the file itself automatically, and a file in this site's own repo shrinks to just its path, e.g. `models/inkwell.glb`. Google Drive and OneDrive don't work for 3D models, because they don't let other sites load the file. Keep files under about 5 MB so they load quickly on phones; the sample inkwell is 23 KB.
 
 **In the author page:**
 - **Drag** the model in the preview to move it, and pull a **corner tag** to make it bigger or smaller.
@@ -186,6 +186,7 @@ Each spot is written as `link~yaw~pitch~flags~label~width°~corners~turn`. Text 
 | `db:` | `https://www.dropbox.com/` |
 | `od:` | `https://1drv.ms/` |
 | `gx:` | `https://docs.google.com/` |
+| `gr:` | `https://raw.githubusercontent.com/` (GitHub files from another repo) |
 | `w:` | `https://www.` |
 | `h:` | `https://` |
 | `folder/file.ext` | a file on this site |

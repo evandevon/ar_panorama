@@ -871,12 +871,12 @@
             on = insideQuad(s.quad, w / 2, h / 2, 0);
             off = !insideQuad(s.quad, w / 2, h / 2, 6);
           } else if (s.inScene && onScreen) {
-            // Starts when the crosshair is on the spot as the author sized it; stops when it leaves
-            // what's showing (for YouTube that's the bigger player while it plays)
-            const aw = s.yt ? authoredWidth(s) : frameWidth(s), fw = frameWidth(s);
-            const dx = Math.abs(w / 2 - x), dy = Math.abs(h / 2 - y);
+            // Plays while the crosshair is on the spot as the author sized it, and pauses when it leaves that area.
+            // (A YouTube player grows bigger than that while it plays, so its bigger size doesn't count.)
+            const aw = s.yt ? authoredWidth(s) : frameWidth(s);
+            const dx = Math.abs(w / 2 - x), dy = Math.abs(h / 2 - y), slack = Math.max(8, aw * 0.08);
             on = dx < aw / 2 && dy < aw / s.aspect / 2;
-            off = dx > fw / 2 + 6 || dy > fw / s.aspect / 2 + 6;   // a few pixels of slack stops flickering at the edge
+            off = dx > aw / 2 + slack || dy > aw / s.aspect / 2 + slack;   // a little slack stops flickering at the edge
           } else if (s.inScene) {
             on = false; off = true;
           } else {
@@ -887,7 +887,7 @@
             else if (off) s.el && s.el.classList.remove('shown');
           } else if (on && !s.playing && !s.wantPlay && !s.userPaused) { s.lookStarted = true; play(s); }
           else if (off) {
-            if (s.lookStarted && (s.playing || s.wantPlay)) pause(s);
+            if (s.playing || s.wantPlay) pause(s);              // however it was started
             s.lookStarted = false; s.userPaused = false;
           }
         }

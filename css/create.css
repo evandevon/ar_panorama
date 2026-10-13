@@ -135,10 +135,10 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 .sp-turn[hidden] { display: none; }
 .sp-turn-text { flex: 1 1 100%; }
 .sp-turn .check { margin: 0; }
-.sc-more { border: 1px solid var(--line); border-radius: 6px; padding: 0 12px; }
-.sc-more summary { cursor: pointer; font-weight: 600; font-size: .88rem; min-height: 40px; display: flex; align-items: center; color: var(--ink); }
-.sc-more[open] { padding-bottom: 10px; }
-.sc-more .check { font-size: .9rem; }
+.sc-checks { display: grid; gap: 2px; }
+.sc-checks[hidden], .sc-checks > [hidden] { display: none; }
+.sc-checks .check { font-size: .9rem; }
+.sc-type select { font-weight: 600; }
 .spot-card .status { font-size: .85rem; }
 .add-spot { width: 100%; margin-top: 12px; border-style: dashed; }
 

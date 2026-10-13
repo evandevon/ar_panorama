@@ -291,17 +291,22 @@
         '<button type="button" class="iconbtn sp-remove" aria-label="Remove spot ' + (i + 1) + '" title="Remove">' + TRASH + '</button>' +
       '</div>' +
       '<div class="sc-body" id="' + id + '-body" hidden>' +
-        '<div class="sc-field"><label for="' + id + '-src">Link or text</label>' +
+        '<div class="sc-field sc-type"><label for="' + id + '-type">Type</label><select id="' + id + '-type" class="sp-type">' +
+            '<option value="">Choose, or paste a link below…</option><option value="video">Video</option><option value="audio">Sound only</option><option value="image">Picture</option>' +
+            '<option value="text">Text</option><option value="link">Link to a web page</option><option value="model">3D model</option></select></div>' +
+        '<div class="sc-field"><label for="' + id + '-src" class="sp-src-label">Link or text</label>' +
           '<textarea id="' + id + '-src" class="sp-src" rows="1" placeholder="Paste a link (YouTube, video, sound, picture or web page) — or type some text"></textarea></div>' +
         '<div class="sc-field"><label for="' + id + '-label">Label <span class="opt">optional</span></label>' +
           '<input id="' + id + '-label" type="text" class="sp-label" maxlength="40" placeholder="e.g. The teacher’s desk"></div>' +
         '<div class="sc-grid">' +
-          '<label class="sp-row">Type<select class="sp-type">' +
-            '<option value="video">Video</option><option value="audio">Sound only</option><option value="image">Picture</option>' +
-            '<option value="text">Text</option><option value="link">Link to a web page</option><option value="model">3D model</option></select></label>' +
           '<label class="sp-row">Appears<select class="sp-dwell">' +
             '<option value="0">Straight away</option><option value="1">After looking at a dot</option></select></label>' +
           '<label class="sp-row"><span class="sp-play-word">Plays</span><select class="sp-play"></select></label>' +
+        '</div>' +
+        '<div class="sc-checks">' +
+          '<label class="check sp-hide-row"><input type="checkbox" class="sp-hide"><span>Hidden <span class="help-inline sp-hide-note"></span></span></label>' +
+          '<label class="check sp-loop-row"><input type="checkbox" class="sp-loop"><span>Loop <span class="help-inline">— start again when it ends</span></span></label>' +
+          '<label class="check sp-pin-row"><input type="checkbox" class="sp-pin"><span>Pin corners <span class="help-inline">— drag each corner onto the matching point in the photo, e.g. a picture frame or window</span></span></label>' +
         '</div>' +
         '<div class="sp-place"><span class="sp-where"></span>' +
           '<span class="sp-place-btns">' +
@@ -320,11 +325,6 @@
             '<button type="button" class="btn small ghost sp-rot-reset" aria-label="Reset rotation">Reset</button>' +
           '</span>' +
           '<label class="check sp-spin-row"><input type="checkbox" class="sp-spin"><span>Spins slowly</span></label></div>' +
-        '<details class="sc-more"><summary>More options</summary>' +
-          '<label class="check sp-hide-row"><input type="checkbox" class="sp-hide"><span>Hidden <span class="help-inline sp-hide-note"></span></span></label>' +
-          '<label class="check sp-loop-row"><input type="checkbox" class="sp-loop"><span>Loop <span class="help-inline">— start again when it ends</span></span></label>' +
-          '<label class="check sp-pin-row"><input type="checkbox" class="sp-pin"><span>Pin corners <span class="help-inline">— drag each corner onto the matching point in the photo, e.g. a picture frame or window</span></span></label>' +
-        '</details>' +
         '<p class="status sp-status" role="status" aria-live="polite"></p>' +
       '</div>';
 
@@ -458,14 +458,20 @@
       : guess === 'video' ? ['video', 'audio', 'link'] : guess === 'link' ? ['link', 'image', 'video', 'audio']
       : !sp.src.trim() ? ['video', 'audio', 'image', 'link', 'text', 'model'] : ['video', 'audio', 'image', 'link', 'model'];
     [...type.options].forEach(o => { o.disabled = !allowed.includes(o.value); });
-    type.value = kind;
+    type.value = (sp.src.trim() || sp.type) ? kind : '';
 
     // Plays / Shows: not for text and links; and a dot-revealed spot plays when it appears
     const isModel = kind === 'model';
     const isImage = kind === 'image' || isModel;      // models show like pictures: all the time, or while looked at
     const still = kind === 'text' || kind === 'link';
     q('.sp-play').closest('.sp-row').hidden = still || !!sp.dwell;
-    q('.sp-src').placeholder = kind === 'text' ? 'Type the words to show' : 'Paste a link (YouTube, video, sound, picture or web page) — or type some text';
+    q('.sp-src').placeholder = {
+      text: 'Type the words to show', link: 'https://…  the web page to open', image: 'Link to a picture (PNG, JPEG, GIF…)',
+      model: 'Link to a .glb, .gltf, .obj or .stl file', audio: 'Link to a sound (MP3…) or a YouTube video',
+      video: 'Link to a YouTube video or a video file (MP4…)'
+    }[sp.src.trim() || sp.type ? kind : ''] || 'Paste a link (YouTube, video, sound, picture, 3D model or web page) — or type some text';
+    const decided = !!(sp.src.trim() || sp.type);
+    q('.sp-src-label').textContent = !decided ? 'Link or text' : kind === 'text' ? 'Text' : 'Link';
     q('.sp-label').placeholder = kind === 'link' ? 'Button text, e.g. Read more about slates' : kind === 'text' ? 'Heading (optional)' : 'Label, e.g. The teacher’s desk (optional)';
     const opts = isImage ? PLAY_OPTIONS.image : PLAY_OPTIONS.media;
     if (isImage && sp.play === 'start') sp.play = 'tap';
@@ -483,7 +489,8 @@
     q('.sp-loop-row').hidden = isImage || still;
     const inRoomKind = isImage || still || (kind === 'video' && !sp.hidden);
     q('.sp-pin-row').hidden = !inRoomKind || !sp.src.trim() || isModel;
-    q('.sc-more').hidden = isModel;
+    const checks = [...li.querySelectorAll('.sc-checks > .check')];
+    q('.sc-checks').hidden = checks.every(c => c.hidden);
     const hide = q('.sp-hide');
     hide.disabled = sp.play === 'tap';
     if (sp.play === 'tap' || isImage || still || sp.dwell) { hide.checked = false; sp.hidden = false; }

@@ -163,7 +163,7 @@ a-scene { position: fixed !important; inset: 0; width: 100% !important; height: 
 .spots-offscreen { position: fixed; left: -10000px; top: 0; width: 200px; height: 200px; overflow: hidden; }
 .spot-offscreen { width: 200px; height: 200px; }
 
-/* Centre of the view. The author's preview gets a crosshair; viewers get a small dot when a spot plays on look. */
+/* Centre of the view. The author's preview gets a crosshair; viewers always get a small dot. */
 .crosshair { position: fixed; left: 50%; top: 50%; width: 28px; height: 28px; transform: translate(-50%, -50%); z-index: 3; pointer-events: none; }
 .crosshair::before, .crosshair::after { content: ""; position: absolute; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.5); }
 .crosshair::before { left: 13px; top: 0; width: 2px; height: 28px; }
