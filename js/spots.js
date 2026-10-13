@@ -1,19 +1,24 @@
 /*
- * Video spots: YouTube videos (or audio/video files) pinned to places in the 360 view.
+ * Video and audio spots: YouTube videos, MP4 videos and MP3 sounds pinned to places in the 360 view.
  *
- * Each spot:  { src, yaw, pitch, play: 'tap'|'look'|'start', audioOnly, hidden, label }
- *   yaw/pitch  where it sits, in degrees (same directions as the "start from this view" setting)
- *   play       tap   → plays when the viewer taps its marker
- *              look  → plays while the viewer is facing it, pauses when they turn away
+ * Each spot:  { src, yaw, pitch, w, play, audioOnly, hidden, loop, label }
+ *   yaw/pitch  where its centre sits, in degrees (yaw: left +, right −; pitch: up +)
+ *   w          how wide a video is, in degrees of the view, so it stays the same size in the room
+ *   play       tap   → the viewer starts it (YouTube's own play button, or a tap on a sound marker)
+ *              look  → plays while the centre of the screen is on it, pauses when it moves off
  *              start → plays as soon as the experience starts
  *   audioOnly  sound only, no picture (a speaker marker instead)
- *   hidden     no marker at all (needs 'look' or 'start', or nothing would ever play it)
+ *   hidden     nothing shown; it just plays (needs 'look' or 'start')
+ *   loop       start again when it ends
  *
- * In the link, a spot is written as   src|yaw|pitch|flags|label
- * with flags made of: l (look) s (start) a (audio only) h (hidden).
+ * In a link, a spot is written as   src|yaw|pitch|flags|label|w
+ * flags: l = look, s = start, a = sound only, h = hidden, r = loop
  */
 (function (global) {
   'use strict';
+
+  const DEFAULT_W = 40;          // degrees
+  const YT_MIN_PX = 356;         // YouTube's minimum player size is 200px tall → 356px wide at 16:9
 
   // ------------------------------------------------------------------ YouTube API, loaded once
   let ytPromise = null;
@@ -30,7 +35,6 @@
     });
     return ytPromise;
   }
-
   const YT_ERRORS = {
     2: 'the YouTube link looks wrong', 5: 'it can’t play in this browser', 100: 'the video was not found or is private',
     101: 'its owner doesn’t allow it on other websites', 150: 'its owner doesn’t allow it on other websites'
@@ -38,13 +42,15 @@
 
   // ------------------------------------------------------------------ link format
   function encodeSpot(s, shorten) {
-    const flags = (s.play === 'look' ? 'l' : s.play === 'start' ? 's' : '') + (s.audioOnly ? 'a' : '') + (s.hidden ? 'h' : '');
+    const flags = (s.play === 'look' ? 'l' : s.play === 'start' ? 's' : '') + (s.audioOnly ? 'a' : '') +
+      (s.hidden ? 'h' : '') + (s.loop ? 'r' : '');
     const label = (s.label || '').replace(/\|/g, '/').trim();
-    return [shorten ? Media.shorten(s.src) : s.src.trim(), Math.round(s.yaw), Math.round(s.pitch), flags, label].join('|')
-      .replace(/\|+$/, '');
+    const w = s.w && Math.round(s.w) !== DEFAULT_W ? Math.round(s.w) : '';
+    return [shorten ? Media.shorten(s.src) : s.src.trim(), Math.round(s.yaw), Math.round(s.pitch), flags, label, w]
+      .join('|').replace(/\|+$/, '');
   }
   function decodeSpot(str) {
-    const parts = String(str).split('|');
+    const parts = String(str || '').split('|');
     if (!parts[0]) return null;
     const flags = parts[3] || '';
     return {
@@ -54,9 +60,13 @@
       play: flags.includes('l') ? 'look' : flags.includes('s') ? 'start' : 'tap',
       audioOnly: flags.includes('a'),
       hidden: flags.includes('h'),
-      label: parts.slice(4).join('|')
+      loop: flags.includes('r'),
+      label: parts[4] || '',
+      w: Number(parts[5]) || DEFAULT_W
     };
   }
+  // Settings that need the player rebuilt when they change (moving, resizing and relabelling don't)
+  const rebuildKey = d => [d.src, d.play, !!d.audioOnly, !!d.hidden, !!d.loop].join('|');
 
   function el(tag, cls, html) {
     const e = document.createElement(tag);
@@ -70,98 +80,142 @@
 
   // ------------------------------------------------------------------ the manager
   /**
-   * opts: { sceneEl, layer, offscreen, onActivity(nPlaying), onError(index, message), onNeedTap(text) }
+   * opts: { sceneEl, layer, offscreen, editable,
+   *         onActivity(nPlaying), onError(index, msg), onNeedTap(text, fix),
+   *         onEdit(index, {yaw, pitch, w}), onSelect(index) }
    */
   function HotSpots(opts) {
     const THREE = AFRAME.THREE;
     const tmp = new THREE.Vector3(), fwd = new THREE.Vector3();
     let spots = [];
-    let started = false;
+    let started = false, muted = false, selected = -1;
 
     function dirFrom(yaw, pitch) {
       const y = yaw * Math.PI / 180, p = pitch * Math.PI / 180;
       return new THREE.Vector3(-Math.sin(y) * Math.cos(p), Math.sin(p), -Math.cos(y) * Math.cos(p));
     }
+    function anglesFrom(v) {
+      return { yaw: Math.atan2(-v.x, -v.z) * 180 / Math.PI, pitch: Math.asin(Math.max(-1, Math.min(1, v.y))) * 180 / Math.PI };
+    }
 
     // ---------------------------------------------------------- building
     function set(list) {
-      spots.forEach(destroy);
-      // keep each spot's position in the list as its number, even if some entries are empty
-      spots = (list || []).map((d, i) => (d ? build(d, i) : null)).filter(Boolean);
-      if (started) spots.forEach(prepare);
+      list = list || [];
+      const next = [];
+      list.forEach((d, i) => {
+        if (!d) return;
+        const old = spots.find(s => s.index === i && !s.used && s.key === rebuildKey(d));
+        if (old) {                                     // same media and settings: just move/resize/relabel
+          old.used = true;
+          Object.assign(old, { yaw: d.yaw, pitch: d.pitch, w: d.w || DEFAULT_W, label: d.label, dir: dirFrom(d.yaw, d.pitch) });
+          if (old.labelEl) { old.labelEl.textContent = labelText(old); old.labelEl.hidden = !labelText(old); }
+          next.push(old);
+        } else {
+          next.push(build(d, i));
+        }
+      });
+      spots.forEach(s => { if (!s.used) destroy(s); s.used = false; });
+      spots = next;
+      spots.forEach(s => { s.used = false; });
+      setSelected(selected);
+    }
+
+    function labelText(s) {
+      if (s.label) return s.label;
+      if (s.frame) return '';
+      return s.showsPicture ? 'Video' : 'Sound';
     }
 
     function build(def, index) {
       const s = Object.assign({}, def, {
-        index: index, dir: dirFrom(def.yaw, def.pitch),
+        index: index, key: rebuildKey(def), w: def.w || DEFAULT_W, dir: dirFrom(def.yaw, def.pitch),
         yt: Media.youTube(def.src), player: null, ready: false, playing: false,
-        wantPlay: false, userPaused: false, lookStarted: false, mutedFallback: false
+        wantPlay: false, userPaused: false, lookStarted: false
       });
       s.isVideoFile = !s.yt && Media.looksLikeVideo(s.src);
       if (!s.yt && !s.isVideoFile) s.audioOnly = true;          // an MP3 is sound only, whatever was ticked
       if (s.hidden && s.play === 'tap') s.hidden = false;       // otherwise nothing could ever play it
       s.showsPicture = !s.audioOnly;
+      s.inScene = s.showsPicture && !s.hidden;                  // a video picture sitting in the room
 
-      if (!s.hidden) {
-        s.el = el('div', 'spot' + (s.showsPicture ? ' spot-video' : ' spot-audio'));
-        const what = s.showsPicture ? 'video' : 'sound';
-        const label = s.label || (s.showsPicture ? 'Video' : 'Sound');
-        s.marker = el('button', 'spot-marker', (s.yt && s.showsPicture
-          ? '<span class="spot-thumb" style="background-image:url(https://i.ytimg.com/vi/' + s.yt.id + '/mqdefault.jpg)"><span class="spot-play" aria-hidden="true">▶</span></span>'
-          : '<span class="spot-dot" aria-hidden="true">' + (s.showsPicture ? '▶' : '🔊') + '</span>') +
-          '<span class="spot-label">' + esc(label) + '</span>');
-        s.marker.setAttribute('aria-label', 'Play ' + what + ': ' + label);
-        s.marker.addEventListener('click', () => toggle(s));
-        s.el.appendChild(s.marker);
+      const visible = !s.hidden || opts.editable;               // the author still sees hidden spots, faintly
+      if (visible && s.inScene) buildFrame(s);
+      else if (visible) buildMarker(s);
 
-        if (s.showsPicture) {
-          s.panel = el('div', 'spot-panel closed');
-          const close = el('button', 'spot-close', '✕');
-          close.setAttribute('aria-label', 'Close video');
-          close.addEventListener('click', () => { s.userPaused = true; pause(s); });
-          s.mediaHost = el('div', 'spot-media');
-          s.unmute = el('button', 'spot-unmute', '🔇 Tap for sound');
-          s.unmute.hidden = true;
-          s.unmute.addEventListener('click', () => unmute(s));
-          s.panel.append(close, s.mediaHost, s.unmute);
-          s.el.appendChild(s.panel);
-        } else {
-          s.unmute = el('button', 'spot-unmute small', '🔇 Tap for sound');
-          s.unmute.hidden = true;
-          s.unmute.addEventListener('click', () => unmute(s));
-          s.el.appendChild(s.unmute);
-        }
-        opts.layer.appendChild(s.el);
-      }
-      if (!s.mediaHost) {                                        // sound only or hidden: player lives off screen
+      if (!s.mediaHost) {                                       // sound only / hidden: the player lives off screen
         s.mediaHost = el('div', 'spot-offscreen');
         opts.offscreen.appendChild(s.mediaHost);
       }
+      prepare(s);
       return s;
     }
 
+    // A video in the room, at its own size
+    function buildFrame(s) {
+      s.el = el('div', 'spot spot-video');
+      s.labelEl = el('div', 'spot-cap');
+      s.frame = el('div', 'spot-frame');
+      s.mediaHost = el('div', 'spot-media');
+      s.unmute = el('button', 'spot-unmute', '🔇 Tap for sound');
+      s.unmute.hidden = true;
+      s.unmute.addEventListener('click', () => unmute(s));
+      s.frame.append(s.labelEl, s.mediaHost, s.unmute);
+      s.labelEl.textContent = labelText(s);
+      s.labelEl.hidden = !labelText(s);
+      if (opts.editable) addEditHandles(s);
+      s.el.appendChild(s.frame);
+      opts.layer.appendChild(s.el);
+    }
+
+    // A speaker (or, for the author, a faint marker for a hidden spot)
+    function buildMarker(s) {
+      s.el = el('div', 'spot spot-audio' + (s.hidden ? ' ghost' : ''));
+      const label = labelText(s) + (s.hidden ? ' (hidden)' : '');
+      s.marker = el('button', 'spot-marker',
+        '<span class="spot-dot" aria-hidden="true">' + (s.showsPicture ? '▶' : '🔊') + '</span><span class="spot-label"></span>');
+      s.labelEl = s.marker.querySelector('.spot-label');
+      s.labelEl.textContent = label;
+      s.marker.setAttribute('aria-label', 'Play sound: ' + labelText(s));
+      s.unmute = el('button', 'spot-unmute small', '🔇 Tap for sound');
+      s.unmute.hidden = true;
+      s.unmute.addEventListener('click', () => unmute(s));
+      s.el.append(s.marker, s.unmute);
+      if (opts.editable) makeDraggable(s, s.marker, () => toggle(s));
+      else s.marker.addEventListener('click', () => toggle(s));
+      opts.layer.appendChild(s.el);
+    }
+
     function destroy(s) {
+      clearTimeout(s.check);
       try { if (s.player && s.player.destroy) s.player.destroy(); } catch (e) {}
       if (s.media) { s.media.pause(); s.media.removeAttribute('src'); s.media.load(); }
       if (s.el) s.el.remove();
       if (s.mediaHost && s.mediaHost.parentNode === opts.offscreen) s.mediaHost.remove();
+      if (s.playing) { s.playing = false; activityChanged(); }
     }
 
-    // Create the players ahead of time so they're ready the moment they're needed
+    // Players are made straight away, so a YouTube video shows its own poster and play button
     function prepare(s) {
-      if (s.player || s.media) return;
       if (s.yt) {
         const host = el('div');
         s.mediaHost.appendChild(host);
         loadYouTubeApi().then(YT => {
+          if (!host.isConnected) return;
           s.player = new YT.Player(host, {
             width: '100%', height: '100%', videoId: s.yt.id,
-            playerVars: { playsinline: 1, rel: 0, controls: 1, start: s.yt.start },
+            playerVars: Object.assign({ playsinline: 1, rel: 0, controls: 1, start: s.yt.start },
+              s.loop ? { loop: 1, playlist: s.yt.id } : {}),
             events: {
-              onReady: () => { s.ready = true; if (s.wantPlay) play(s); },
+              onReady: () => {
+                s.ready = true;
+                if (muted) s.player.mute();
+                applyVolume(s);
+                if (s.wantPlay) play(s);
+              },
               onStateChange: e => {
                 const on = e.data === YT.PlayerState.PLAYING || e.data === YT.PlayerState.BUFFERING;
-                if (e.data === YT.PlayerState.ENDED) { s.userPaused = true; showOpen(s, false); }
+                if (e.data === YT.PlayerState.ENDED) s.userPaused = true;
+                if (on) s.userPaused = false;
                 setPlaying(s, on);
               },
               onError: e => opts.onError(s.index, 'YouTube won’t play this: ' + (YT_ERRORS[e.data] || 'error ' + e.data) + '.')
@@ -169,14 +223,16 @@
           });
         }).catch(err => opts.onError(s.index, err.message));
       } else {
-        const m = document.createElement(s.isVideoFile && s.showsPicture ? 'video' : 'audio');
-        m.preload = 'auto';
+        const m = document.createElement(s.isVideoFile && s.inScene ? 'video' : 'audio');
+        m.preload = s.inScene ? 'metadata' : 'auto';
         m.setAttribute('playsinline', '');
+        m.loop = !!s.loop;
+        m.muted = muted;
         if (m.tagName === 'VIDEO') { m.controls = true; m.playsInline = true; }
         m.src = Media.resolveMediaUrl(s.src, s.isVideoFile ? 'video' : 'audio').url;
         m.addEventListener('play', () => setPlaying(s, true));
         m.addEventListener('pause', () => setPlaying(s, false));
-        m.addEventListener('ended', () => { s.userPaused = true; showOpen(s, false); });
+        m.addEventListener('ended', () => { s.userPaused = true; setPlaying(s, false); });
         m.addEventListener('error', () => opts.onError(s.index, 'This file couldn’t be loaded. Check the link and that it’s shared as “Anyone with the link”.'), { once: true });
         s.mediaHost.appendChild(m);
         s.media = m;
@@ -186,19 +242,21 @@
 
     // ---------------------------------------------------------- playing
     function play(s) {
-      showOpen(s, true);
-      if (!s.ready) { s.wantPlay = true; prepare(s); return; }
+      if (!s.ready) { s.wantPlay = true; return; }
       s.wantPlay = false;
       if (s.media) {
-        s.media.play().catch(() => { s.media.muted = true; s.media.play().catch(() => {}); needTap(s); });
+        s.media.play().catch(() => {
+          if (!s.media) return;
+          s.media.muted = true; s.media.play().catch(() => {}); needTap(s);
+        });
         return;
       }
       s.player.playVideo();
-      // Phones can block sound that doesn't start from a tap. Fall back to muted, with a button for sound.
+      // Phones can block sound that doesn't start from a tap: fall back to muted, with a button for sound
       clearTimeout(s.check);
       s.check = setTimeout(() => {
         const st = s.player.getPlayerState && s.player.getPlayerState();
-        if (st === 1 || st === 3) return;
+        if (st === 1 || st === 3 || s.userPaused || (s.play === 'look' && !s.lookStarted)) return;
         s.player.mute(); s.player.playVideo(); needTap(s);
       }, 1800);
     }
@@ -207,32 +265,55 @@
       clearTimeout(s.check);
       if (s.media) s.media.pause();
       else if (s.player && s.ready) s.player.pauseVideo();
-      showOpen(s, false);
     }
     function toggle(s) {
       if (s.playing || s.wantPlay) { s.userPaused = true; pause(s); }
       else { s.userPaused = false; play(s); }
     }
     function needTap(s) {
-      s.mutedFallback = true;
+      if (muted) return;
       if (s.unmute) s.unmute.hidden = false;
-      else opts.onNeedTap('Tap the screen to turn on the sound', () => unmute(s));
+      if (!s.el) opts.onNeedTap('Tap the screen to turn on the sound', () => unmute(s));
     }
     function unmute(s) {
-      s.mutedFallback = false;
       if (s.unmute) s.unmute.hidden = true;
-      if (s.media) { s.media.muted = false; s.media.play().catch(() => {}); }
-      else if (s.player) { s.player.unMute(); s.player.playVideo(); }
-    }
-    function showOpen(s, open) {
-      if (s.panel) s.panel.classList.toggle('closed', !open);
-      if (s.el) s.el.classList.toggle('open', open);
+      if (s.media) { s.media.muted = muted; s.media.play().catch(() => {}); }
+      else if (s.player) { if (!muted) s.player.unMute(); s.player.playVideo(); }
     }
     function setPlaying(s, on) {
       if (s.playing === on) return;
       s.playing = on;
       if (s.el) s.el.classList.toggle('playing', on);
-      opts.onActivity(spots.filter(x => x.playing).length);
+      if (s.testBtn) s.testBtn.textContent = on ? '❚❚ Pause' : '▶ Test';
+      activityChanged();
+    }
+    // While a video is playing, background sounds drop to a quarter volume
+    function activityChanged() {
+      spots.forEach(applyVolume);
+      opts.onActivity(spots.filter(x => x.playing && x.showsPicture).length);
+    }
+    function applyVolume(s) {
+      const duck = !s.showsPicture && spots.some(x => x.playing && x.showsPicture);
+      const v = duck ? 0.25 : 1;
+      if (s.media) s.media.volume = v;
+      else if (s.player && s.ready && s.player.setVolume) s.player.setVolume(v * 100);
+    }
+
+    // ---------------------------------------------------------- screen geometry
+    function pxPerDegree() {
+      const camera = opts.sceneEl.camera;
+      return opts.sceneEl.canvas.clientHeight / ((camera && camera.fov) || 75);
+    }
+    function frameWidth(s) {
+      return Math.max(s.yt ? YT_MIN_PX : 120, s.w * pxPerDegree());
+    }
+    // Screen point → direction in the room
+    function directionAt(sx, sy) {
+      const camera = opts.sceneEl.camera, c = opts.sceneEl.canvas;
+      const r = c.getBoundingClientRect();
+      const v = new THREE.Vector3(((sx - r.left) / r.width) * 2 - 1, -((sy - r.top) / r.height) * 2 + 1, 0.5).unproject(camera);
+      const origin = new THREE.Vector3(); camera.getWorldPosition(origin);
+      return v.sub(origin).normalize();
     }
 
     // ---------------------------------------------------------- every frame (after A-Frame draws)
@@ -242,59 +323,153 @@
       camera.getWorldDirection(fwd);
       const canvas = opts.sceneEl.canvas;
       const w = canvas.clientWidth, h = canvas.clientHeight;
-      const fov = camera.fov || 75;
+      const ppd = pxPerDegree();
 
       spots.forEach(s => {
         const angle = fwd.angleTo(s.dir) * 180 / Math.PI;
+        let x = 0, y = 0, onScreen = angle < 85;
+        if (onScreen) {
+          tmp.copy(s.dir).multiplyScalar(50).project(camera);
+          x = (tmp.x + 1) / 2 * w; y = (1 - tmp.y) / 2 * h;
+        }
 
-        // "Plays when looked at": start within 20°, stop past 50° (the gap stops flickering)
-        if (started && s.play === 'look') {
-          if (angle < 20 && !s.playing && !s.wantPlay && !s.userPaused) { s.lookStarted = true; play(s); }
-          else if (angle > 50) {
+        // "Plays when looked at": while the centre of the screen (the crosshair) is on it
+        if (started && s.play === 'look' && !s.dragging) {
+          let on, off;
+          if (s.inScene && onScreen) {
+            const fw = frameWidth(s), fh = fw * 9 / 16, dx = Math.abs(w / 2 - x), dy = Math.abs(h / 2 - y);
+            on = dx < fw / 2 && dy < fh / 2;
+            off = dx > fw / 2 + 6 || dy > fh / 2 + 6;              // a few pixels of slack stops flickering at the edge
+          } else if (s.inScene) {
+            on = false; off = true;
+          } else {
+            on = angle < 12; off = angle > 18;                      // sounds: about the size of their marker
+          }
+          if (on && !s.playing && !s.wantPlay && !s.userPaused) { s.lookStarted = true; play(s); }
+          else if (off) {
             if (s.lookStarted && (s.playing || s.wantPlay)) pause(s);
             s.lookStarted = false; s.userPaused = false;
           }
         }
 
         if (!s.el) return;
-        if (angle > 85) { s.el.style.visibility = 'hidden'; return; }
-        tmp.copy(s.dir).multiplyScalar(50).project(camera);
-        const x = (tmp.x + 1) / 2 * w, y = (1 - tmp.y) / 2 * h;
+        if (!onScreen) { s.el.style.visibility = 'hidden'; return; }
         s.el.style.visibility = 'visible';
         s.el.style.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px)';
-        if (s.panel && !s.panel.classList.contains('closed')) {
-          // Video stays at least 356×200 (YouTube's minimum player size), grows as you zoom in,
-          // and is nudged sideways so an open video never hangs off the edge of the screen.
-          const pw = Math.max(356, Math.min(Math.min(720, w - 16), 420 * 75 / fov));
-          const left = Math.max(8, Math.min(w - pw - 8, x - pw / 2));
-          s.panel.style.width = pw + 'px';
-          s.panel.style.transform = 'translate(' + (left - x).toFixed(1) + 'px, -50%)';
+        if (s.frame) {
+          const fw = Math.round(frameWidth(s));
+          if (fw !== s.lastW) { s.frame.style.width = fw + 'px'; s.lastW = fw; }
         }
       });
     }
 
-    // ---------------------------------------------------------- starting
-    // Call from inside the viewer's first tap: gets players ready and unlocks sound on phones.
+    // ---------------------------------------------------------- author editing (preview only)
+    function addEditHandles(s) {
+      const edit = el('div', 'spot-edit');
+      edit.innerHTML = '<button type="button" class="spot-test" title="Play or pause">▶ Test</button>' +
+        ['nw', 'ne', 'sw', 'se'].map(c => '<span class="spot-handle h-' + c + '" data-corner="' + c + '"></span>').join('');
+      const test = edit.querySelector('.spot-test');
+      test.addEventListener('click', e => { e.stopPropagation(); toggle(s); });
+      test.addEventListener('pointerdown', e => e.stopPropagation());
+      s.frame.appendChild(edit);
+      s.testBtn = test;
+
+      edit.addEventListener('pointerdown', e => {
+        e.stopPropagation(); e.preventDefault();
+        opts.onSelect(s.index);
+        const corner = e.target.dataset && e.target.dataset.corner;
+        const r = s.el.getBoundingClientRect();                    // the spot's centre point
+        const grab = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+        beginDrag(s, edit, e, ev => {
+          if (corner) {
+            // Resize around the centre: width follows whichever direction you pull further
+            const half = Math.max(Math.abs(ev.clientX - r.left), Math.abs(ev.clientY - r.top) * 16 / 9);
+            s.w = Math.max(5, Math.min(140, (half * 2) / pxPerDegree()));
+          } else {
+            s.dir = directionAt(ev.clientX - grab.dx, ev.clientY - grab.dy);
+          }
+        });
+      });
+    }
+
+    function makeDraggable(s, handle, onClick) {
+      handle.addEventListener('pointerdown', e => {
+        e.stopPropagation(); e.preventDefault();
+        opts.onSelect(s.index);
+        const r = s.el.getBoundingClientRect();
+        const grab = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+        beginDrag(s, handle, e, ev => { s.dir = directionAt(ev.clientX - grab.dx, ev.clientY - grab.dy); }, onClick);
+      });
+    }
+
+    function beginDrag(s, target, e, onMove, onClick) {
+      const start = { x: e.clientX, y: e.clientY };
+      let moved = false;
+      s.dragging = true;
+      opts.layer.classList.add('dragging');                         // so videos don't swallow the pointer
+      try { target.setPointerCapture(e.pointerId); } catch (err) {}
+      const move = ev => {
+        if (ev.pointerId !== e.pointerId) return;
+        if (!moved && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < 4) return;
+        moved = true;
+        onMove(ev);
+      };
+      const up = ev => {
+        if (ev.pointerId !== e.pointerId) return;
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        window.removeEventListener('pointercancel', up);
+        s.dragging = false;
+        opts.layer.classList.remove('dragging');
+        if (moved) {
+          const a = anglesFrom(s.dir);
+          s.yaw = a.yaw; s.pitch = a.pitch;
+          opts.onEdit(s.index, { yaw: Math.round(a.yaw), pitch: Math.round(a.pitch), w: Math.round(s.w) });
+        } else if (onClick) onClick();
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+      window.addEventListener('pointercancel', up);
+    }
+
+    function setSelected(i) {
+      selected = i;
+      spots.forEach(s => { if (s.el) s.el.classList.toggle('selected', s.index === i); });
+    }
+
+    // ---------------------------------------------------------- starting and sound
+    // Call from inside the viewer's first tap: unlocks sound on phones, starts "as soon as it opens" spots.
     function start() {
       if (started) return;
       started = true;
       spots.forEach(s => {
-        prepare(s);
-        if (s.media && s.play !== 'start') {   // iPhones: a media element touched during a tap may play later
+        if (s.media && s.play !== 'start' && !s.inScene) {   // iPhones: an audio element touched during a tap may play later
           const m = s.media; m.muted = true;
-          m.play().then(() => { if (!s.wantPlay && !s.playing) m.pause(); m.muted = false; }).catch(() => { m.muted = false; });
+          m.play().then(() => { if (!s.wantPlay && !s.lookStarted) m.pause(); m.muted = muted; }).catch(() => { m.muted = muted; });
         }
         if (s.play === 'start') play(s);
       });
     }
-
+    function setMuted(m) {
+      muted = m;
+      spots.forEach(s => {
+        if (s.media) s.media.muted = m;
+        else if (s.player && s.ready) (m ? s.player.mute() : s.player.unMute());
+        if (!m && s.unmute) s.unmute.hidden = true;
+      });
+    }
     function stopAll() { spots.forEach(s => { s.userPaused = true; pause(s); }); }
 
-    return { set, update, start, stopAll, get count() { return spots.length; } };
+    return {
+      set, update, start, stopAll, setMuted, setSelected,
+      get count() { return spots.length; },
+      get hasLook() { return spots.some(s => s.play === 'look'); }
+    };
   }
 
   global.HotSpots = HotSpots;
   global.HotSpots.encode = encodeSpot;
   global.HotSpots.decode = decodeSpot;
+  global.HotSpots.DEFAULT_W = DEFAULT_W;
   global.loadYouTubeApi = loadYouTubeApi;
 })(window);

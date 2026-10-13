@@ -16,19 +16,15 @@
   function readForm() {
     return {
       pano: $('in-pano').value.trim(),
-      audio: $('in-audio').value.trim(),
-      title: $('in-title').value.trim(),
-      loop: $('in-loop').checked
+      title: $('in-title').value.trim()
     };
   }
 
   function saveToAddress(f) {
     const q = new URLSearchParams();
     if (f.pano) q.set('p', f.pano);
-    if (f.audio) q.set('a', f.audio);
     if (f.title) q.set('t', f.title);
     if (yaw) q.set('y', yaw);
-    if (f.loop) q.set('l', '1');
     spots.filter(sp => sp.src.trim()).forEach(sp => q.append('s', HotSpots.encode(sp, false)));
     history.replaceState(null, '', q.toString() ? '?' + q : location.pathname);
   }
@@ -36,11 +32,11 @@
   function loadFromAddress() {
     const q = new URLSearchParams(location.search);
     $('in-pano').value = q.get('p') || '';
-    $('in-audio').value = q.get('a') || '';
     $('in-title').value = q.get('t') || '';
-    $('in-loop').checked = q.get('l') === '1';
     yaw = Number(q.get('y')) || 0;
     spots = q.getAll('s').map(HotSpots.decode).filter(Boolean);
+    // Older links had a separate background sound: turn it into a hidden sound spot
+    if (q.get('a')) spots.unshift({ src: q.get('a'), yaw: 0, pitch: 0, w: HotSpots.DEFAULT_W, play: 'start', audioOnly: true, hidden: true, loop: q.get('l') === '1', label: 'Background sound' });
   }
 
   /** The link the QR code opens */
@@ -48,10 +44,8 @@
     // Light encoding (keeps / : ~ readable) makes the link shorter, so the QR code is easier to scan
     const enc = v => encodeURIComponent(v).replace(/%2F/gi, '/').replace(/%3A/gi, ':').replace(/%7C/gi, '|').replace(/%20/g, '+');
     const q = [['p', Media.shorten(f.pano)]];
-    if (f.audio) q.push(['a', Media.shorten(f.audio)]);
     if (f.title) q.push(['t', f.title]);
     if (yaw) q.push(['y', yaw]);
-    if (f.loop) q.push(['l', '1']);
     if (!preview) spots.filter(sp => sp.src.trim()).forEach(sp => q.push(['s', HotSpots.encode(sp, true)]));
     if (preview) q.push(['preview', '1']);
     return new URL('view.html', here).href + '?' + q.map(([k, v]) => k + '=' + enc(String(v))).join('&');
@@ -81,7 +75,7 @@
 
     if (!f.pano) {
       showEmpty('Paste a 360° photo link to see it here.');
-      status('pano-status'); status('audio-status');
+      status('pano-status');
       panoOk = null; loadedKey = '';
       renderQr(null);
       return;
@@ -95,17 +89,12 @@
       return;
     }
 
-    // Audio notes that don't need the preview
-    const yt = Media.youTube(f.audio);
-    if (f.audio && Media.looksLikeVideo(f.audio) && !yt) status('audio-status', 'note', 'That looks like a video file. Only its sound will play.');
-
     // Reload the preview only when what it shows has changed (not for title edits)
-    const key = [f.pano, f.audio, f.loop, yaw].join('|');
+    const key = [f.pano, yaw].join('|');
     if (key !== loadedKey) {
       loadedKey = key;
       panoOk = null;
       status('pano-status', 'wait', 'Loading the photo…');
-      if (f.audio) status('audio-status', 'wait', 'Checking the sound…'); else status('audio-status');
       const frame = $('frame');
       frame.querySelectorAll('iframe').forEach(i => i.remove());
       $('empty').hidden = true;
@@ -142,16 +131,20 @@
         status('pano-status', 'err', escapeHtml(m.message));
       }
       renderQr(readForm());
-    } else if (m.type === 'audio') {
-      const yt = Media.youTube(readForm().audio);
-      if (!m.ok) status('audio-status', 'err', escapeHtml(m.message));
-      else if (yt) status('audio-status', 'note', 'YouTube sound works. Viewers will see a small YouTube player in the corner while it plays — YouTube requires that. An MP3 link avoids it.');
-      else status('audio-status', 'ok', 'Sound found. Press <b>Play audio</b> in the preview to hear it.');
     } else if (m.type === 'view') {
       viewYaw = m.yaw; viewPitch = m.pitch || 0;
     } else if (m.type === 'spotError') {
       const sp = spots[m.index];
       if (sp) { sp.error = m.message; renderSpotStatus(m.index); }
+    } else if (m.type === 'spotEdit') {
+      // Moved or resized by dragging in the preview: the preview already shows it, so just record it
+      const sp = spots[m.index];
+      if (!sp) return;
+      sp.yaw = m.yaw; sp.pitch = m.pitch; sp.w = m.w;
+      updatePlaceText(m.index);
+      spotsChanged(false);
+    } else if (m.type === 'spotSelect') {
+      selectCard(m.index, true);
     }
   });
 
@@ -166,7 +159,7 @@
   }
   $('set-start').addEventListener('click', () => {
     yaw = viewYaw;
-    loadedKey = [readForm().pano, readForm().audio, readForm().loop, yaw].join('|'); // preview already shows this view
+    loadedKey = [readForm().pano, yaw].join('|'); // preview already shows this view
     const ifr = $('frame').querySelector('iframe');
     if (ifr) ifr.contentWindow.postMessage({ type: 'setYaw', yaw: yaw }, location.origin);
     updateFacing(); refresh();
@@ -174,7 +167,7 @@
   });
   $('reset-start').addEventListener('click', () => {
     yaw = 0;
-    const f = readForm(); loadedKey = [f.pano, f.audio, f.loop, yaw].join('|');
+    loadedKey = [readForm().pano, yaw].join('|');
     const ifr = $('frame').querySelector('iframe');
     if (ifr) ifr.contentWindow.postMessage({ type: 'setYaw', yaw: 0 }, location.origin);
     updateFacing(); refresh();
@@ -202,7 +195,7 @@
     list.innerHTML = '';
     spots.forEach((sp, i) => list.appendChild(spotCard(sp, i)));
     $('add-spot').disabled = !panoOk || spots.length >= MAX_SPOTS;
-    $('add-spot').textContent = spots.length >= MAX_SPOTS ? 'Maximum of ' + MAX_SPOTS + ' spots' : '+ Add a video spot at the crosshair';
+    $('add-spot').textContent = spots.length >= MAX_SPOTS ? 'Maximum of ' + MAX_SPOTS + ' spots' : '+ Add a spot at the crosshair';
     $('spots-empty').hidden = spots.length > 0;
   }
 
@@ -211,7 +204,7 @@
     li.className = 'spot-card';
     li.innerHTML =
       '<div class="spot-card-head"><span class="pin">' + (i + 1) + '</span>' +
-        '<input type="url" class="sp-src" placeholder="YouTube link (or an MP3 / MP4 link)" aria-label="Video spot ' + (i + 1) + ' link">' +
+        '<input type="url" class="sp-src" placeholder="YouTube, MP4 or MP3 link" aria-label="Spot ' + (i + 1) + ' link">' +
         '<button type="button" class="iconbtn sp-remove" aria-label="Remove spot ' + (i + 1) + '" title="Remove">✕</button></div>' +
       '<input type="text" class="sp-label" maxlength="40" placeholder="Label, e.g. The teacher’s desk (optional)" aria-label="Spot ' + (i + 1) + ' label">' +
       '<div class="sp-place"><span class="sp-where"></span>' +
@@ -222,7 +215,8 @@
         '<option value="look">automatically when the viewer looks at it</option>' +
         '<option value="start">automatically as soon as it opens</option></select></label>' +
       '<label class="check"><input type="checkbox" class="sp-audio"> Sound only <span class="help-inline">— no picture, just a speaker marker</span></label>' +
-      '<label class="check"><input type="checkbox" class="sp-hide"> Hide the marker <span class="help-inline sp-hide-note"></span></label>' +
+      '<label class="check"><input type="checkbox" class="sp-hide"> Hidden <span class="help-inline sp-hide-note"></span></label>' +
+      '<label class="check"><input type="checkbox" class="sp-loop"> Loop <span class="help-inline">— start again when it ends</span></label>' +
       '<p class="status sp-status" aria-live="polite"></p>';
 
     const q = c => li.querySelector(c);
@@ -231,7 +225,10 @@
     q('.sp-play').value = sp.play;
     q('.sp-audio').checked = !!sp.audioOnly;
     q('.sp-hide').checked = !!sp.hidden;
-    q('.sp-where').textContent = 'Placed ' + describePlace(sp.yaw, sp.pitch);
+    q('.sp-loop').checked = !!sp.loop;
+    li.dataset.index = i;
+    li.addEventListener('focusin', () => selectCard(i, false));
+    li.addEventListener('pointerdown', () => selectCard(i, false));
 
     let typing = 0;
     q('.sp-src').addEventListener('input', e => {
@@ -246,9 +243,10 @@
     q('.sp-play').addEventListener('change', e => { sp.play = e.target.value; if (sp.play === 'tap') sp.hidden = false; syncCard(li, sp, i); spotsChanged(true); });
     q('.sp-audio').addEventListener('change', e => { sp.audioOnly = e.target.checked; syncCard(li, sp, i); spotsChanged(true); });
     q('.sp-hide').addEventListener('change', e => { sp.hidden = e.target.checked; syncCard(li, sp, i); spotsChanged(true); });
+    q('.sp-loop').addEventListener('change', e => { sp.loop = e.target.checked; spotsChanged(true); });
     q('.sp-move').addEventListener('click', () => {
       sp.yaw = viewYaw; sp.pitch = viewPitch;
-      q('.sp-where').textContent = 'Placed ' + describePlace(sp.yaw, sp.pitch);
+      updatePlaceText(i);
       spotsChanged(true);
     });
     q('.sp-show').addEventListener('click', () => post({ type: 'lookAt', yaw: sp.yaw, pitch: sp.pitch }));
@@ -267,7 +265,7 @@
 
     const audio = q('.sp-audio');
     audio.disabled = !!soundFile;
-    if (soundFile) audio.checked = true;
+    if (soundFile) { audio.checked = true; sp.audioOnly = true; }
 
     const hide = q('.sp-hide');
     hide.disabled = sp.play === 'tap';
@@ -275,6 +273,7 @@
     q('.sp-hide-note').textContent = sp.play === 'tap'
       ? '— needs one of the automatic options, or nobody could start it'
       : '— nothing shows; it just plays';
+    updatePlaceText(i, li);
     renderSpotStatus(i, li);
   }
 
@@ -293,13 +292,32 @@
         'An MP3 link is the safe choice here. On iPhones, sound that starts by itself may begin muted, with a “tap for sound” button.');
     }
     if (!yt && !Media.looksLikeVideo(sp.src)) return set('ok', 'Will play as a sound file.');
+    const inRoom = !sp.audioOnly && !sp.hidden && (yt || Media.looksLikeVideo(sp.src));
+    if (sp.play === 'tap' && inRoom) return set('ok', 'Viewers press play on the video. Use <b>▶ Test</b> on it in the preview to try it.');
     set('ok', sp.play === 'tap' ? 'Click its marker in the preview to try it.'
       : 'Click anywhere in the preview once, then ' + (sp.play === 'look' ? 'turn towards it' : 'it will start') + '.');
   }
 
+  function updatePlaceText(i, li) {
+    li = li || $('spot-list').children[i];
+    const sp = spots[i];
+    if (!li || !sp) return;
+    const inRoom = sp.src && !sp.audioOnly && !sp.hidden && (Media.youTube(sp.src) || Media.looksLikeVideo(sp.src));
+    li.querySelector('.sp-where').textContent = 'Placed ' + describePlace(sp.yaw, sp.pitch) +
+      (inRoom ? ' · ' + Math.round(sp.w || HotSpots.DEFAULT_W) + '° wide' : '');
+  }
+
+  // Highlight a spot's card here and its outline in the preview
+  function selectCard(i, scroll) {
+    [...$('spot-list').children].forEach((li, n) => li.classList.toggle('selected', n === i));
+    const li = $('spot-list').children[i];
+    if (scroll && li) li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    post({ type: 'selectSpot', index: i });
+  }
+
   $('add-spot').addEventListener('click', () => {
     if (spots.length >= MAX_SPOTS) return;
-    spots.push({ src: '', yaw: viewYaw, pitch: viewPitch, play: 'tap', audioOnly: false, hidden: false, label: '' });
+    spots.push({ src: '', yaw: viewYaw, pitch: viewPitch, w: HotSpots.DEFAULT_W, play: 'tap', audioOnly: false, hidden: false, loop: false, label: '' });
     renderSpots();
     spotsChanged(false);
     const cards = $('spot-list').querySelectorAll('.sp-src');
@@ -334,7 +352,7 @@
     $('qr').innerHTML = qr.createSvgTag({ cellSize: 8, margin: 2, scalable: true });
     $('link-out').textContent = qrUrl;
     $('open').href = qrUrl;
-    $('qr-foot').textContent = (f.audio || spots.some(sp => sp.src)) ? 'Turn your sound up 🔊' : 'Look around by moving your phone';
+    $('qr-foot').textContent = spots.some(sp => sp.src) ? 'Turn your sound up 🔊' : 'Look around by moving your phone';
 
     if (/^(file:|https?:\/\/(localhost|127\.|192\.168\.|10\.))/i.test(qrUrl)) warns.push('This page is running from your own computer, so phones can’t open this link. Use the version on GitHub Pages to make codes.');
     if (panoOk === null) warns.push('Still checking the photo in the preview…');
@@ -378,14 +396,25 @@
   let t = 0;
   $('form').addEventListener('input', () => { clearTimeout(t); t = setTimeout(refresh, 450); });
   $('in-pano').addEventListener('change', refresh);
-  $('in-audio').addEventListener('change', refresh);
   $('sample').addEventListener('click', () => {
     $('in-pano').value = new URL('panoramas/sample-room.jpg', here).href;
-    $('in-audio').value = new URL('audio/clock-tick.mp3', here).href;
-    $('in-loop').checked = true;
     if (!$('in-title').value) $('in-title').value = 'Sample room';
+    if (!spots.length) {
+      spots = [{ src: new URL('audio/clock-tick.mp3', here).href, yaw: 90, pitch: 5, w: HotSpots.DEFAULT_W,
+        play: 'look', audioOnly: true, hidden: false, loop: true, label: 'Ticking clock' }];
+      renderSpots();
+    }
     yaw = 0; updateFacing(); refresh();
   });
+
+  // Preview shape: an upright phone (what most viewers will see) or a wide screen
+  function setShape(phone) {
+    $('frame').classList.toggle('phone', phone);
+    $('shape-phone').setAttribute('aria-pressed', String(phone));
+    $('shape-wide').setAttribute('aria-pressed', String(!phone));
+  }
+  $('shape-phone').addEventListener('click', () => setShape(true));
+  $('shape-wide').addEventListener('click', () => setShape(false));
 
   loadFromAddress();
   updateFacing();

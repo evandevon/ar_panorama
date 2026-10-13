@@ -105,3 +105,10 @@ input:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid 
 .spot-card .check input:disabled + * , .check input:disabled { opacity: .5; }
 .spot-card .status { margin-top: 6px; font-size: .84rem; }
 .add-spot { width: 100%; margin-top: 10px; border-style: dashed; }
+.spot-card.selected { border-color: var(--brass); box-shadow: 0 0 0 2px rgba(185,133,59,.3); }
+
+.shape { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 10px; }
+.shape button { min-height: 34px; padding: 0 12px; border: 1px solid #c9b896; border-radius: 999px; background: transparent; color: var(--ink); font: 600 .85rem var(--sans); cursor: pointer; }
+.shape button[aria-pressed="true"] { background: var(--slate); color: #f7f4ec; border-color: var(--slate); }
+.shape .help-inline { flex: 1 1 220px; font-size: .8rem; }
+.frame.phone { aspect-ratio: 9 / 16; width: min(100%, 380px, calc((100vh - 140px) * 9 / 16)); margin: 0 auto; }

@@ -222,7 +222,20 @@
       b.querySelector('.lbl').textContent = on ? 'Pause' : (this.kind === 'video' ? 'Play' : 'Play audio');
     }
   };
-  $('btn-sound').addEventListener('click', () => (Sound.playing ? Sound.pause() : Sound.play()));
+  $('btn-sound').addEventListener('click', () => {
+    if (Sound.kind === 'spots') return setSpotsMuted(!spotsMuted);
+    Sound.playing ? Sound.pause() : Sound.play();
+  });
+  // With no background sound of its own, the sound button mutes and unmutes all the spots
+  let spotsMuted = false;
+  function setSpotsMuted(m) {
+    spotsMuted = m;
+    spots.setMuted(m);
+    const b = $('btn-sound');
+    b.querySelector('.ico').textContent = m ? '🔇' : '🔊';
+    b.querySelector('.lbl').textContent = m ? 'Muted' : 'Sound on';
+    b.setAttribute('aria-pressed', String(!m));
+  }
 
   // ------------------------------------------------------------- looking around: drag
   const PITCH_LIMIT = 85 * Math.PI / 180;
@@ -252,7 +265,8 @@
 
     // Drags can start on the picture or on a spot marker (so markers never get in the way of looking around)
     const down = e => {
-      if (e.target !== el && !e.target.closest('.spot-marker')) return;
+      // In the author's preview, only the picture itself turns the view (spots are moved instead)
+      if (e.target !== el && (PREVIEW || !e.target.closest('.spot-marker'))) return;
       if (e.target !== el) e.target.closest('.spot-marker').style.touchAction = 'none';
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pointers.size === 1) travelled = 0;
@@ -387,7 +401,7 @@
   // ------------------------------------------------------------- entering
   function enter(how) {
     // Start sound and video inside the tap, before anything else.
-    if (Sound.kind !== 'none') Sound.play();
+    if (Sound.kind !== 'none' && Sound.kind !== 'spots') Sound.play();
     if (video && Sound.kind !== 'video') { video.muted = false; video.play().catch(() => {}); }
     spots.start();
     if (how === 'motion') startMotion(); else hint(matchMedia('(pointer: coarse)').matches ? 'Drag to look around' : 'Drag to look around · scroll to zoom');
@@ -416,6 +430,8 @@
       spots.set((m.spots || []).map(HotSpots.decode));
     } else if (m.type === 'lookAt') {
       lookAt(m.yaw, m.pitch);
+    } else if (m.type === 'selectSpot') {
+      spots.setSelected(m.index);
     } else if (m.type === 'stopAll') {
       spots.stopAll();
     }
@@ -424,6 +440,9 @@
   // ------------------------------------------------------------- video spots
   const spots = HotSpots({
     sceneEl: sceneEl,
+    editable: PREVIEW,
+    onEdit: (i, v) => tell(Object.assign({ type: 'spotEdit', index: i }, v)),
+    onSelect: i => tell({ type: 'spotSelect', index: i }),
     layer: $('spots'),
     offscreen: $('spots-offscreen'),
     onActivity: n => Sound.duck(n > 0),
@@ -456,6 +475,13 @@
     const isVideo = Media.looksLikeVideo(cfg.pano);
     if (isVideo) loadVideo(cfg.pano);
     Sound.init(cfg.audio);
+    if (Sound.kind === 'none' && spots.count) {
+      Sound.kind = 'spots';
+      $('btn-sound').hidden = false;
+      setSpotsMuted(false);
+    }
+    if (PREVIEW) $('spots').classList.add('editing');
+    else if (spots.hasLook) { $('crosshair').classList.add('dot'); $('crosshair').hidden = false; }
 
     if (PREVIEW) {
       // The author's preview: straight in, mouse only. Sound waits for a click on Play.

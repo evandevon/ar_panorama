@@ -1,6 +1,6 @@
 # 360° QR Experience Maker
 
-A free, sign-in-free website hosted on GitHub Pages. An **author** pastes a link to a 360° photo (and optionally some sound), previews it, and prints a QR code. A **viewer** scans the code and looks around on their phone, either by moving the phone or by dragging with a finger.
+A free, sign-in-free website hosted on GitHub Pages. An **author** pastes a link to a 360° photo, places videos and sounds around it, previews it, and prints a QR code. A **viewer** scans the code and looks around on their phone, either by moving the phone or by dragging with a finger.
 
 There's no server or database. Everything about an experience lives inside the QR code's link.
 
@@ -30,39 +30,38 @@ Make QR codes from the GitHub Pages address. Codes made from a copy on your own 
 
 Set sharing to **Anyone with the link**. The photo should be equirectangular (2:1), which is what 360 cameras and phone "photo sphere" modes export. About **4096 × 2048** and under 3 MB loads quickly on school Wi-Fi.
 
-**Sound (optional).** You can paste an MP3 link (from Drive, OneDrive, Dropbox or a direct link) or a YouTube link. Tick *Loop* for background sound; leave it off for narration.
-
 **Starting view.** Drag the preview so the important thing is in front of you, then press **Start from this view**.
 
 The preview loads the photo exactly the way a phone will. If it shows a green tick, the QR code will work.
 
-### Video spots
+### Video and Audio Spots
 
-Video spots pin YouTube videos, or MP3 / MP4 files, to places in the room. You can add up to 8.
+Spots place YouTube videos, MP4 videos and MP3 sounds around the room. You can add up to 8.
 
-1. Turn the preview so the **crosshair** points where you want the spot.
-2. Press **+ Add a video spot at the crosshair** and paste the link.
-3. Use **Move to crosshair** to reposition a spot later, and **Show me** to turn the preview towards it.
+1. Turn the preview so the **crosshair** is where you want the spot.
+2. Press **+ Add a spot at the crosshair** and paste the link.
+3. In the preview, **drag a video to move it** and **pull its corner tags to resize it**. Sound markers can be dragged too. Dragging the 360 picture itself turns the view.
+4. Use **▶ Test** on a video in the preview to play it there. **Show me** turns the preview to a spot, and clicking a spot in the preview highlights its settings.
 
-Each spot has these options:
+Use **📱 Phone** view when sizing videos. A phone held upright sees much less of the room than a wide screen, so a video that looks small in Wide view can fill a phone.
 
 | Option | What it does |
 |---|---|
-| **Plays when the viewer taps it** | A marker shows: the video's thumbnail, or a speaker for sound. Tapping opens and plays it. |
-| **Plays automatically when the viewer looks at it** | Starts when the viewer faces it, within about 20°. Pauses when they turn away, past about 50°. |
-| **Plays automatically as soon as it opens** | Starts as soon as the viewer taps to enter. |
+| **Plays when the viewer taps it** | Videos show YouTube's own poster and play button. Sounds show a speaker marker to tap. |
+| **Plays automatically when the viewer looks at it** | Plays while the centre of the screen (the crosshair) is on the video, and pauses as soon as it moves off. For sounds, the centre needs to be within about 12° of the marker. Viewers see a small dot in the centre of the screen so they know where they're aiming. |
+| **Plays automatically as soon as it opens** | Starts when the viewer taps to enter. |
 | **Sound only** | No picture, just a speaker marker. MP3 links are always sound only. |
-| **Hide the marker** | Nothing shows; it just plays. Only available with one of the automatic options. |
+| **Hidden** | Nothing shows; it just plays. Only available with one of the automatic options. In the preview, hidden spots appear faintly so you can still move them. |
+| **Loop** | Starts again when it ends. |
 
-Other behaviour:
+**Background sound:** add an MP3 spot and set it to *Sound only*, *Hidden*, *Plays as soon as it opens* and *Loop*. While any video plays, sound-only spots drop to a quarter of their volume. Viewers can mute everything with the **Sound** button.
 
-- While a spot plays, the main background sound drops to a quarter of its volume.
-- In the preview, automatic spots start after your first click inside the preview, because browsers need a click before playing sound.
+Video sizes are stored as an angle (for example, "40° wide"), so a video stays the same size in the room on every screen. YouTube videos never shrink below 356 × 200 pixels, which is YouTube's minimum player size.
 
 **Two things to know about YouTube spots:**
 
-- **YouTube's rules.** YouTube's terms say its player must stay visible: at least 200 × 200 pixels, with nothing covering it. Visible video spots follow this, since the player is never smaller than 356 × 200. Sound-only and hidden YouTube spots don't follow it. For those, an MP3 is the safe choice, and the author page says so.
-- **Autoplay on phones.** Phones, especially iPhones, often block sound that doesn't start from a tap. If an automatic YouTube spot can't start with sound, it plays muted and shows a **Tap for sound** button. For hidden spots, a hint asks the viewer to tap the screen instead. MP3 and MP4 spots are unlocked during the viewer's first tap, so they're more reliable.
+- **YouTube's rules.** YouTube's terms say its player must stay visible: at least 200 × 200 pixels, with nothing covering it. Videos in the room follow this. Sound-only and hidden YouTube spots don't. Use an MP3 for those where you can; the author page warns you when needed.
+- **Autoplay on phones.** Phones, especially iPhones, often block sound that doesn't start from a tap. If an automatic YouTube spot is blocked, it plays muted with a **Tap for sound** button. MP3 and MP4 spots are unlocked during the viewer's first tap, so they're more reliable for automatic sound.
 
 ### What works where
 
@@ -89,8 +88,10 @@ Why some hosts fail: browsers only let a web page draw a photo in 3D if the phot
 
 ## Link format
 
-`view.html?p=<photo>&a=<sound>&t=<title>&y=<start direction°>&l=1&s=<spot>&s=<spot>…`
+`view.html?p=<photo>&t=<title>&y=<start direction°>&s=<spot>&s=<spot>…`
 
-Each spot is written as `link|yaw|pitch|flags|label`. The flags are `l` (plays when looked at), `s` (plays at start), `a` (sound only) and `h` (hidden).
+Each spot is written as `link|yaw|pitch|flags|label|width°`. The flags are `l` (plays when looked at), `s` (plays at start), `a` (sound only), `h` (hidden) and `r` (loop).
+
+Links from older versions that use `a=` for background sound still work, and the author page turns that sound into a hidden spot.
 
 Google Drive and YouTube links are stored as short codes (`gd:<id>`, `yt:<id>`) so the QR code stays easy to scan.
