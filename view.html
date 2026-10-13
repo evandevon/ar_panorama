@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1f2a24">
+  <title>360° experience</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="vendor/aframe-v1.8.0.min.js"></script>
+  <script src="js/sources.js"></script>
+  <script src="js/spots.js"></script>
+</head>
+<body>
+  <!-- The 360 scene. Mouse/touch dragging is handled in viewer.js; A-Frame only does the phone-motion part. -->
+  <a-scene id="scene" embedded vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false"
+           loading-screen="enabled: false" renderer="colorManagement: true">
+    <a-assets id="assets" timeout="1"></a-assets>
+    <a-entity id="rig">
+      <a-camera id="cam" position="0 0 0" fov="75" wasd-controls-enabled="false"
+                look-controls="mouseEnabled: false; touchEnabled: false; magicWindowTrackingEnabled: false"></a-camera>
+    </a-entity>
+    <!-- rotation -90 puts the centre of the panorama straight ahead -->
+    <a-sky id="sky" visible="false" radius="100" rotation="0 -90 0"></a-sky>
+    <a-videosphere id="vsphere" visible="false" radius="100" rotation="0 -90 0"></a-videosphere>
+  </a-scene>
+
+  <!-- Start card: the tap here is what lets phones use motion sensors and play sound -->
+  <section id="start" class="card-wrap" aria-live="polite">
+    <div class="card">
+      <p class="eyebrow">360° experience</p>
+      <h1 id="title">Loading…</h1>
+      <div class="choices" id="choices">
+        <button id="go-motion" class="go" disabled hidden>
+          <span class="go-ico" aria-hidden="true">📱</span>
+          <span><b>Move my phone</b><small>Hold it up and turn around to look</small></span>
+        </button>
+        <button id="go-drag" class="go" disabled>
+          <span class="go-ico" aria-hidden="true">👆</span>
+          <span><b id="drag-label">Drag to look</b><small id="drag-sub">Use your finger to move the picture</small></span>
+        </button>
+      </div>
+      <div class="progress" aria-hidden="true"><div id="bar"></div></div>
+      <p class="tip" id="tip"></p>
+      <p id="error" class="error" role="alert" hidden></p>
+    </div>
+  </section>
+
+  <!-- Controls once inside -->
+  <nav id="toolbar" class="toolbar" aria-label="Viewer controls" hidden>
+    <div class="seg" id="mode-seg" role="group" aria-label="How to look around">
+      <button id="mode-motion" aria-pressed="false"><span aria-hidden="true">📱</span> Move</button>
+      <button id="mode-drag" aria-pressed="true"><span aria-hidden="true">👆</span> Drag</button>
+    </div>
+    <button id="btn-centre" title="Face the starting direction"><span aria-hidden="true">🧭</span><span class="lbl">Recentre</span></button>
+    <button id="btn-sound" hidden><span class="ico" aria-hidden="true">▶</span><span class="lbl">Play audio</span></button>
+  </nav>
+
+  <!-- YouTube audio: YouTube's rules require its player to stay visible (at least 200×200) -->
+  <div id="yt-wrap" class="yt-wrap" hidden><div id="yt"></div></div>
+
+  <!-- Video spots are drawn here, over the 360 view -->
+  <div id="spots" class="spots-layer"></div>
+  <div id="spots-offscreen" class="spots-offscreen" aria-hidden="true"></div>
+  <div id="crosshair" class="crosshair" hidden aria-hidden="true"></div>
+
+  <p id="hint" class="hint" role="status" hidden></p>
+
+  <audio id="audio" preload="auto" playsinline></audio>
+  <script src="js/viewer.js"></script>
+</body>
+</html>
