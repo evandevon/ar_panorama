@@ -6,7 +6,7 @@
 
   let yaw = 0;              // chosen starting direction (degrees)
   let viewYaw = 0, viewPitch = 0;   // where the preview is currently looking
-  let spots = [];           // video spots: { src, yaw, pitch, play, audioOnly, hidden, label }
+  let spots = [];           // spots: { src, type, yaw, pitch, w, play, hidden, loop, label }
   const MAX_SPOTS = 8;
   let loadedKey = '';       // what the preview iframe is showing
   let panoOk = null;        // did the preview manage to load the photo?
@@ -36,7 +36,7 @@
     yaw = Number(q.get('y')) || 0;
     spots = q.getAll('s').map(HotSpots.decode).filter(Boolean);
     // Older links had a separate background sound: turn it into a hidden sound spot
-    if (q.get('a')) spots.unshift({ src: q.get('a'), yaw: 0, pitch: 0, w: HotSpots.DEFAULT_W, play: 'start', audioOnly: true, hidden: true, loop: q.get('l') === '1', label: 'Background sound' });
+    if (q.get('a')) spots.unshift({ src: q.get('a'), yaw: 0, pitch: 0, w: HotSpots.DEFAULT_W, play: 'start', type: 'audio', hidden: true, loop: q.get('l') === '1', label: 'Background sound' });
   }
 
   /** The link the QR code opens */
@@ -204,26 +204,24 @@
     li.className = 'spot-card';
     li.innerHTML =
       '<div class="spot-card-head"><span class="pin">' + (i + 1) + '</span>' +
-        '<input type="url" class="sp-src" placeholder="YouTube, MP4 or MP3 link" aria-label="Spot ' + (i + 1) + ' link">' +
+        '<input type="url" class="sp-src" placeholder="YouTube, video, sound or picture link" aria-label="Spot ' + (i + 1) + ' link">' +
         '<button type="button" class="iconbtn sp-remove" aria-label="Remove spot ' + (i + 1) + '" title="Remove">✕</button></div>' +
       '<input type="text" class="sp-label" maxlength="40" placeholder="Label, e.g. The teacher’s desk (optional)" aria-label="Spot ' + (i + 1) + ' label">' +
       '<div class="sp-place"><span class="sp-where"></span>' +
         '<span class="sp-place-btns"><button type="button" class="textbtn sp-move">Move to crosshair</button>' +
         '<button type="button" class="textbtn sp-show">Show me</button></span></div>' +
-      '<label class="sp-row">Plays <select class="sp-play">' +
-        '<option value="tap">when the viewer taps it</option>' +
-        '<option value="look">automatically when the viewer looks at it</option>' +
-        '<option value="start">automatically as soon as it opens</option></select></label>' +
-      '<label class="check"><input type="checkbox" class="sp-audio"> Sound only <span class="help-inline">— no picture, just a speaker marker</span></label>' +
-      '<label class="check"><input type="checkbox" class="sp-hide"> Hidden <span class="help-inline sp-hide-note"></span></label>' +
-      '<label class="check"><input type="checkbox" class="sp-loop"> Loop <span class="help-inline">— start again when it ends</span></label>' +
+      '<label class="sp-row">Type <select class="sp-type">' +
+        '<option value="video">Video</option>' +
+        '<option value="audio">Sound only</option>' +
+        '<option value="image">Picture</option></select></label>' +
+      '<label class="sp-row"><span class="sp-play-word">Plays</span> <select class="sp-play"></select></label>' +
+      '<label class="check sp-hide-row"><input type="checkbox" class="sp-hide"> Hidden <span class="help-inline sp-hide-note"></span></label>' +
+      '<label class="check sp-loop-row"><input type="checkbox" class="sp-loop"> Loop <span class="help-inline">— start again when it ends</span></label>' +
       '<p class="status sp-status" aria-live="polite"></p>';
 
     const q = c => li.querySelector(c);
     q('.sp-src').value = sp.src;
     q('.sp-label').value = sp.label || '';
-    q('.sp-play').value = sp.play;
-    q('.sp-audio').checked = !!sp.audioOnly;
     q('.sp-hide').checked = !!sp.hidden;
     q('.sp-loop').checked = !!sp.loop;
     li.dataset.index = i;
@@ -240,8 +238,8 @@
       sp.label = e.target.value;
       clearTimeout(typing); typing = setTimeout(() => spotsChanged(true), 600);
     });
+    q('.sp-type').addEventListener('change', e => { sp.type = e.target.value; sp.error = ''; syncCard(li, sp, i); spotsChanged(true); });
     q('.sp-play').addEventListener('change', e => { sp.play = e.target.value; if (sp.play === 'tap') sp.hidden = false; syncCard(li, sp, i); spotsChanged(true); });
-    q('.sp-audio').addEventListener('change', e => { sp.audioOnly = e.target.checked; syncCard(li, sp, i); spotsChanged(true); });
     q('.sp-hide').addEventListener('change', e => { sp.hidden = e.target.checked; syncCard(li, sp, i); spotsChanged(true); });
     q('.sp-loop').addEventListener('change', e => { sp.loop = e.target.checked; spotsChanged(true); });
     q('.sp-move').addEventListener('click', () => {
@@ -256,20 +254,43 @@
     return li;
   }
 
-  // Keep the checkboxes and notes in step with what each choice means
+  const PLAY_OPTIONS = {
+    media: [['tap', 'when the viewer taps it'], ['look', 'automatically when the viewer looks at it'], ['start', 'automatically as soon as it opens']],
+    image: [['tap', 'all the time'], ['look', 'only while the viewer looks at it']]
+  };
+
+  // Keep the choices and notes in step with the link and with each other
   function syncCard(li, sp, i) {
     const q = c => li.querySelector(c);
     const yt = Media.youTube(sp.src);
-    const isFileVideo = !yt && Media.looksLikeVideo(sp.src);
-    const soundFile = sp.src.trim() && !yt && !isFileVideo;
+    const guess = HotSpots.guessKind(sp.src);
+    const kind = HotSpots.kindOf(sp);
 
-    const audio = q('.sp-audio');
-    audio.disabled = !!soundFile;
-    if (soundFile) { audio.checked = true; sp.audioOnly = true; }
+    // Type: offer only what this link can be
+    const type = q('.sp-type');
+    const allowed = yt ? ['video', 'audio'] : guess === 'image' ? ['image'] : guess === 'audio' ? ['audio']
+      : guess === 'video' ? ['video', 'audio'] : ['video', 'audio', 'image'];
+    [...type.options].forEach(o => { o.disabled = !allowed.includes(o.value); });
+    type.value = kind;
 
+    // Plays / Shows
+    const isImage = kind === 'image';
+    const opts = isImage ? PLAY_OPTIONS.image : PLAY_OPTIONS.media;
+    if (isImage && sp.play === 'start') sp.play = 'tap';
+    const sel = q('.sp-play');
+    if (sel.dataset.set !== (isImage ? 'image' : 'media')) {
+      sel.innerHTML = opts.map(([v, t]) => '<option value="' + v + '">' + t + '</option>').join('');
+      sel.dataset.set = isImage ? 'image' : 'media';
+    }
+    sel.value = sp.play;
+    q('.sp-play-word').textContent = isImage ? 'Shows' : 'Plays';
+
+    // Hidden and Loop don't apply to pictures
+    q('.sp-hide-row').hidden = isImage;
+    q('.sp-loop-row').hidden = isImage;
     const hide = q('.sp-hide');
     hide.disabled = sp.play === 'tap';
-    if (sp.play === 'tap') hide.checked = false;
+    if (sp.play === 'tap' || isImage) { hide.checked = false; sp.hidden = false; }
     q('.sp-hide-note').textContent = sp.play === 'tap'
       ? '— needs one of the automatic options, or nobody could start it'
       : '— nothing shows; it just plays';
@@ -283,26 +304,35 @@
     if (!li || !sp) return;
     const el = li.querySelector('.sp-status');
     const yt = Media.youTube(sp.src);
-    const set = (kind, html) => { el.className = 'status sp-status ' + kind; el.innerHTML = html; };
+    const kind = HotSpots.kindOf(sp);
+    const set = (k, html) => { el.className = 'status sp-status ' + k; el.innerHTML = html; };
     if (!sp.src.trim()) return set('', '');
     if (sp.error) return set('err', escapeHtml(sp.error));
-    if (!/^(https?:\/\/|www\.|yt:|gd:)/i.test(sp.src.trim()) && !yt) return set('err', 'That doesn’t look like a web link. It should start with https://');
-    if (yt && (sp.audioOnly || sp.hidden)) {
+    if (!/^(https?:\/\/|www\.|yt:|gd:|1drv\.ms)/i.test(sp.src.trim()) && !yt) return set('err', 'That doesn’t look like a web link. It should start with https://');
+    if (/\.(heic|heif|tiff?|psd)(\?|#|$)/i.test(sp.src)) return set('err', 'Most phones’ browsers can’t show this kind of picture. Save it as a JPEG or PNG first.');
+    if (!HotSpots.guessKind(sp.src) && !sp.type) {
+      return set('note', 'This link doesn’t say what kind of file it is (Google Drive and OneDrive links don’t). Choose its <b>Type</b> above.');
+    }
+    if (yt && (kind === 'audio' || sp.hidden)) {
       return set('note', 'YouTube’s rules say its player must stay visible, so a sound-only or hidden YouTube spot breaks them. ' +
         'An MP3 link is the safe choice here. On iPhones, sound that starts by itself may begin muted, with a “tap for sound” button.');
     }
-    if (!yt && !Media.looksLikeVideo(sp.src)) return set('ok', 'Will play as a sound file.');
-    const inRoom = !sp.audioOnly && !sp.hidden && (yt || Media.looksLikeVideo(sp.src));
+    if (kind === 'image') {
+      return set('ok', sp.play === 'look' ? 'Fades in while the crosshair is on it. Drag it in the preview to move it; pull its corners to resize.'
+        : 'Drag it in the preview to move it; pull its corners to resize. Viewers can tap it to see it full screen.');
+    }
+    const inRoom = kind === 'video' && !sp.hidden;
     if (sp.play === 'tap' && inRoom) return set('ok', 'Viewers press play on the video. Use <b>▶ Test</b> on it in the preview to try it.');
-    set('ok', sp.play === 'tap' ? 'Click its marker in the preview to try it.'
-      : 'Click anywhere in the preview once, then ' + (sp.play === 'look' ? 'turn towards it' : 'it will start') + '.');
+    if (sp.play === 'tap') return set('ok', 'Click its marker in the preview to try it.');
+    set('ok', 'Click anywhere in the preview once, then ' + (sp.play === 'look' ? 'turn towards it' : 'it will start') + '.');
   }
 
   function updatePlaceText(i, li) {
     li = li || $('spot-list').children[i];
     const sp = spots[i];
     if (!li || !sp) return;
-    const inRoom = sp.src && !sp.audioOnly && !sp.hidden && (Media.youTube(sp.src) || Media.looksLikeVideo(sp.src));
+    const kind = HotSpots.kindOf(sp);
+    const inRoom = sp.src && (kind === 'image' || (kind === 'video' && !sp.hidden));
     li.querySelector('.sp-where').textContent = 'Placed ' + describePlace(sp.yaw, sp.pitch) +
       (inRoom ? ' · ' + Math.round(sp.w || HotSpots.DEFAULT_W) + '° wide' : '');
   }
@@ -317,7 +347,7 @@
 
   $('add-spot').addEventListener('click', () => {
     if (spots.length >= MAX_SPOTS) return;
-    spots.push({ src: '', yaw: viewYaw, pitch: viewPitch, w: HotSpots.DEFAULT_W, play: 'tap', audioOnly: false, hidden: false, loop: false, label: '' });
+    spots.push({ src: '', yaw: viewYaw, pitch: viewPitch, w: HotSpots.DEFAULT_W, play: 'tap', type: '', hidden: false, loop: false, label: '' });
     renderSpots();
     spotsChanged(false);
     const cards = $('spot-list').querySelectorAll('.sp-src');
@@ -401,7 +431,9 @@
     if (!$('in-title').value) $('in-title').value = 'Sample room';
     if (!spots.length) {
       spots = [{ src: new URL('audio/clock-tick.mp3', here).href, yaw: 90, pitch: 5, w: HotSpots.DEFAULT_W,
-        play: 'look', audioOnly: true, hidden: false, loop: true, label: 'Ticking clock' }];
+        play: 'look', type: 'audio', hidden: false, loop: true, label: 'Ticking clock' },
+        { src: new URL('panoramas/sample-slate.png', here).href, yaw: -30, pitch: 4, w: 24,
+        play: 'tap', type: '', hidden: false, loop: false, label: '' }];
       renderSpots();
     }
     yaw = 0; updateFacing(); refresh();

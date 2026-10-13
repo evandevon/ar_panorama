@@ -34,13 +34,21 @@ Set sharing to **Anyone with the link**. The photo should be equirectangular (2:
 
 The preview loads the photo exactly the way a phone will. If it shows a green tick, the QR code will work.
 
-### Video and Audio Spots
+### Video, Audio and Picture Spots
 
-Spots place YouTube videos, MP4 videos and MP3 sounds around the room. You can add up to 8.
+Spots place YouTube videos, video files, sounds and pictures around the room. You can add up to 8.
+
+| Kind | Links that work |
+|---|---|
+| Video | YouTube, or MP4 / WebM / MOV files |
+| Sound | MP3, M4A, AAC, OGG, Opus, WAV or FLAC files, or a YouTube video's sound |
+| Picture | PNG, JPEG, GIF (animated GIFs play), WebP, AVIF, SVG or BMP |
+
+Pick a spot's kind with **Type**. It's set automatically when the link ends in a file type, but Google Drive and OneDrive links don't show the file type, so choose it yourself for those. HEIC photos from iPhones and TIFFs won't display in most phone browsers; save them as JPEG or PNG first.
 
 1. Turn the preview so the **crosshair** is where you want the spot.
 2. Press **+ Add a spot at the crosshair** and paste the link.
-3. In the preview, **drag a video to move it** and **pull its corner tags to resize it**. Sound markers can be dragged too. Dragging the 360 picture itself turns the view.
+3. In the preview, **drag a video or picture to move it** and **pull its corner tags to resize it**. Sound markers can be dragged too. Dragging the 360 picture itself turns the view.
 4. Use **▶ Test** on a video in the preview to play it there. **Show me** turns the preview to a spot, and clicking a spot in the preview highlights its settings.
 
 Use **📱 Phone** view when sizing videos. A phone held upright sees much less of the room than a wide screen, so a video that looks small in Wide view can fill a phone.
@@ -53,6 +61,10 @@ Use **📱 Phone** view when sizing videos. A phone held upright sees much less 
 | **Sound only** | No picture, just a speaker marker. MP3 links are always sound only. |
 | **Hidden** | Nothing shows; it just plays. Only available with one of the automatic options. In the preview, hidden spots appear faintly so you can still move them. |
 | **Loop** | Starts again when it ends. |
+| **Pictures: Shows all the time** | The picture sits in the room. Viewers can tap it to see it full screen, which is handy for old letters, posters or maps. |
+| **Pictures: Shows only while the viewer looks at it** | The picture fades in while the crosshair is on it and fades out when it moves off. |
+
+Pictures keep their own shape. Transparent PNG, GIF and WebP images show the room through the see-through parts, so cut-out objects look like they're really there. Picture links don't need any special sharing permission beyond "Anyone with the link", so most hosts work.
 
 **Background sound:** add an MP3 spot and set it to *Sound only*, *Hidden*, *Plays as soon as it opens* and *Loop*. While any video plays, sound-only spots drop to a quarter of their volume. Viewers can mute everything with the **Sound** button.
 
@@ -90,7 +102,7 @@ Why some hosts fail: browsers only let a web page draw a photo in 3D if the phot
 
 `view.html?p=<photo>&t=<title>&y=<start direction°>&s=<spot>&s=<spot>…`
 
-Each spot is written as `link|yaw|pitch|flags|label|width°`. The flags are `l` (plays when looked at), `s` (plays at start), `a` (sound only), `h` (hidden) and `r` (loop).
+Each spot is written as `link|yaw|pitch|flags|label|width°`. The flags are `l` (plays/shows when looked at), `s` (plays at start), `h` (hidden), `r` (loop), and `a` / `v` / `i` (sound / video / picture), used when the kind can't be told from the link.
 
 Links from older versions that use `a=` for background sound still work, and the author page turns that sound into a hidden spot.
 

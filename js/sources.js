@@ -73,6 +73,12 @@
   function looksLikeVideo(token) {
     return /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(token || '');
   }
+  function looksLikeImage(token) {
+    return /\.(png|jpe?g|gif|webp|avif|svg|bmp|ico)(\?|#|$)/i.test(token || '');
+  }
+  function looksLikeAudio(token) {
+    return /\.(mp3|m4a|aac|ogg|oga|opus|wav|flac)(\?|#|$)/i.test(token || '');
+  }
 
   /**
    * Token or link → a URL the browser can load directly.
@@ -124,5 +130,5 @@
     }
   }
 
-  global.Media = { shorten, youTube, looksLikeVideo, resolveMediaUrl, hostingHint };
+  global.Media = { shorten, youTube, looksLikeVideo, looksLikeImage, looksLikeAudio, resolveMediaUrl, hostingHint };
 })(window);
