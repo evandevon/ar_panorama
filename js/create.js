@@ -16,7 +16,8 @@
   function readForm() {
     return {
       pano: $('in-pano').value.trim(),
-      title: $('in-title').value.trim()
+      title: $('in-title').value.trim(),
+      align: $('in-align').checked
     };
   }
 
@@ -25,6 +26,7 @@
     if (f.pano) q.set('p', f.pano);
     if (f.title) q.set('t', f.title);
     if (yaw) q.set('y', yaw);
+    if (f.align) q.set('al', '1');
     spots.filter(sp => sp.src.trim()).forEach(sp => q.append('s', HotSpots.encode(sp, false)));
     history.replaceState(null, '', q.toString() ? '?' + q : location.pathname);
   }
@@ -33,6 +35,7 @@
     const q = new URLSearchParams(location.search);
     $('in-pano').value = q.get('p') || '';
     $('in-title').value = q.get('t') || '';
+    $('in-align').checked = q.get('al') === '1';
     yaw = Number(q.get('y')) || 0;
     spots = q.getAll('s').map(HotSpots.decode).filter(Boolean);
     // Older links had a separate background sound: turn it into a hidden sound spot
@@ -46,6 +49,7 @@
     const q = [['p', Media.shorten(f.pano)]];
     if (f.title) q.push(['t', f.title]);
     if (yaw) q.push(['y', yaw]);
+    if (f.align && !preview) q.push(['al', '1']);
     if (!preview) spots.filter(sp => sp.src.trim()).forEach(sp => q.push(['s', HotSpots.encode(sp, true)]));
     if (preview) q.push(['preview', '1']);
     return new URL('view.html', here).href + '?' + q.map(([k, v]) => k + '=' + enc(String(v))).join('&');

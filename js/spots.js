@@ -559,16 +559,24 @@
 
     // ---------------------------------------------------------- starting and sound
     // Call from inside the viewer's first tap: unlocks sound on phones, starts "as soon as it opens" spots.
+    // Call from inside a tap: lets sounds play later on phones (iPhones need an audio element touched during a tap)
+    let unlocked = false;
+    function unlock() {
+      if (unlocked) return;
+      unlocked = true;
+      spots.forEach(s => {
+        if (s.media && !s.inScene) {
+          const m = s.media; m.muted = true;
+          m.play().then(() => { if (!s.wantPlay && !s.playing) m.pause(); m.muted = muted; }).catch(() => { m.muted = muted; });
+        }
+      });
+    }
+    // Begin: "as soon as it opens" spots play, "when looked at" spots start watching the crosshair
     function start() {
       if (started) return;
+      unlock();
       started = true;
-      spots.forEach(s => {
-        if (s.media && s.play !== 'start' && !s.inScene) {   // iPhones: an audio element touched during a tap may play later
-          const m = s.media; m.muted = true;
-          m.play().then(() => { if (!s.wantPlay && !s.lookStarted) m.pause(); m.muted = muted; }).catch(() => { m.muted = muted; });
-        }
-        if (s.play === 'start') play(s);
-      });
+      spots.forEach(s => { if (s.play === 'start') play(s); });
     }
     function setMuted(m) {
       muted = m;
@@ -581,7 +589,7 @@
     function stopAll() { spots.forEach(s => { s.userPaused = true; pause(s); }); }
 
     return {
-      set, update, start, stopAll, setMuted, setSelected,
+      set, update, start, unlock, stopAll, setMuted, setSelected,
       get count() { return spots.length; },
       get hasLook() { return spots.some(s => s.play === 'look'); }
     };

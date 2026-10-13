@@ -193,3 +193,23 @@ a-scene { position: fixed !important; inset: 0; width: 100% !important; height: 
 }
 .spot-poster:focus-visible { outline: 3px solid var(--brass); outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) { .spot-frame.resizing { transition: none; } }
+
+/* ---------- Lining up with the real room ---------- */
+.camfeed { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; display: none; background: #000; }
+body.aligning .camfeed { display: block; }
+body.aligning a-scene { z-index: 1; }
+body.aligning .toolbar, body.aligning .hint { display: none !important; }
+.align { position: fixed; inset: 0; z-index: 6; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
+  padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)); }
+.align > * { pointer-events: auto; }
+.align-status { align-self: center; max-width: 520px; margin: 0; padding: 10px 16px; border-radius: 18px; background: rgba(20,27,23,.85); color: var(--chalk); text-align: center; font: 600 .95rem/1.35 var(--sans); }
+.align-status.good { background: #2f6b3a; }
+.align-status.near { background: var(--brass-dark); }
+.align-status.bad { background: var(--danger); }
+.align-panel { align-self: center; width: min(520px, 100%); padding: 12px 14px; border-radius: 14px; background: rgba(20,27,23,.85); color: var(--chalk); }
+.align-mix { display: flex; align-items: center; gap: 10px; font: 600 .85rem var(--sans); }
+.align-mix input { flex: 1; accent-color: var(--brass); min-height: 32px; }
+.align-btns { display: flex; gap: 8px; margin-top: 10px; }
+.align-btn { flex: 1; min-height: 48px; border: 0; border-radius: 10px; background: var(--chalk); color: var(--slate); font: 700 1rem var(--sans); cursor: pointer; }
+.align-btn.ghost { background: transparent; color: var(--chalk); border: 1px solid rgba(247,244,236,.4); font-weight: 600; }
+.align-tip { margin: 8px 0 0; font-size: .8rem; opacity: .8; text-align: center; }

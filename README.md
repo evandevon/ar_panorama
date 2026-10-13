@@ -77,6 +77,27 @@ Video sizes are stored as an angle (for example, "20° wide"), so a video stays 
 - **YouTube's rules.** YouTube's terms say its player must stay visible: at least 200 × 200 pixels, with nothing covering it. Videos in the room follow this. Sound-only and hidden YouTube spots don't. Use an MP3 for those where you can; the author page warns you when needed.
 - **Autoplay on phones.** Phones, especially iPhones, often block sound that doesn't start from a tap. If an automatic YouTube spot is blocked, it plays muted with a **Tap for sound** button. MP3 and MP4 spots are unlocked during the viewer's first tap, so they're more reliable for automatic sound.
 
+### Line up with the real room
+
+Tick **Line up with the real room** (step 3) when viewers will stand in the room where the 360 photo was taken.
+
+**What viewers see:**
+- The start screen offers **📷 Line up with this room**.
+- Their camera shows the room with your photo faded over it. A **Then ⟷ Now** slider changes the mix.
+- They turn the phone until the photo overlaps the room, then slide left or right to fine-tune. They can pinch if the photo looks bigger or smaller than the room.
+- The page checks the match a few times a second. It shows **✓ Looks lined up**, or **Nearly — about 12° out** with a **Snap** button that turns the photo the rest of the way.
+- They tap **Lined up ✓** (or **Skip**), the camera switches off, and the experience begins. The spots now sit on the real walls.
+- The toolbar's **Line up** button lets them redo it later, for example if things drift after a few minutes.
+
+**How the check works:** the phone's motion sensors already know which way is up, so only the left–right turn is unknown. The page compares the outlines (edges) in the camera picture with the same view of your photo at a range of turns, up to 30° either way. It only reports a match when one turn clearly beats the rest, so a room that doesn't match never shows "lined up". Nothing from the camera is saved or sent anywhere.
+
+**It works best when:**
+- the photo was taken from where viewers stand (by the QR code is ideal), at about phone height;
+- the room still has the same fixed features (doors, windows, ceiling lines, the blackboard wall), even if the furniture has changed;
+- the room isn't full of people standing between the viewer and the walls.
+
+Viewers can always skip it or line things up by eye, and it isn't offered on computers or phones without a camera or motion sensors.
+
 ### What works where
 
 | Host | 360 photo | Sound |

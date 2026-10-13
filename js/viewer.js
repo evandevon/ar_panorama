@@ -19,7 +19,8 @@
     audio: params.get('a') || '',
     title: params.get('t') || 'Look around',
     yaw: Number(params.get('y')) || 0,
-    loop: params.get('l') === '1'
+    loop: params.get('l') === '1',
+    align: params.get('al') === '1'          // offer "line up with this room" (camera overlay)
   };
 
   let mode = 'drag';             // 'drag' or 'motion'
@@ -411,11 +412,42 @@
     setTimeout(() => { $('start').hidden = true; }, 500);
   }
 
+  // ------------------------------------------------------------- lining up with the real room
+  let aligned = false;
+  const aligner = Aligner({
+    sceneEl: sceneEl,
+    getLook: () => lc,
+    panoSource: () => document.getElementById('pano-src'),
+    onDone: () => afterAlign('Lined up! Look around the room.'),
+    onSkip: () => afterAlign(mode === 'motion' ? 'Turn around to look.' : 'Drag to look around.')
+  });
+  function afterAlign(msg) {
+    aligned = true;
+    spots.start();
+    $('toolbar').hidden = false;
+    $('btn-centre').querySelector('.lbl').textContent = 'Line up';
+    $('btn-centre').title = 'Line the photo up with the room again';
+    hint(msg);
+  }
+  function enterAlign() {
+    // Inside the tap: unlock sound for later, and ask for motion (iPhones only ask from a tap)
+    spots.unlock();
+    if (video && Sound.kind !== 'video') { video.muted = false; video.play().catch(() => {}); }
+    startMotion();
+    $('start').classList.add('gone');
+    setTimeout(() => { $('start').hidden = true; }, 500);
+    aligner.begin();
+  }
+  $('go-align').addEventListener('click', enterAlign);
+
   $('go-motion').addEventListener('click', () => enter('motion'));
   $('go-drag').addEventListener('click', () => enter('drag'));
   $('mode-motion').addEventListener('click', () => { if (mode !== 'motion') startMotion(); });
   $('mode-drag').addEventListener('click', () => { setMode('drag'); hint('Drag to look around'); });
-  $('btn-centre').addEventListener('click', recentre);
+  $('btn-centre').addEventListener('click', () => {
+    if (aligned) { if (mode !== 'motion') startMotion(); $('toolbar').hidden = true; aligner.begin(); }
+    else recentre();
+  });
 
   // The author page can change the starting direction without reloading the preview
   window.addEventListener('message', e => {
@@ -498,7 +530,17 @@
       return;
     }
 
-    if (motionPossible()) {
+    const canAlign = cfg.align && motionPossible() && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    if (canAlign) {
+      $('go-align').hidden = false;
+      $('go-motion').hidden = false;
+      $('go-motion').classList.add('secondary');
+      $('go-motion').querySelector('b').textContent = 'Skip lining up';
+      $('go-motion').querySelector('small').textContent = 'Just move your phone to look around';
+      $('go-drag').classList.add('secondary');
+      $('drag-sub').textContent = 'Use your finger instead';
+      $('tip').textContent = 'Stand where the QR code is. Nothing from your camera is saved or sent anywhere.';
+    } else if (motionPossible()) {
       $('go-motion').hidden = false;
       $('go-drag').classList.add('secondary');
       $('drag-sub').textContent = 'Use your finger instead';
@@ -512,9 +554,9 @@
 
     const ok = isVideo ? true : await loadImage(cfg.pano);
     if (ok) {
-      $('go-motion').disabled = $('go-drag').disabled = false;
+      $('go-align').disabled = $('go-motion').disabled = $('go-drag').disabled = false;
       document.querySelector('.card').classList.add('ready');
-      ($('go-motion').hidden ? $('go-drag') : $('go-motion')).focus({ preventScroll: true });
+      (!$('go-align').hidden ? $('go-align') : $('go-motion').hidden ? $('go-drag') : $('go-motion')).focus({ preventScroll: true });
     }
   }
   main();
