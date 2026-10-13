@@ -8,8 +8,9 @@ There's no server or database. Everything about an experience lives inside the Q
 
 | Page | Who uses it |
 |---|---|
-| `index.html` | Authors. Paste links, preview with the mouse, set the starting view, then copy, print or save the QR code. |
-| `view.html` | Viewers. This is what the QR code opens. |
+| `make.html` | Authors. Paste links, preview with the mouse, set the starting view, then copy, print, save or embed the QR code. |
+| `index.html` | Viewers. This is what QR codes open: the site's main address. Visiting it without a code shows a pointer to the maker. |
+| `view.html` | Only forwards older links to the main address. Keep it so earlier QR codes keep working. |
 
 ## Put it online
 
@@ -18,7 +19,7 @@ There's no server or database. Everything about an experience lives inside the Q
 3. Go to **Settings → Pages** and set the source to **Deploy from a branch** → `main` → `/ (root)`.
 4. After a minute or two the site is at `https://<username>.github.io/<repo>/`.
 
-Make QR codes from the GitHub Pages address. Codes made from a copy on your own computer won't open on phones, and the page warns you if you try.
+Make QR codes from `https://<username>.github.io/<repo>/make.html` on GitHub Pages. Codes made from a copy on your own computer won't open on phones, and the page warns you if you try.
 
 ## For authors
 
@@ -30,19 +31,30 @@ Make QR codes from the GitHub Pages address. Codes made from a copy on your own 
 
 Set sharing to **Anyone with the link**. The photo should be equirectangular (2:1), which is what 360 cameras and phone "photo sphere" modes export. About **4096 × 2048** and under 3 MB loads quickly on school Wi-Fi.
 
+**360° video instead of a photo.** Paste a link to an equirectangular (2:1) 360 video file (MP4, WebM or MOV) in step 1. Everything else works on top of it, including spots, corner pinning, look-to-reveal dots and Line up with the real room.
+- The video loops, and starts when the viewer taps to begin.
+- With spots, the toolbar's **Sound** button mutes everything, the video included.
+- The video's own sound drops to a quarter while a video spot plays.
+- **Hosting:** use this GitHub repo (under 100 MB per file). Google Drive doesn't reliably allow its videos to be used this way, and its links don't show that they're videos.
+- **A classroom-friendly file:** H.264 MP4, 2880 × 1440 (or 1920 × 960 for older phones), about 5–8 Mbps, 1–2 minutes long, which comes to roughly 40–90 MB. Many phones can't play 360 video wider than 4096 px, and the author page warns about that. Remember that a whole class loading a video at once is heavy on school Wi-Fi.
+- **YouTube 360 videos can't be used as the background.** Browsers don't let a page use the picture inside a YouTube player, and YouTube doesn't allow anything drawn over its player. If it's your own video, download the original from YouTube Studio and host the file.
+
 **Starting view.** Drag the preview so the important thing is in front of you, then press **Start from this view**.
 
 The preview loads the photo exactly the way a phone will. If it shows a green tick, the QR code will work.
 
-### Video, Audio and Picture Spots
+### Spots
 
-Spots place YouTube videos, video files, sounds and pictures around the room. You can add up to 8.
+Spots place videos, sounds, pictures, text, links and 3D models around the room. You can add up to 8.
 
-| Kind | Links that work |
+| Kind | What to put in |
 |---|---|
-| Video | YouTube, or MP4 / WebM / MOV files |
-| Sound | MP3, M4A, AAC, OGG, Opus, WAV or FLAC files, or a YouTube video's sound |
-| Picture | PNG, JPEG, GIF (animated GIFs play), WebP, AVIF, SVG or BMP |
+| Video | A YouTube link, or an MP4 / WebM / MOV file |
+| Sound | An MP3, M4A, AAC, OGG, Opus, WAV or FLAC file, or a YouTube video's sound |
+| Picture | A PNG, JPEG, GIF (animated GIFs play), WebP, AVIF, SVG or BMP file |
+| Text | Just type the words (line breaks are kept). The label becomes its heading. Viewers can tap it to read it full screen. |
+| 3D model | A `.glb` file (best), or `.gltf`, `.obj` or `.stl`. See **3D models** below. |
+| Link | A web page address. It shows as a button that opens the page in a new tab; the label is the button text. Only ordinary `https://` addresses are allowed. |
 
 Pick a spot's kind with **Type**. It's set automatically when the link ends in a file type, but Google Drive and OneDrive links don't show the file type, so choose it yourself for those. HEIC photos from iPhones and TIFFs won't display in most phone browsers; save them as JPEG or PNG first.
 
@@ -50,6 +62,11 @@ Pick a spot's kind with **Type**. It's set automatically when the link ends in a
 2. Press **+ Add a spot at the crosshair** and paste the link.
 3. In the preview, **drag a video or picture to move it** and **pull its corner tags to resize it**. Sound markers can be dragged too. Dragging the 360 picture itself turns the view.
 4. Use **▶ Test** on a video in the preview to play it there. **Show me** turns the preview to a spot, and clicking a spot in the preview highlights its settings.
+
+**Pin corners** (videos, pictures, text and links): tick it, and the four corner tags stop resizing and move one at a time instead. Drag each corner onto the matching point in the photo, such as the corners of a picture frame, a window or the blackboard. The spot is warped to fit, so it looks painted onto the wall and keeps its perspective as viewers look around. Dragging the middle still moves the whole thing, and unticking turns it back into a flat rectangle.
+- Pinned pictures stretch to fill their corners exactly.
+- A pinned YouTube poster straightens into the normal flat player while it plays, because YouTube's player can't be skewed, and goes back to its pinned shape afterwards. MP4 videos stay pinned while playing.
+- Each pinned spot adds about 25–35 characters to the QR code's link.
 
 Use **📱 Phone** view when sizing videos. A phone held upright sees much less of the room than a wide screen, so a video that looks small in Wide view can fill a phone.
 
@@ -61,6 +78,8 @@ Use **📱 Phone** view when sizing videos. A phone held upright sees much less 
 | **Sound only** | No picture, just a speaker marker. MP3 links are always sound only. |
 | **Hidden** | Nothing shows; it just plays. Only available with one of the automatic options. In the preview, hidden spots appear faintly so you can still move them. |
 | **Loop** | Starts again when it ends. |
+| **Appears: straight away** | The spot is in the room from the start. |
+| **Appears: after the viewer rests the crosshair on a dot** | Only a small pulsing dot shows. While the crosshair stays on it, a ring fills over 1.5 seconds; when it's full, the spot appears, and videos and sounds start playing. Tapping the dot works too. This works for every kind of spot. |
 | **Pictures: Shows all the time** | The picture sits in the room. Viewers can tap it to see it full screen, which is handy for old letters, posters or maps. |
 | **Pictures: Shows only while the viewer looks at it** | The picture fades in while the crosshair is on it and fades out when it moves off. |
 
@@ -76,6 +95,23 @@ Video sizes are stored as an angle (for example, "20° wide"), so a video stays 
 
 - **YouTube's rules.** YouTube's terms say its player must stay visible: at least 200 × 200 pixels, with nothing covering it. Videos in the room follow this. Sound-only and hidden YouTube spots don't. Use an MP3 for those where you can; the author page warns you when needed.
 - **Autoplay on phones.** Phones, especially iPhones, often block sound that doesn't start from a tap. If an automatic YouTube spot is blocked, it plays muted with a **Tap for sound** button. MP3 and MP4 spots are unlocked during the viewer's first tap, so they're more reliable for automatic sound.
+
+### 3D models
+
+A 3D model sits in the room as a real object: as viewers look around, they see it from the matching angle, and it's lit like a solid thing rather than a flat picture. Viewers can **tap it to look at it up close**, turning it over with a finger (or mouse/arrow keys) and pinching or scrolling to zoom.
+
+**Formats:** `.glb` is best: one file with colours and textures included. Tinkercad, SketchUp, Blender and Sketchfab downloads can all export it. `.stl` files (3D-printing files from Tinkercad or Thingiverse) work too but have no colours, so they show in a plain stone colour; they're turned upright automatically. `.obj` works but loses its colours unless they're baked in. `.gltf` files that come with separate texture files won't find them, so export as `.glb` instead.
+
+**Hosting:** put the file in this site's `models/` folder on GitHub (most reliable), or use a Dropbox link. Google Drive and OneDrive don't work for 3D models, because they don't let other sites load the file. Keep files under about 5 MB so they load quickly on phones; the sample inkwell is 23 KB.
+
+**In the author page:**
+- **Drag** the model in the preview to move it, and pull a **corner tag** to make it bigger or smaller.
+- Drag the **round handle** above it to turn it: sideways turns it around, up and down tilts it. The **Turn**, **Tilt**, **Roll** and **Reset** buttons on its card do the same in 15° steps.
+- **Spins slowly** keeps it turning (about 20° a second), which helps viewers notice it's 3D.
+- **Shows: all the time / only while looked at** and **Appears: after looking at a dot** work as for pictures.
+- **3D model brightness** (step 3, shown once there's a model) lights every model at once. Turn it down for a dim photo and up for a bright one, so the models don't look pasted on.
+
+Models are placed 8 m from the viewer in the direction you choose, and their size is stored as an angle like everything else, so they look the same size on every screen.
 
 ### Line up with the real room
 
@@ -121,12 +157,39 @@ Why some hosts fail: browsers only let a web page draw a photo in 3D if the phot
 - If motion isn't allowed or the device has no motion sensor, the viewer switches to dragging and says why.
 - Keyboard: arrow keys look around, `+`/`-` zoom.
 
+## Embedding in another website
+
+Press **Embed** on the author page for a ready-to-paste `<iframe>` code, at 400, 500 or 650 px tall, or 16:9 filling the width. It works in Google Sites (**Insert → Embed → Embed code**), WordPress, Wix, Squarespace, Canvas and Moodle. SharePoint only allows embeds from sites an administrator has approved.
+
+When the viewer finds itself inside another site:
+- It uses a more compact start card.
+- It adds an **Open full screen ↗** link and a **Full screen** toolbar button, which open the same experience in its own tab.
+- It doesn't offer **Line up with this room**.
+
+Dragging, sound, video, text, links and look-to-reveal dots all work inside an embed. Moving the phone to look around usually works on Android, but iPhones often block motion sensors (and always the camera) inside another site, so iPhone users should use **Open full screen**.
+
 ## Link format
 
-`view.html?p=<photo>&t=<title>&y=<start direction°>&s=<spot>&s=<spot>…`
+`?p=<photo>&t=<title>&y=<start direction°>&al=1&mb=<model brightness>&s=<spot>&s=<spot>…&v=2`
 
-Each spot is written as `link|yaw|pitch|flags|label|width°`. The flags are `l` (plays/shows when looked at), `s` (plays at start), `h` (hidden), `r` (loop), and `a` / `v` / `i` (sound / video / picture), used when the kind can't be told from the link.
+Each spot is written as `link~yaw~pitch~flags~label~width°~corners~turn`. Text spots use `t:` followed by the text instead of a link. Corners (only for pinned spots) are eight whole-degree offsets from the centre: top-left, top-right, bottom-right, bottom-left, each as yaw,pitch. Turn (only for 3D models) is `turn,tilt,roll` in whole degrees. `mb` is only included when it isn't 1 (normal). The flags are `l` (plays/shows when looked at), `s` (plays at start), `h` (hidden), `r` (loop), `d` (appears after the dot), `o` (3D model spins), and `a` / `v` / `i` / `k` / `m` (sound / video / picture / link / 3D model), used when the kind can't be told from the link.
 
-Links from older versions that use `a=` for background sound still work, and the author page turns that sound into a hidden spot.
+**The format is safe for email and chat.** It uses only characters that email, chat and document apps keep inside a clickable link. Inside each field, `% ~ | ! * ' ( )` and line breaks are escaped. Links always end with `v=2`, so a full stop or bracket at the end of a label can't be mistaken for the end of the sentence.
 
-Google Drive and YouTube links are stored as short codes (`gd:<id>`, `yt:<id>`) so the QR code stays easy to scan.
+**Short codes** keep the link and QR code smaller:
+
+| Code | Stands for |
+|---|---|
+| `yt:ID` (`yt:ID.65` = start at 65 s) | a YouTube video |
+| `gd:ID` | a Google Drive file |
+| `wp:` | `https://en.wikipedia.org/wiki/` |
+| `db:` | `https://www.dropbox.com/` |
+| `od:` | `https://1drv.ms/` |
+| `gx:` | `https://docs.google.com/` |
+| `w:` | `https://www.` |
+| `h:` | `https://` |
+| `folder/file.ext` | a file on this site |
+
+Once a code is used in a printed QR code it must keep its meaning forever. New codes can be added, but existing ones must never change.
+
+**Older links** (made before the change to `~`, using `|` between fields and `view.html` in the address) are still read correctly.

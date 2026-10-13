@@ -11,7 +11,13 @@
  *   hidden     nothing shown; it just plays (needs 'look' or 'start')
  *   loop       start again when it ends
  *
- * In a link, a spot is written as   src|yaw|pitch|flags|label|w
+ *   pin        optional: the four corners [[dyaw, dpitch] × 4] (top-left, top-right, bottom-right,
+ *              bottom-left) relative to the centre, so a picture can be fitted to a wall in perspective
+ *
+ * In a link, a spot is written as   src~yaw~pitch~flags~label~w~pin   (pin = 8 numbers, comma-separated).
+ * Inside each field, % ~ | ! * ' ( ) and line breaks are escaped (%25, %7E …) so the separators stay
+ * unambiguous and the whole link survives being pasted into emails and chats.
+ * Links made before October 2026 used | as the separator; those are still read.
  * flags: l = look, s = start, h = hidden, r = loop, and a / v / i for sound / video / image
  * when that can't be told from the link itself (e.g. a Google Drive link)
  */
@@ -42,52 +48,101 @@
   };
 
   // ------------------------------------------------------------------ what kind of spot is this?
-  // What the link itself suggests: 'video' | 'audio' | 'image', or '' if it can't tell (e.g. Drive links)
+  // File-sharing links don't say what kind of file they are
+  const FILE_HOSTS = /(drive\.google\.com\/(file|open|uc)|docs\.google\.com\/uc|1drv\.ms|onedrive\.live\.com|sharepoint\.com|dropbox\.com)/i;
+
+  // What the link (or text) itself suggests: 'video' | 'audio' | 'image' | 'link' | 'text',
+  // or '' when it can't tell (e.g. Google Drive links)
   function guessKind(src) {
+    src = Media.expand(src);
+    if (!src || /^gd:/.test(src)) return '';
     if (Media.youTube(src) || Media.looksLikeVideo(src)) return 'video';
     if (Media.looksLikeImage(src)) return 'image';
     if (Media.looksLikeAudio(src)) return 'audio';
-    return '';
+    if (Media.looksLikeModel(src)) return 'model';
+    if (/^(https?:\/\/|www\.)/i.test(src)) return FILE_HOSTS.test(src) ? '' : 'link';
+    if (/^[\w.\/~-]+$/.test(src) && src.includes('/')) return '';   // a file on this site
+    return 'text';                                                    // anything else is words to show
   }
   // The kind it will actually be shown as
   function kindOf(d) {
-    const guess = guessKind(d.src), t = d.type || (d.audioOnly ? 'audio' : '');
+    const t = d.type || (d.audioOnly ? 'audio' : '');
+    const guess = guessKind(d.src);
+    if (t === 'text' || guess === 'text') return 'text';
+    if (t === 'link') return 'link';
     if (Media.youTube(d.src)) return t === 'audio' ? 'audio' : 'video';
     if (guess === 'image') return 'image';
     if (guess === 'audio') return 'audio';
+    if (guess === 'model') return 'model';
     if (guess === 'video') return t === 'audio' ? 'audio' : 'video';
+    if (guess === 'link') return t || 'link';      // a web page, unless the author says it's really a file
     return t || 'audio';
   }
+  // Only ordinary web addresses may be opened from a link spot
+  function safeUrl(src) {
+    let u = Media.expand(src);
+    if (/^www\./i.test(u)) u = 'https://' + u;
+    try {
+      const url = new URL(u, location.href);
+      return /^https?:$/.test(url.protocol) ? url.href : '';
+    } catch (e) { return ''; }
+  }
+  // Text is stored in the link with | % and line breaks escaped
+  // Older |-separated links: text was stored with only | % and line breaks escaped
+  const unpackOldText = t => t.slice(2).replace(/%0A/gi, '\n').replace(/%7C/gi, '|').replace(/%25/g, '%');
+  // Escaping inside a field (new ~-separated links)
+  const FIELD_ESC = { '%': '%25', '~': '%7E', '|': '%7C', '!': '%21', '*': '%2A', "'": '%27', '(': '%28', ')': '%29', '\n': '%0A' };
+  const escField = v => String(v).replace(/\r?\n/g, '\n').replace(/[%~|!*'()\n]/g, c => FIELD_ESC[c]);
+  const unescField = v => String(v).replace(/%(25|7E|7C|21|2A|27|28|29|0A)/gi, (m, h) => h.toUpperCase() === '0A' ? '\n' : String.fromCharCode(parseInt(h, 16)));
 
   // ------------------------------------------------------------------ link format
   function encodeSpot(s, shorten) {
     const kind = kindOf(s), guess = guessKind(s.src);
-    const kindFlag = kind === guess || (kind === 'video' && Media.youTube(s.src)) ? '' : { audio: 'a', video: 'v', image: 'i' }[kind];
+    const kindFlag = kind === 'text' || kind === guess || (kind === 'video' && Media.youTube(s.src)) ? ''
+      : { audio: 'a', video: 'v', image: 'i', link: 'k', model: 'm' }[kind];
     const flags = (s.play === 'look' ? 'l' : s.play === 'start' ? 's' : '') + kindFlag +
-      (s.hidden ? 'h' : '') + (s.loop ? 'r' : '');
-    const label = (s.label || '').replace(/\|/g, '/').trim();
+      (s.hidden ? 'h' : '') + (s.loop ? 'r' : '') + (s.dwell ? 'd' : '') + (s.spin ? 'o' : '');
+    const label = (s.label || '').trim();
     const w = s.w && Math.round(s.w) !== DEFAULT_W ? Math.round(s.w) : '';
-    return [shorten ? Media.shorten(s.src) : s.src.trim(), Math.round(s.yaw), Math.round(s.pitch), flags, label, w]
-      .join('|').replace(/\|+$/, '');
+    const src = kind === 'text' ? 't:' + s.src.trim() : shorten ? Media.shorten(s.src) : s.src.trim();
+    const pin = validPin(s.pin) ? s.pin.map(c => c.map(n => Math.round(n)).join(',')).join(',') : '';
+    const rot = Array.isArray(s.rot) && s.rot.some(n => Math.round(n)) ? s.rot.map(n => Math.round(n)).join(',') : '';
+    return [escField(src), Math.round(s.yaw), Math.round(s.pitch), flags, escField(label), w, pin, rot].join('~').replace(/~+$/, '');
   }
   function decodeSpot(str) {
-    const parts = String(str || '').split('|');
+    str = String(str || '');
+    const old = str.includes('|');                    // links made before October 2026
+    const parts = old ? str.split('|') : str.split('~').map(unescField);
     if (!parts[0]) return null;
     const flags = parts[3] || '';
+    const isText = /^t:/.test(parts[0]);
     return {
-      src: parts[0],
+      src: isText ? (old ? unpackOldText(parts[0]) : parts[0].slice(2)) : parts[0],
       yaw: Number(parts[1]) || 0,
       pitch: Number(parts[2]) || 0,
       play: flags.includes('l') ? 'look' : flags.includes('s') ? 'start' : 'tap',
-      type: flags.includes('i') ? 'image' : flags.includes('a') ? 'audio' : flags.includes('v') ? 'video' : '',
+      type: isText ? 'text' : flags.includes('m') ? 'model' : flags.includes('k') ? 'link' : flags.includes('i') ? 'image' : flags.includes('a') ? 'audio' : flags.includes('v') ? 'video' : '',
+      dwell: flags.includes('d'),
       hidden: flags.includes('h'),
       loop: flags.includes('r'),
       label: parts[4] || '',
-      w: Number(parts[5]) || DEFAULT_W
+      w: Number(parts[5]) || DEFAULT_W,
+      pin: parsePin(parts[6]),
+      spin: flags.includes('o'),
+      rot: (() => { const r = String(parts[7] || '').split(',').map(Number); return r.length === 3 && r.every(Number.isFinite) ? r : [0, 0, 0]; })()
     };
   }
+  function validPin(p) {
+    return Array.isArray(p) && p.length === 4 && p.every(c => Array.isArray(c) && c.length === 2 && c.every(Number.isFinite));
+  }
+  function parsePin(str) {
+    const n = String(str || '').split(',').map(Number);
+    if (n.length !== 8 || !n.every(Number.isFinite)) return null;
+    return [[n[0], n[1]], [n[2], n[3]], [n[4], n[5]], [n[6], n[7]]];
+  }
   // Settings that need the player rebuilt when they change (moving, resizing and relabelling don't)
-  const rebuildKey = d => [d.src, kindOf(d), d.play, !!d.hidden, !!d.loop].join('|');
+  const rebuildKey = d => [d.src, kindOf(d), d.play, !!d.hidden, !!d.loop, !!d.dwell, kindOf(d) === 'link' ? d.label : ''].join('|');
+  const MODEL_DIST = 8;            // 3D models sit this far from the viewer (the 360 photo is much further away)
 
   function el(tag, cls, html) {
     const e = document.createElement(tag);
@@ -109,7 +164,7 @@
     const THREE = AFRAME.THREE;
     const tmp = new THREE.Vector3(), fwd = new THREE.Vector3();
     let spots = [];
-    let started = false, muted = false, selected = -1;
+    let started = false, muted = false, selected = -1, lastTick = 0;
 
     function dirFrom(yaw, pitch) {
       const y = yaw * Math.PI / 180, p = pitch * Math.PI / 180;
@@ -128,7 +183,9 @@
         const old = spots.find(s => s.index === i && !s.used && s.key === rebuildKey(d));
         if (old) {                                     // same media and settings: just move/resize/relabel
           old.used = true;
-          Object.assign(old, { yaw: d.yaw, pitch: d.pitch, w: d.w || DEFAULT_W, label: d.label, dir: dirFrom(d.yaw, d.pitch) });
+          Object.assign(old, { yaw: d.yaw, pitch: d.pitch, w: d.w || DEFAULT_W, label: d.label, dir: dirFrom(d.yaw, d.pitch),
+            pin: validPin(d.pin) ? d.pin.map(c => c.slice()) : null, lastW: null,
+            rot: Array.isArray(d.rot) ? d.rot.slice() : [0, 0, 0], spin: !!d.spin });
           if (old.labelEl) { old.labelEl.textContent = labelText(old); old.labelEl.hidden = !labelText(old); }
           next.push(old);
         } else {
@@ -144,30 +201,45 @@
     function labelText(s) {
       if (s.label) return s.label;
       if (s.frame) return '';
-      return s.isImage ? 'Picture' : s.showsPicture ? 'Video' : 'Sound';
+      return s.isImage ? 'Picture' : s.isLink ? 'Link' : s.showsPicture ? 'Video' : 'Sound';
     }
 
     function build(def, index) {
       const s = Object.assign({}, def, {
         index: index, key: rebuildKey(def), w: def.w || DEFAULT_W, dir: dirFrom(def.yaw, def.pitch),
+        pin: validPin(def.pin) ? def.pin.map(c => c.slice()) : null,
         yt: Media.youTube(def.src), player: null, ready: false, playing: false,
         wantPlay: false, userPaused: false, lookStarted: false
       });
       s.kind = kindOf(def);
       s.isImage = s.kind === 'image';
+      s.isText = s.kind === 'text';
+      s.isLink = s.kind === 'link';
+      s.isModel = s.kind === 'model';
+      s.rot = Array.isArray(def.rot) ? def.rot.slice() : [0, 0, 0];
+      s.isStill = s.isImage || s.isText || s.isLink || s.isModel;   // nothing to play
       s.isVideoFile = !s.yt && s.kind === 'video';
-      if (s.isImage) { s.hidden = false; s.loop = false; if (s.play === 'start') s.play = 'tap'; }
+      if (s.isStill) { s.hidden = false; s.loop = false; if (s.play === 'start' || !(s.isImage || s.isModel)) s.play = 'tap'; }
+      if (s.isModel) s.pin = null;
+      if (s.dwell) {                                            // shown (and played) once the dot has been looked at
+        s.hidden = false;
+        if (s.play !== 'tap') s.play = 'tap';
+      }
       if (s.hidden && s.play === 'tap') s.hidden = false;       // otherwise nothing could ever play it
       s.showsPicture = s.kind !== 'audio';
-      s.inScene = s.showsPicture && !s.hidden;                  // a video or picture sitting in the room
+      s.inScene = s.showsPicture && !s.hidden;                  // something sitting in the room
       s.aspect = s.isImage ? 4 / 3 : 16 / 9;                    // a picture's real shape arrives when it loads
 
       const visible = !s.hidden || opts.editable;               // the author still sees hidden spots, faintly
-      if (visible && s.isImage) buildImage(s);
+      if (visible && s.isModel) buildModel(s);
+      else if (visible && s.isImage) buildImage(s);
+      else if (visible && s.isText) buildText(s);
+      else if (visible && s.isLink) buildLink(s);
       else if (visible && s.inScene) buildFrame(s);
       else if (visible) buildMarker(s);
+      if (s.dwell && s.el) addDwell(s);
 
-      if (s.isImage) return s;                                  // nothing to play
+      if (s.isStill) return s;
       if (!s.mediaHost) {                                       // sound only / hidden: the player lives off screen
         s.mediaHost = el('div', 'spot-offscreen');
         opts.offscreen.appendChild(s.mediaHost);
@@ -267,6 +339,281 @@
       close.focus();
     }
 
+    // ---------------------------------------------------------- 3D models
+    // A real 3D object in the scene (glTF/GLB, OBJ or STL). It sits MODEL_DIST from the viewer in its
+    // direction, turned to face them, sized so it spans s.w degrees, and turned by s.rot = [turn, tilt, roll].
+    // A see-through box in the page follows it on screen, for tapping (and, for the author, handles).
+    // One brightness for every model (the author's slider), so they can be matched to the photo's lighting
+    let lights = null, brightness = opts.brightness > 0 ? opts.brightness : 1;
+    const HEMI = 1.6, SUN = 1.4;
+    function setBrightness(f) {
+      brightness = f > 0 ? f : 1;
+      if (!lights) return;
+      lights[0].setAttribute('light', 'intensity', HEMI * brightness);
+      lights[1].setAttribute('light', 'intensity', SUN * brightness);
+    }
+    function addLights() {
+      if (lights) return;
+      const hemi = document.createElement('a-entity');
+      hemi.setAttribute('light', 'type: hemisphere; color: #ffffff; groundColor: #8a7458; intensity: ' + HEMI * brightness);
+      const sun = document.createElement('a-entity');
+      lights = [hemi, sun];
+      sun.setAttribute('light', 'type: directional; color: #fff6e6; intensity: ' + SUN * brightness);
+      sun.setAttribute('position', '1 2 1.5');
+      opts.sceneEl.append(hemi, sun);
+      // Draco-compressed glTF files need this decoder
+      opts.sceneEl.setAttribute('gltf-model', 'dracoDecoderPath: https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+    }
+
+    function buildModel(s) {
+      addLights();
+      const THREE_ = THREE;
+      s.ent = document.createElement('a-entity');        // positioned and facing the viewer
+      s.turn = document.createElement('a-entity');       // the author's turn / tilt / roll
+      s.fit = document.createElement('a-entity');        // scale and centring
+      s.turn.appendChild(s.fit);
+      s.ent.appendChild(s.turn);
+      opts.sceneEl.appendChild(s.ent);
+      const { url } = Media.resolveMediaUrl(s.src, 'model');
+      const fail = msg => opts.onError(s.index, msg || 'This 3D model couldn’t be loaded. Use a .glb file in this site’s GitHub repo or on Dropbox — Google Drive won’t work for 3D models.');
+      const ready = obj => {
+        // Centre it and measure it once, in its holder's own space (not where it happens to be in the room);
+        // sizing then happens every frame from s.w
+        const parent = obj.parent;
+        if (parent) parent.remove(obj);
+        obj.updateMatrixWorld(true);
+        const box = new THREE_.Box3().setFromObject(obj);
+        if (parent) parent.add(obj);
+        const size = box.getSize(new THREE_.Vector3()), centre = box.getCenter(new THREE_.Vector3());
+        obj.position.sub(centre);
+        s.maxDim = Math.max(size.x, size.y, size.z) || 1;
+        s.modelObj = obj;
+        s.localBox = new THREE_.Box3().setFromCenterAndSize(new THREE_.Vector3(), size);
+        if (s.el) s.el.classList.add('loaded');
+      };
+      if (/\.stl(\?|#|$)/i.test(Media.expand(s.src))) {
+        fetch(url, { mode: 'cors' }).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); }).then(buf => {
+          const geo = parseSTL(buf);
+          const mesh = new THREE_.Mesh(geo, new THREE_.MeshStandardMaterial({ color: 0xcdbfa8, roughness: 0.6, metalness: 0.05 }));
+          mesh.rotation.x = -Math.PI / 2;                 // 3D-printing files are Z-up; the scene is Y-up
+          const holder = new THREE_.Group(); holder.add(mesh); holder.updateMatrixWorld(true);
+          s.fit.setObject3D('mesh', holder);
+          ready(holder);
+        }).catch(() => fail());
+      } else if (/\.obj(\?|#|$)/i.test(Media.expand(s.src))) {
+        s.fit.addEventListener('model-loaded', () => ready(s.fit.getObject3D('mesh')), { once: true });
+        s.fit.addEventListener('model-error', () => fail(), { once: true });
+        s.fit.setAttribute('obj-model', 'obj: url(' + url + ')');
+      } else {
+        s.fit.addEventListener('model-loaded', () => ready(s.fit.getObject3D('mesh')), { once: true });
+        s.fit.addEventListener('model-error', () => fail(), { once: true });
+        s.fit.setAttribute('gltf-model', 'url(' + url + ')');
+      }
+
+      // The on-screen box that follows the model
+      s.el = el('div', 'spot spot-model' + (s.play === 'look' ? ' on-look' : ''));
+      s.frame = el('div', 'spot-frame');
+      s.labelEl = el('div', 'spot-cap');
+      s.labelEl.textContent = s.label || '';
+      s.labelEl.hidden = !s.label;
+      s.frame.appendChild(s.labelEl);
+      if (opts.editable) {
+        addEditHandles(s);
+        const rot = el('span', 'spot-handle h-rot', '');
+        rot.dataset.corner = 'rot';
+        rot.title = 'Drag to turn it (up and down tilts it)';
+        s.frame.querySelector('.spot-edit').appendChild(rot);
+      } else {
+        s.frame.setAttribute('role', 'button');
+        s.frame.tabIndex = 0;
+        s.frame.setAttribute('aria-label', 'Look at ' + (s.label || '3D model') + ' up close');
+        s.frame.addEventListener('click', () => openInspector(s));
+        s.frame.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openInspector(s); } });
+      }
+      s.el.appendChild(s.frame);
+      opts.layer.appendChild(s.el);
+    }
+
+    // STL (from Tinkercad, Fusion, 3D-printing sites): binary or text
+    function parseSTL(buf) {
+      const dv = new DataView(buf);
+      const n = buf.byteLength >= 84 ? dv.getUint32(80, true) : 0;
+      const pos = [];
+      if (84 + n * 50 === buf.byteLength) {
+        for (let i = 0; i < n; i++) {
+          const o = 84 + i * 50 + 12;
+          for (let v = 0; v < 9; v++) pos.push(dv.getFloat32(o + v * 4, true));
+        }
+      } else {
+        const text = new TextDecoder().decode(buf);
+        const re = /vertex\s+([-\d.eE+]+)\s+([-\d.eE+]+)\s+([-\d.eE+]+)/g;
+        let m; while ((m = re.exec(text))) pos.push(+m[1], +m[2], +m[3]);
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      geo.computeVertexNormals();
+      return geo;
+    }
+
+    // Tap a model to turn it over in your hands: drag to rotate, pinch or scroll to zoom
+    function openInspector(s) {
+      if (!s.modelObj || (s.play === 'look' && !s.el.classList.contains('shown'))) return;
+      const box = el('div', 'lightbox inspector');
+      box.setAttribute('role', 'dialog');
+      box.setAttribute('aria-label', (s.label || '3D model') + ', up close');
+      const canvas = el('canvas', 'inspector-canvas');
+      const close = el('button', 'lightbox-close', '✕');
+      close.setAttribute('aria-label', 'Close');
+      const tip = el('p', 'lightbox-cap', (s.label ? esc(s.label) + ' · ' : '') + 'Drag to turn it · pinch or scroll to zoom');
+      box.append(canvas, close, tip);
+      document.body.appendChild(box);
+
+      const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+      const scene = new THREE.Scene();
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7458, 1.8 * brightness));
+      const sun = new THREE.DirectionalLight(0xfff6e6, 1.6 * brightness); sun.position.set(1, 2, 2); scene.add(sun);
+      const holder = new THREE.Group();
+      const copy = s.modelObj.clone(true);
+      holder.add(copy);
+      holder.rotation.order = 'YXZ';
+      holder.rotation.set(s.rot[1] * Math.PI / 180, s.rot[0] * Math.PI / 180, s.rot[2] * Math.PI / 180);
+      holder.scale.setScalar(1 / s.maxDim);
+      scene.add(holder);
+      const camera = new THREE.PerspectiveCamera(35, 1, 0.01, 100);
+      let dist = 2.2, rx = 0.25, ry = 0, alive = true, fitted = false;
+      const resize = () => {
+        const w = box.clientWidth, h = box.clientHeight - 60;
+        renderer.setSize(w, h, false); canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+        camera.aspect = w / h; camera.updateProjectionMatrix();
+        // Start far enough back that the whole thing fits, even on a tall, narrow phone screen
+        if (!fitted) { fitted = true; dist = 0.8 / Math.tan(17.5 * Math.PI / 180) / Math.min(1, camera.aspect); }
+      };
+      resize(); window.addEventListener('resize', resize);
+      const tick = () => {
+        if (!alive) return;
+        camera.position.set(Math.sin(ry) * Math.cos(rx) * dist, Math.sin(rx) * dist, Math.cos(ry) * Math.cos(rx) * dist);
+        camera.lookAt(0, 0, 0);
+        renderer.render(scene, camera);
+        requestAnimationFrame(tick);
+      };
+      tick();
+      const pts = new Map(); let pinch = 0;
+      canvas.style.touchAction = 'none';
+      canvas.addEventListener('pointerdown', e => { try { canvas.setPointerCapture(e.pointerId); } catch (err) {} pts.set(e.pointerId, [e.clientX, e.clientY]); });
+      canvas.addEventListener('pointermove', e => {
+        const p = pts.get(e.pointerId); if (!p) return;
+        const dx = e.clientX - p[0], dy = e.clientY - p[1];
+        pts.set(e.pointerId, [e.clientX, e.clientY]);
+        if (pts.size === 2) {
+          const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+          if (pinch) dist = Math.max(0.6, Math.min(12, dist * pinch / d));
+          pinch = d; return;
+        }
+        ry -= dx * 0.01; rx = Math.max(-1.4, Math.min(1.4, rx + dy * 0.01));
+      });
+      const up = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = 0; };
+      canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
+      canvas.addEventListener('wheel', e => { e.preventDefault(); dist = Math.max(0.6, Math.min(12, dist * (e.deltaY > 0 ? 1.1 : 0.9))); }, { passive: false });
+      const onKey = e => {
+        if (e.key === 'Escape') shut();
+        else if (e.key === 'ArrowLeft') ry -= 0.15; else if (e.key === 'ArrowRight') ry += 0.15;
+        else if (e.key === 'ArrowUp') rx = Math.min(1.4, rx + 0.15); else if (e.key === 'ArrowDown') rx = Math.max(-1.4, rx - 0.15);
+      };
+      const shut = () => {
+        alive = false; renderer.dispose(); box.remove();
+        window.removeEventListener('resize', resize); document.removeEventListener('keydown', onKey);
+      };
+      close.addEventListener('click', shut);
+      document.addEventListener('keydown', onKey);
+      close.focus();
+    }
+
+    // Words on a card in the room. Tap to read them full screen.
+    function buildText(s) {
+      s.el = el('div', 'spot spot-text');
+      s.frame = el('div', 'spot-frame');
+      s.labelEl = el('div', 'spot-cap');
+      s.labelEl.textContent = s.label || '';
+      s.labelEl.hidden = !s.label;
+      s.body = el('div', 'spot-words');
+      s.body.textContent = s.src;
+      s.frame.append(s.labelEl, s.body);
+      if (opts.editable) addEditHandles(s);
+      else {
+        s.frame.setAttribute('role', 'button');
+        s.frame.tabIndex = 0;
+        s.frame.setAttribute('aria-label', (s.label ? s.label + ': ' : '') + s.src);
+        const open = () => openReader(s);
+        s.frame.addEventListener('click', open);
+        s.frame.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+      }
+      s.el.appendChild(s.frame);
+      opts.layer.appendChild(s.el);
+    }
+
+    // A button that opens a web page in a new tab
+    function buildLink(s) {
+      s.el = el('div', 'spot spot-link');
+      s.frame = el('div', 'spot-frame');
+      const href = safeUrl(s.src);
+      const a = el('a', 'spot-a');
+      let text = s.label;
+      if (!text) { try { text = new URL(href).hostname.replace(/^www\./, ''); } catch (e) { text = 'Open link'; } }
+      a.innerHTML = '<span class="spot-a-ico" aria-hidden="true">🔗</span><span class="spot-a-text"></span><span aria-hidden="true">↗</span>';
+      a.querySelector('.spot-a-text').textContent = text;
+      if (href) { a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; }
+      else opts.onError(s.index, 'Link spots need a web address starting with https://');
+      a.setAttribute('aria-label', text + ' (opens in a new tab)');
+      a.draggable = false;
+      s.labelEl = a.querySelector('.spot-a-text');
+      s.frame.appendChild(a);
+      if (opts.editable) { addEditHandles(s); a.addEventListener('click', e => e.preventDefault()); }
+      s.el.appendChild(s.frame);
+      opts.layer.appendChild(s.el);
+    }
+
+    // A small dot that reveals (and starts) the spot once the crosshair has rested on it
+    const DWELL_MS = 1500;
+    function addDwell(s) {
+      s.el.classList.add('dwell');
+      s.dwellT = 0;
+      const dot = el('button', 'spot-dwell',
+        '<svg viewBox="0 0 44 44" aria-hidden="true"><circle class="dw-bg" cx="22" cy="22" r="18"/>' +
+        '<circle class="dw-ring" cx="22" cy="22" r="18" pathLength="100"/></svg><span class="dw-core" aria-hidden="true"></span>');
+      dot.setAttribute('aria-label', 'Show ' + (s.label || labelText(s) || 'this'));
+      dot.addEventListener('click', e => { e.stopPropagation(); reveal(s); });   // tapping works too
+      dot.addEventListener('pointerdown', e => { if (opts.editable) e.stopPropagation(); });
+      s.dwellRing = dot.querySelector('.dw-ring');
+      s.dwellDot = dot;
+      s.el.appendChild(dot);
+    }
+    function reveal(s) {
+      if (s.revealed) return;
+      s.revealed = true;
+      s.el.classList.add('revealed');
+      if (!s.isStill) { s.userPaused = false; play(s); }
+    }
+
+    // Full-screen reading view for text spots
+    function openReader(s) {
+      const box = el('div', 'lightbox reader');
+      box.setAttribute('role', 'dialog');
+      box.setAttribute('aria-label', s.label || 'Text');
+      const card = el('div', 'reader-card');
+      if (s.label) card.appendChild(el('h2', '', esc(s.label)));
+      const p = el('p'); p.textContent = s.src; card.appendChild(p);
+      const close = el('button', 'lightbox-close', '✕');
+      close.setAttribute('aria-label', 'Close');
+      box.append(card, close);
+      const shut = () => { box.remove(); document.removeEventListener('keydown', onKey); };
+      const onKey = e => { if (e.key === 'Escape') shut(); };
+      box.addEventListener('click', shut);
+      document.addEventListener('keydown', onKey);
+      document.body.appendChild(box);
+      close.focus();
+    }
+
     // A speaker (or, for the author, a faint marker for a hidden spot)
     function buildMarker(s) {
       s.el = el('div', 'spot spot-audio' + (s.hidden ? ' ghost' : ''));
@@ -290,6 +637,7 @@
       try { if (s.player && s.player.destroy) s.player.destroy(); } catch (e) {}
       if (s.media) { s.media.pause(); s.media.removeAttribute('src'); s.media.load(); }
       if (s.el) s.el.remove();
+      if (s.ent) s.ent.parentNode && s.ent.parentNode.removeChild(s.ent);
       if (s.mediaHost && s.mediaHost.parentNode === opts.offscreen) s.mediaHost.remove();
       if (s.playing) { s.playing = false; activityChanged(); }
     }
@@ -418,6 +766,8 @@
     // The size it's shown at right now: a playing YouTube video never goes below YouTube's minimum
     function frameWidth(s) {
       if (s.yt) return s.expanded ? Math.max(YT_MIN_PX, s.w * pxPerDegree()) : authoredWidth(s);
+      if (s.isText || s.isLink) return Math.max(60, s.w * pxPerDegree());
+      if (s.isModel) return s.boxW || 40;
       return Math.max(s.isImage ? 24 : 120, s.w * pxPerDegree());
     }
     // Screen point → direction in the room
@@ -429,6 +779,61 @@
       return v.sub(origin).normalize();
     }
 
+    // ---------------------------------------------------------- pinned corners
+    const PIN_W = 400;                 // pinned spots are laid out at this width, then warped onto their corners
+    const wrap180 = a => ((a % 360) + 540) % 360 - 180;
+
+    // The flat, upright rectangle a spot fills now, as corner offsets in degrees (the starting point for pinning)
+    function rectPin(s) {
+      const aspect = (s.isText || s.isLink) && s.frame && s.frame.offsetHeight
+        ? s.frame.offsetWidth / s.frame.offsetHeight : s.aspect || 16 / 9;
+      const c = anglesFrom(s.dir);
+      const hh = s.w / aspect / 2;
+      const hw = s.w / 2 / Math.max(0.2, Math.cos(c.pitch * Math.PI / 180));
+      return [[hw, hh], [-hw, hh], [-hw, -hh], [hw, -hh]];
+    }
+    // The CSS transform that maps a W×H box onto four screen points (a projective "corner pin")
+    function quadMatrix(W, H, p) {
+      const [x0, y0] = p[0], [x1, y1] = p[1], [x2, y2] = p[2], [x3, y3] = p[3];
+      const dx1 = x1 - x2, dx2 = x3 - x2, dx3 = x0 - x1 + x2 - x3;
+      const dy1 = y1 - y2, dy2 = y3 - y2, dy3 = y0 - y1 + y2 - y3;
+      const den = dx1 * dy2 - dx2 * dy1 || 1e-9;
+      const g = (dx3 * dy2 - dx2 * dy3) / den, hh = (dx1 * dy3 - dx3 * dy1) / den;
+      const a = x1 - x0 + g * x1, b = x3 - x0 + hh * x3, c = x0;
+      const d = y1 - y0 + g * y1, e = y3 - y0 + hh * y3, f = y0;
+      const m = [a / W, d / W, 0, g / W, b / H, e / H, 0, hh / H, 0, 0, 1, 0, c, f, 0, 1];
+      return 'matrix3d(' + m.map(v => +v.toFixed(8)).join(',') + ')';
+    }
+    function insideQuad(q, px, py, grow) {
+      const cx = (q[0][0] + q[1][0] + q[2][0] + q[3][0]) / 4, cy = (q[0][1] + q[1][1] + q[2][1] + q[3][1]) / 4;
+      const pts = q.map(([x, y]) => {
+        const dx = x - cx, dy = y - cy, l = Math.hypot(dx, dy) || 1;
+        return [x + dx / l * grow, y + dy / l * grow];
+      });
+      let sign = 0;
+      for (let i = 0; i < 4; i++) {
+        const [ax, ay] = pts[i], [bx, by] = pts[(i + 1) % 4];
+        const cr = (bx - ax) * (py - ay) - (by - ay) * (px - ax);
+        if (cr !== 0) { if (sign && Math.sign(cr) !== sign) return false; sign = Math.sign(cr); }
+      }
+      return true;
+    }
+    // Author: switch a spot between a flat rectangle and four movable corners
+    function pinSpot(i, on) {
+      const s = spots.find(x => x.index === i);
+      if (!s || !s.frame) return;
+      s.pin = on ? (s.pin || rectPin(s)) : null;
+      s.lastW = null;
+      reportEdit(s);
+    }
+    function reportEdit(s) {
+      const a = anglesFrom(s.dir);
+      s.yaw = a.yaw; s.pitch = a.pitch;
+      opts.onEdit(s.index, { yaw: Math.round(a.yaw), pitch: Math.round(a.pitch), w: Math.round(s.w),
+        pin: s.pin ? s.pin.map(c => c.map(n => Math.round(n))) : null,
+        rot: s.isModel ? s.rot.map(n => Math.round(n)) : undefined });
+    }
+
     // ---------------------------------------------------------- every frame (after A-Frame draws)
     function update() {
       const camera = opts.sceneEl.camera;
@@ -437,6 +842,8 @@
       const canvas = opts.sceneEl.canvas;
       const w = canvas.clientWidth, h = canvas.clientHeight;
       const ppd = pxPerDegree();
+      const now = performance.now(), dt = Math.min(100, now - (lastTick || now));
+      lastTick = now;
 
       spots.forEach(s => {
         const angle = fwd.angleTo(s.dir) * 180 / Math.PI;
@@ -446,10 +853,24 @@
           x = (tmp.x + 1) / 2 * w; y = (1 - tmp.y) / 2 * h;
         }
 
+        if (s.isModel && s.ent && s.ent.object3D) placeModel(s, camera, w, h, dt);
+
+        // A dot waiting to be looked at: fill its ring while the crosshair rests on it
+        if (s.dwell && !s.revealed) {
+          if (started && onScreen && !s.dragging) {
+            const near = Math.hypot(w / 2 - x, h / 2 - y) < 30;
+            s.dwellT = near ? s.dwellT + dt : Math.max(0, s.dwellT - dt * 2);
+            if (s.dwellRing) s.dwellRing.style.strokeDashoffset = String(100 - Math.min(100, s.dwellT / DWELL_MS * 100));
+            if (s.dwellT >= DWELL_MS) reveal(s);
+          }
+        }
         // "Plays when looked at": while the centre of the screen (the crosshair) is on it
-        if (started && s.play === 'look' && !s.dragging) {
+        else if (started && s.play === 'look' && !s.dragging) {
           let on, off;
-          if (s.inScene && onScreen) {
+          if (s.inScene && onScreen && s.quad) {                    // pinned: the crosshair inside its four corners
+            on = insideQuad(s.quad, w / 2, h / 2, 0);
+            off = !insideQuad(s.quad, w / 2, h / 2, 6);
+          } else if (s.inScene && onScreen) {
             // Starts when the crosshair is on the spot as the author sized it; stops when it leaves
             // what's showing (for YouTube that's the bigger player while it plays)
             const aw = s.yt ? authoredWidth(s) : frameWidth(s), fw = frameWidth(s);
@@ -461,7 +882,7 @@
           } else {
             on = angle < 12; off = angle > 18;                      // sounds: about the size of their marker
           }
-          if (s.isImage) {                                          // pictures fade in while looked at
+          if (s.isImage || s.isModel) {                                        // pictures fade in while looked at
             if (on) s.el && s.el.classList.add('shown');
             else if (off) s.el && s.el.classList.remove('shown');
           } else if (on && !s.playing && !s.wantPlay && !s.userPaused) { s.lookStarted = true; play(s); }
@@ -475,11 +896,72 @@
         if (!onScreen) { s.el.style.visibility = 'hidden'; return; }
         s.el.style.visibility = 'visible';
         s.el.style.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px)';
+        const pinned = s.frame && s.pin && !(s.yt && s.expanded);   // a playing YouTube video goes flat
+        s.el.classList.toggle('pinned', !!pinned);
+        if (pinned) {
+          // Project the four corners and warp the spot onto them
+          const c = anglesFrom(s.dir), q = [];
+          for (const [dy, dp] of s.pin) {
+            const cd = dirFrom(c.yaw + dy, c.pitch + dp);
+            if (fwd.dot(cd) < 0.12) { s.el.style.visibility = 'hidden'; s.quad = null; return; }
+            tmp.copy(cd).multiplyScalar(50).project(camera);
+            q.push([(tmp.x + 1) / 2 * w, (1 - tmp.y) / 2 * h]);
+          }
+          s.quad = q;
+          if (s.lastW !== 'pin') {
+            s.frame.style.width = PIN_W + 'px';
+            if (s.isText) s.frame.style.fontSize = (PIN_W * 0.075) + 'px';
+            if (s.isLink) s.frame.style.fontSize = (PIN_W * 0.09) + 'px';
+            s.lastW = 'pin';
+            s.pinH = s.frame.offsetHeight || PIN_W * 9 / 16;
+          }
+          s.frame.style.transform = quadMatrix(PIN_W, s.pinH, q.map(([px, py]) => [px - x, py - y]));
+          if (opts.editable) {          // keep the author's corner tags a usable size however small the warp makes them
+            const qw = (Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]) + Math.hypot(q[2][0] - q[3][0], q[2][1] - q[3][1])) / 2;
+            s.frame.style.setProperty('--hs', Math.min(80, 18 * PIN_W / Math.max(20, qw)).toFixed(1) + 'px');
+          }
+          return;
+        }
+        s.quad = null;
+        if (s.frame && s.frame.style.transform) s.frame.style.transform = '';
         if (s.frame) {
           const fw = Math.round(frameWidth(s));
-          if (fw !== s.lastW) { s.frame.style.width = fw + 'px'; s.lastW = fw; }
+          if (fw !== s.lastW) {
+            s.frame.style.width = fw + 'px';
+            s.lastW = fw;
+            if (s.isText) s.frame.style.fontSize = Math.max(9, Math.min(40, fw * 0.075)).toFixed(1) + 'px';
+            if (s.isLink) s.frame.style.fontSize = Math.max(9, Math.min(36, fw * 0.09)).toFixed(1) + 'px';
+          }
+          if (s.isModel) s.frame.style.height = Math.round(s.boxH || 40) + 'px';
         }
       });
+    }
+
+    // Put a model in its place, size and turn it, and work out the box it covers on screen
+    const _c = new THREE.Vector3(), _q = [];
+    function placeModel(s, camera, w, h, dt) {
+      const o = s.ent.object3D;
+      o.position.copy(s.dir).multiplyScalar(MODEL_DIST);
+      o.lookAt(0, o.position.y, 0);                                  // face the viewer, staying upright
+      if (s.spin && !s.dragging) s.rot[0] = (s.rot[0] + dt * 0.02) % 360;   // about 20° a second
+      s.turn.object3D.rotation.set(s.rot[1] * Math.PI / 180, s.rot[0] * Math.PI / 180, s.rot[2] * Math.PI / 180, 'YXZ');
+      const size = 2 * MODEL_DIST * Math.tan((s.w * Math.PI / 180) / 2);
+      if (s.maxDim) s.fit.object3D.scale.setScalar(size / s.maxDim);
+      // hidden until its dot is looked at; or only while looked at
+      const show = !(s.dwell && !s.revealed && !opts.editable) && !(s.play === 'look' && !opts.editable && !s.el.classList.contains('shown'));
+      o.visible = show && !!s.maxDim;
+      if (!s.localBox) { s.boxW = 0; return; }
+      // screen box: project the corners of its (turned, scaled) bounding box
+      s.fit.object3D.updateMatrixWorld(true);
+      const m = s.fit.object3D.matrixWorld, b = s.localBox;      // the box is in the holder's space
+      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+      for (let i = 0; i < 8; i++) {
+        _c.set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z).applyMatrix4(m).project(camera);
+        const px = (_c.x + 1) / 2 * w, py = (1 - _c.y) / 2 * h;
+        x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py);
+      }
+      s.boxW = Math.max(30, x1 - x0); s.boxH = Math.max(30, y1 - y0);
+      s.aspect = s.boxW / s.boxH;
     }
 
     // ---------------------------------------------------------- author editing (preview only)
@@ -488,7 +970,7 @@
       edit.innerHTML = '<button type="button" class="spot-test" title="Play or pause">▶ Test</button>' +
         ['nw', 'ne', 'sw', 'se'].map(c => '<span class="spot-handle h-' + c + '" data-corner="' + c + '"></span>').join('');
       const test = edit.querySelector('.spot-test');
-      if (s.isImage) test.remove();
+      if (s.isStill) test.remove();
       test.addEventListener('click', e => { e.stopPropagation(); toggle(s); });
       test.addEventListener('pointerdown', e => e.stopPropagation());
       s.frame.appendChild(edit);
@@ -498,10 +980,21 @@
         e.stopPropagation(); e.preventDefault();
         opts.onSelect(s.index);
         const corner = e.target.dataset && e.target.dataset.corner;
+        const ci = { nw: 0, ne: 1, se: 2, sw: 3 }[corner];
+        const rotStart = (s.rot || [0, 0, 0]).slice();
+        if ((s.isText || s.isLink) && s.frame.offsetHeight) s.aspect = s.frame.offsetWidth / s.frame.offsetHeight;
         const r = s.el.getBoundingClientRect();                    // the spot's centre point
         const grab = { dx: e.clientX - r.left, dy: e.clientY - r.top };
         beginDrag(s, edit, e, ev => {
-          if (corner) {
+          if (corner === 'rot') {
+            // Turn handle: sideways turns it, up and down tilts it
+            s.rot[0] = (rotStart[0] + (ev.clientX - e.clientX) * 0.6) % 360;
+            s.rot[1] = Math.max(-90, Math.min(90, rotStart[1] + (ev.clientY - e.clientY) * 0.4));
+          } else if (corner && s.pin) {
+            // Pinned: this corner goes exactly where the pointer is
+            const a = anglesFrom(directionAt(ev.clientX, ev.clientY)), c = anglesFrom(s.dir);
+            s.pin[ci] = [wrap180(a.yaw - c.yaw), a.pitch - c.pitch];
+          } else if (corner) {
             // Resize around the centre: width follows whichever direction you pull further
             const half = Math.max(Math.abs(ev.clientX - r.left), Math.abs(ev.clientY - r.top) * s.aspect);
             s.w = Math.max(5, Math.min(140, (half * 2) / pxPerDegree()));
@@ -541,11 +1034,8 @@
         window.removeEventListener('pointercancel', up);
         s.dragging = false;
         opts.layer.classList.remove('dragging');
-        if (moved) {
-          const a = anglesFrom(s.dir);
-          s.yaw = a.yaw; s.pitch = a.pitch;
-          opts.onEdit(s.index, { yaw: Math.round(a.yaw), pitch: Math.round(a.pitch), w: Math.round(s.w) });
-        } else if (onClick) onClick();
+        if (moved) reportEdit(s);
+        else if (onClick) onClick();
       };
       window.addEventListener('pointermove', move);
       window.addEventListener('pointerup', up);
@@ -589,9 +1079,9 @@
     function stopAll() { spots.forEach(s => { s.userPaused = true; pause(s); }); }
 
     return {
-      set, update, start, unlock, stopAll, setMuted, setSelected,
+      set, update, start, unlock, stopAll, setMuted, setSelected, pinSpot, setBrightness,
       get count() { return spots.length; },
-      get hasLook() { return spots.some(s => s.play === 'look'); }
+      get hasLook() { return spots.some(s => s.play === 'look' || s.dwell); }
     };
   }
 

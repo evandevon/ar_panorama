@@ -64,20 +64,28 @@ a-scene { position: fixed !important; inset: 0; width: 100% !important; height: 
 /* ---------- Toolbar ---------- */
 .toolbar {
   position: fixed; z-index: 5; left: 50%; transform: translateX(-50%);
-  bottom: max(14px, env(safe-area-inset-bottom));
-  display: flex; align-items: center; gap: 4px; padding: 5px;
-  background: rgba(20,27,23,.78); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  border-radius: 999px; white-space: nowrap;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  display: flex; align-items: center; gap: 2px; padding: 4px;
+  background: rgba(20,27,23,.82); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border-radius: 16px; white-space: nowrap; max-width: calc(100% - 16px);
 }
 .toolbar button {
   display: flex; align-items: center; gap: 6px;
-  min-height: 44px; padding: 0 13px; border: 0; border-radius: 999px;
-  background: transparent; color: var(--chalk); font: 500 .92rem var(--sans); cursor: pointer;
+  min-height: 44px; min-width: 44px; padding: 0 12px; border: 0; border-radius: 12px;
+  background: transparent; color: var(--chalk); font: 600 .9rem var(--sans); cursor: pointer;
 }
-.seg { display: flex; background: rgba(255,255,255,.08); border-radius: 999px; padding: 2px; }
-.seg button { min-height: 40px; padding: 0 12px; }
-.seg button[aria-pressed="true"] { background: var(--chalk); color: var(--slate); font-weight: 600; }
-@media (max-width: 440px) { .toolbar .lbl { display: none; } .toolbar button { padding: 0 11px; } }
+.toolbar button:hover { background: rgba(255,255,255,.08); }
+.toolbar .ico { display: grid; place-items: center; width: 20px; height: 20px; }
+.toolbar .ico svg { width: 20px; height: 20px; }
+.seg { display: flex; background: rgba(255,255,255,.08); border-radius: 12px; padding: 2px; }
+.seg button[aria-pressed="true"] { background: var(--chalk); color: var(--slate); }
+/* Phones: icon above a short word, like a standard tab bar, so every control stays named */
+@media (max-width: 480px) {
+  .toolbar button { flex-direction: column; justify-content: center; gap: 2px; padding: 4px 10px; min-height: 52px; font-size: .7rem; font-weight: 600; }
+  .toolbar .lbl { line-height: 1; }
+}
+.go-ico { display: grid; place-items: center; width: 32px; height: 32px; flex: none; }
+.go-ico svg { width: 28px; height: 28px; }
 
 /* ---------- YouTube audio player (must stay visible and uncovered) ---------- */
 .yt-wrap {
@@ -213,3 +221,92 @@ body.aligning .toolbar, body.aligning .hint { display: none !important; }
 .align-btn { flex: 1; min-height: 48px; border: 0; border-radius: 10px; background: var(--chalk); color: var(--slate); font: 700 1rem var(--sans); cursor: pointer; }
 .align-btn.ghost { background: transparent; color: var(--chalk); border: 1px solid rgba(247,244,236,.4); font-weight: 600; }
 .align-tip { margin: 8px 0 0; font-size: .8rem; opacity: .8; text-align: center; }
+
+/* Text cards */
+.spot-text .spot-frame, .spot-link .spot-frame { aspect-ratio: auto; }
+.spot-words {
+  background: var(--paper); color: var(--ink); padding: .75em .95em; border-radius: 6px;
+  border-top: .3em solid var(--brass); box-shadow: 0 8px 22px rgba(0,0,0,.4);
+  font-family: var(--serif); line-height: 1.38; white-space: pre-wrap; overflow-wrap: anywhere; cursor: zoom-in;
+}
+.spot-text .spot-cap { font-size: max(11px, .8em); }
+.spots-layer.editing .spot-words { cursor: move; }
+
+/* Link buttons */
+.spot-a {
+  display: flex; align-items: center; justify-content: center; gap: .45em; width: 100%; min-height: 44px;
+  padding: .55em .9em; border-radius: 999px; background: var(--brass); color: #fff; text-decoration: none;
+  font: 700 1em/1.2 var(--sans); box-shadow: 0 6px 16px rgba(0,0,0,.4); border: 2px solid rgba(255,255,255,.85);
+}
+.spot-a-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.spot-a:focus-visible { outline: 3px solid var(--chalk); outline-offset: 3px; }
+
+/* Reading view for text */
+.reader { cursor: default; }
+.reader-card { width: min(640px, 100%); max-height: calc(100% - 80px); overflow: auto; background: var(--paper); color: var(--ink);
+  border-radius: 8px; border-top: 6px solid var(--brass); padding: 22px 22px 18px; font: 1.15rem/1.55 var(--serif); }
+.reader-card h2 { margin: 0 0 10px; font: 700 1.4rem/1.2 var(--serif); }
+.reader-card p { margin: 0; white-space: pre-wrap; }
+
+/* Look-to-reveal dots */
+.spot-dwell {
+  position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); z-index: 3;
+  width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer;
+}
+.spot-dwell svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.dw-bg { fill: rgba(20,27,23,.55); stroke: rgba(247,244,236,.75); stroke-width: 2; }
+.dw-ring { fill: none; stroke: var(--brass); stroke-width: 5; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; }
+.dw-core { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: var(--chalk); animation: dw-pulse 1.8s ease-in-out infinite; }
+@keyframes dw-pulse { 50% { transform: scale(1.5); opacity: .6; } }
+.spot.dwell:not(.revealed) > .spot-frame, .spot.dwell:not(.revealed) > .spot-marker { visibility: hidden; }
+.spot.dwell.revealed > .spot-dwell { display: none; }
+.spot.dwell.revealed > .spot-frame, .spot.dwell.revealed > .spot-marker { animation: dw-appear .45s ease-out; }
+@keyframes dw-appear { from { opacity: 0; transform: translate(-50%, -50%) scale(.85); } }
+.spot.dwell.revealed > .spot-marker { animation-name: none; }
+/* the author still sees what's behind a dot, faintly, so it can be placed */
+.spots-layer.editing .spot.dwell:not(.revealed) > .spot-frame,
+.spots-layer.editing .spot.dwell:not(.revealed) > .spot-marker { visibility: visible; opacity: .4; }
+@media (prefers-reduced-motion: reduce) { .dw-core, .spot.dwell.revealed > .spot-frame { animation: none; } }
+
+/* Corner-pinned spots: warped onto four points in the room */
+.spot.pinned .spot-frame { transform-origin: 0 0; }
+.spot.pinned .spot-img { object-fit: fill; }
+.spot.pinned .spot-handle { border-radius: 50%; background: var(--brass); border-color: var(--chalk);
+  width: var(--hs, 16px); height: var(--hs, 16px); border-width: calc(var(--hs, 16px) / 8); }
+.spot.pinned .h-nw { left: calc(var(--hs, 16px) / -2); top: calc(var(--hs, 16px) / -2); }
+.spot.pinned .h-ne { right: calc(var(--hs, 16px) / -2); top: calc(var(--hs, 16px) / -2); }
+.spot.pinned .h-sw { left: calc(var(--hs, 16px) / -2); bottom: calc(var(--hs, 16px) / -2); }
+.spot.pinned .h-se { right: calc(var(--hs, 16px) / -2); bottom: calc(var(--hs, 16px) / -2); }
+.spot.pinned .spot-edit { border-width: calc(var(--hs, 16px) / 8); }
+
+/* ---------- Embedded in another website ---------- */
+.embed-open { margin: 10px 0 0; font-size: .88rem; color: var(--ink-soft); }
+.embed-open a { color: var(--brass-dark); font-weight: 700; }
+body.embedded .card { padding: 16px 16px 14px; border-top-width: 4px; }
+body.embedded .card h1 { font-size: 1.3rem; margin-bottom: 12px; }
+body.embedded .eyebrow { display: none; }
+body.embedded .go { min-height: 52px; padding: 8px 12px; }
+body.embedded .go small { display: none; }
+body.embedded .go.secondary { min-height: 46px; }
+@media (max-height: 380px) {
+  body.embedded .card-wrap { align-items: start; overflow: auto; }
+  body.embedded .tip { display: none; }
+}
+
+.error.info { border-left-color: var(--brass); background: #f6eedd; color: var(--ink); }
+
+/* A 3D model: the object itself is drawn in the scene; this see-through box follows it for tapping */
+.spot-model .spot-frame { aspect-ratio: auto; border-radius: 6px; cursor: zoom-in; }
+.spot-model:not(.loaded) .spot-frame { background: rgba(20,27,23,.35); }
+.spot-model:not(.loaded) .spot-frame::after { content: 'Loading 3D…'; position: absolute; inset: 0; display: grid; place-items: center; color: var(--chalk); font: 600 .8rem var(--sans); }
+.spot-model .spot-frame:focus-visible { outline: 3px solid var(--brass); outline-offset: 4px; }
+.spots-layer.editing .spot-model .spot-frame { cursor: move; }
+.h-rot { left: 50%; top: -34px; transform: translateX(-50%); width: 22px; height: 22px; border-radius: 50%; cursor: grab;
+  background: var(--brass) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M20 12a8 8 0 1 1-3-6.2'/%3E%3Cpath d='M20 4v5h-5'/%3E%3C/svg%3E") center / 14px no-repeat; border-color: var(--chalk); }
+.h-rot::after { content: ''; position: absolute; left: 50%; top: 100%; width: 2px; height: 12px; background: rgba(247,244,236,.9); transform: translateX(-50%); }
+.h-rot:active { cursor: grabbing; }
+
+/* Looking at a model up close */
+.inspector { cursor: default; place-items: start center; padding: 0; background: rgba(10,13,11,.97); }
+.inspector-canvas { display: block; cursor: grab; touch-action: none; }
+.inspector-canvas:active { cursor: grabbing; }

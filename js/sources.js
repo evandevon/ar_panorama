@@ -44,12 +44,30 @@
     return btoa(bin).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
   }
 
+  // Short codes for the starts of common links. Once a code has been used in a printed QR code it must
+  // keep meaning the same thing forever: new codes can be added, existing ones must never change.
+  // (Longer starts come before shorter ones that they begin with.)
+  const PREFIXES = [
+    ['wp:', 'https://en.wikipedia.org/wiki/'],
+    ['db:', 'https://www.dropbox.com/'],
+    ['od:', 'https://1drv.ms/'],
+    ['gx:', 'https://docs.google.com/'],
+    ['w:', 'https://www.'],
+    ['h:', 'https://']
+  ];
+  /** Short code → full link (anything else is returned unchanged) */
+  function expand(token) {
+    token = (token || '').trim();
+    for (const [code, full] of PREFIXES) if (token.startsWith(code)) return full + token.slice(code.length);
+    return token;
+  }
+
   /** Pasted link → short token for the QR code (or the link unchanged). */
   function shorten(url) {
     url = (url || '').trim();
     if (!url) return '';
     const yt = youTubeId(url);
-    if (yt) { const s = youTubeStart(url); return 'yt:' + yt + (s ? '~' + s : ''); }
+    if (yt) { const s = youTubeStart(url); return 'yt:' + yt + (s ? '.' + s : ''); }
     const gd = googleDriveId(url);
     if (gd) return 'gd:' + gd;
     // Files on this same site: keep only the path
@@ -58,13 +76,15 @@
       const here = new URL('./', location.href);
       if (u.href.startsWith(here.href)) return u.href.slice(here.href.length);
     } catch (e) {}
+    if (/^http:\/\//i.test(url)) return url;            // only https links get short codes
+    for (const [code, full] of PREFIXES) if (url.startsWith(full) && url.length > full.length) return code + url.slice(full.length);
     return url;
   }
 
   /** Is this (token or link) a YouTube video? → {id, start} or null */
   function youTube(token) {
     token = (token || '').trim();
-    let m = token.match(/^yt:([\w-]{11})(?:~(\d+))?$/);
+    let m = token.match(/^yt:([\w-]{11})(?:[.~](\d+))?$/);     // older links used ~ before the start time
     if (m) return { id: m[1], start: Number(m[2]) || 0 };
     const id = youTubeId(token);
     return id ? { id: id, start: youTubeStart(token) } : null;
@@ -76,6 +96,9 @@
   function looksLikeImage(token) {
     return /\.(png|jpe?g|gif|webp|avif|svg|bmp|ico)(\?|#|$)/i.test(token || '');
   }
+  function looksLikeModel(token) {
+    return /\.(glb|gltf|stl|obj)(\?|#|$)/i.test(token || '');
+  }
   function looksLikeAudio(token) {
     return /\.(mp3|m4a|aac|ogg|oga|opus|wav|flac)(\?|#|$)/i.test(token || '');
   }
@@ -86,7 +109,7 @@
    * @returns {{url: string, provider: string}}
    */
   function resolveMediaUrl(token, kind) {
-    let url = (token || '').trim();
+    let url = expand(token);
     if (!url) return { url: '', provider: 'none' };
 
     let gid = null;
@@ -130,5 +153,5 @@
     }
   }
 
-  global.Media = { shorten, youTube, looksLikeVideo, looksLikeImage, looksLikeAudio, resolveMediaUrl, hostingHint };
+  global.Media = { shorten, expand, youTube, looksLikeVideo, looksLikeImage, looksLikeAudio, looksLikeModel, resolveMediaUrl, hostingHint };
 })(window);

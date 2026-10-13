@@ -2,96 +2,99 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>360° QR Experience Maker</title>
-  <meta name="description" content="Paste a link to a 360° photo and some audio, and get a QR code that opens it on any phone. No sign-in.">
-  <link rel="stylesheet" href="css/create.css">
-  <script src="vendor/qrcode.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1f2a24">
+  <title>360° experience</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="vendor/aframe-v1.8.0.min.js"></script>
   <script src="js/sources.js"></script>
   <script src="js/spots.js"></script>
+  <script src="js/align.js"></script>
 </head>
 <body>
-<header class="masthead">
-  <div class="wrap">
-    <p class="eyebrow">Free · No sign-in · Nothing is uploaded</p>
-    <h1>360° QR Experience Maker</h1>
-    <p class="lede">Paste a link to a 360° photo, then place videos and sounds around it. Check it in the preview, then print the QR code. Anyone who scans it can look around — by moving their phone, or by dragging.</p>
-  </div>
-</header>
+  <!-- Live camera, shown under the faded 360 photo while lining up with the real room -->
+  <video id="camfeed" class="camfeed" playsinline muted autoplay aria-hidden="true"></video>
+  <!-- The 360 scene. Mouse/touch dragging is handled in viewer.js; A-Frame only does the phone-motion part. -->
+  <main id="view" aria-label="360° view">
+  <a-scene id="scene" embedded vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false"
+           loading-screen="enabled: false" renderer="colorManagement: true">
+    <a-assets id="assets" timeout="1"></a-assets>
+    <a-entity id="rig">
+      <a-camera id="cam" position="0 0 0" fov="75" wasd-controls-enabled="false"
+                look-controls="mouseEnabled: false; touchEnabled: false; magicWindowTrackingEnabled: false"></a-camera>
+    </a-entity>
+    <!-- rotation -90 puts the centre of the panorama straight ahead -->
+    <a-sky id="sky" visible="false" radius="100" rotation="0 -90 0"></a-sky>
+    <a-videosphere id="vsphere" visible="false" radius="100" rotation="0 -90 0"></a-videosphere>
+  </a-scene>
+  </main>
 
-<main class="wrap grid">
-  <!-- ============ 1. Links ============ -->
-  <form id="form" class="panel" autocomplete="off" onsubmit="return false">
-    <section class="step">
-      <h2><span class="num">1</span> 360° photo</h2>
-      <label for="in-pano">Link to a 360° photosphere</label>
-      <input id="in-pano" type="url" inputmode="url" placeholder="https://drive.google.com/file/d/…" aria-describedby="pano-help">
-      <p class="help" id="pano-help">A Google Drive, OneDrive or Dropbox share link, or a direct link to a JPEG. Set sharing to <b>Anyone with the link</b>. A 360 video (MP4) link works too. <button type="button" class="textbtn" id="sample">Try a sample</button></p>
-      <p class="status" id="pano-status" aria-live="polite"></p>
-    </section>
-
-    <section class="step">
-      <h2><span class="num">2</span> Video, Audio and Picture Spots <span class="opt">optional</span></h2>
-      <p class="help" style="margin-top:0">Place YouTube videos, video files, sounds and pictures around the room. Turn the preview so the <b>crosshair</b> is where you want one, then add it. In the preview, drag a video or picture to move it and pull its corner tags to resize it.</p>
-      <p class="help">For background sound, add an MP3 spot set to <b>Sound only</b>, <b>Hidden</b>, <b>Plays as soon as it opens</b> and <b>Loop</b>.</p>
-      <p class="help" id="spots-empty">No spots yet.</p>
-      <ol class="spot-list" id="spot-list"></ol>
-      <button type="button" class="btn ghost add-spot" id="add-spot" disabled>+ Add a spot at the crosshair</button>
-    </section>
-
-    <section class="step">
-      <h2><span class="num">3</span> Title</h2>
-      <label for="in-title">Shown before the experience starts</label>
-      <input id="in-title" type="text" maxlength="80" placeholder="A classroom 150 years ago">
-      <label class="check" style="margin-top:14px"><input type="checkbox" id="in-align"> Line up with the real room <span class="help-inline">— for when viewers stand in the room where the photo was taken</span></label>
-      <p class="help">Viewers get a <b>Line up with this room</b> option. Their camera shows the room, with your photo faded over it. They turn it until the two match, and the page tells them when it <b>looks lined up</b>. Then the spots sit on the real walls. Works best when the photo is taken from where viewers will stand (e.g. by the QR code), and when the room still looks similar. Viewers can always skip it.</p>
-    </section>
-  </form>
-
-  <!-- ============ 2. Preview ============ -->
-  <section class="panel preview-panel" aria-labelledby="pv-h">
-    <h2 id="pv-h"><span class="num">4</span> Preview <span class="opt">drag the picture to look around · drag spots to move them</span></h2>
-    <div class="shape" role="group" aria-label="Preview shape">
-      <button type="button" id="shape-phone" aria-pressed="true">📱 Phone</button>
-      <button type="button" id="shape-wide" aria-pressed="false">🖥 Wide</button>
-      <span class="help-inline">Phones held upright see less of the room, so check sizes in Phone view.</span>
-    </div>
-    <div class="frame phone" id="frame">
-      <div class="empty" id="empty">Paste a 360° photo link to see it here.</div>
-    </div>
-    <div class="facing">
-      <p id="facing-text">Starts facing the centre of the photo.</p>
-      <div class="facing-btns">
-        <button type="button" id="set-start" class="btn small" disabled>Start from this view</button>
-        <button type="button" id="reset-start" class="textbtn" hidden>Reset</button>
+  <!-- Start card: the tap here is what lets phones use motion sensors and play sound -->
+  <section id="start" class="card-wrap" aria-live="polite">
+    <div class="card">
+      <p class="eyebrow">360° experience</p>
+      <h1 id="title">Loading…</h1>
+      <div class="choices" id="choices">
+        <button id="go-align" class="go" disabled hidden>
+          <span class="go-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h3l2-3h6l2 3h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="4"/></svg></span>
+          <span><b>Line up with this room</b><small>Uses your camera to match the photo to the room around you</small></span>
+        </button>
+        <button id="go-motion" class="go" disabled hidden>
+          <span class="go-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></span>
+          <span><b>Move my phone</b><small>Hold it up and turn around to look</small></span>
+        </button>
+        <button id="go-drag" class="go" disabled>
+          <span class="go-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg></span>
+          <span><b id="drag-label">Drag to look</b><small id="drag-sub">Use your finger to move the picture</small></span>
+        </button>
       </div>
+      <div class="progress" aria-hidden="true"><div id="bar"></div></div>
+      <p class="tip" id="tip"></p>
+      <p class="embed-open" id="embed-open" hidden><a id="embed-open-link" target="_blank" rel="noopener">Open full screen ↗</a> — best on phones</p>
+      <p id="error" class="error" role="alert" hidden></p>
     </div>
   </section>
 
-  <!-- ============ 3. QR ============ -->
-  <section class="panel qr-panel" aria-labelledby="qr-h">
-    <h2 id="qr-h"><span class="num">5</span> Share</h2>
-    <div class="qr-card" id="qr-card">
-      <p class="qr-title" id="qr-title">A 360° experience</p>
-      <p class="qr-sub">Scan with your phone camera, then look around.</p>
-      <div id="qr" class="qr" role="img" aria-label="QR code"><div class="qr-empty">Your QR code will appear here</div></div>
-      <p class="qr-foot" id="qr-foot">Turn your sound up 🔊</p>
+  <!-- Controls once inside -->
+  <nav id="toolbar" class="toolbar" aria-label="Viewer controls" hidden>
+    <div class="seg" id="mode-seg" role="group" aria-label="How to look around">
+      <button id="mode-motion" aria-pressed="false"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></span><span class="lbl">Move</span></button>
+      <button id="mode-drag" aria-pressed="true"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg></span><span class="lbl">Drag</span></button>
     </div>
-    <p class="warn" id="warn" hidden></p>
-    <div class="actions">
-      <button type="button" id="copy" class="btn" disabled>Copy link</button>
-      <a id="open" class="btn ghost disabled" target="_blank" rel="noopener" aria-disabled="true">Open</a>
-      <button type="button" id="dl" class="btn ghost" disabled>Save PNG</button>
-      <button type="button" id="print" class="btn ghost" disabled>Print</button>
+    <button id="btn-centre" title="Face the starting direction"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span><span class="lbl">Recentre</span></button>
+    <button id="btn-sound" hidden><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 4v16l13-8z"/></svg></span><span class="lbl">Play audio</span></button>
+    <button id="btn-full" hidden title="Open in its own tab, full screen"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5"/></svg></span><span class="lbl">Full screen</span></button>
+  </nav>
+
+  <!-- YouTube audio: YouTube's rules require its player to stay visible (at least 200×200) -->
+  <div id="yt-wrap" class="yt-wrap" hidden><div id="yt"></div></div>
+
+  <!-- Video spots are drawn here, over the 360 view -->
+  <div id="spots" class="spots-layer"></div>
+  <div id="spots-offscreen" class="spots-offscreen" aria-hidden="true"></div>
+  <div id="crosshair" class="crosshair" hidden aria-hidden="true"></div>
+
+  <!-- Lining up with the real room -->
+  <section id="align" class="align" hidden aria-label="Line up the photo with the room">
+    <p id="align-status" class="align-status" role="status" aria-live="polite"></p>
+    <div class="align-panel">
+      <label class="align-mix">
+        <span>Then</span>
+        <input type="range" id="align-mix" min="0.15" max="0.85" step="0.05" value="0.5" aria-label="Fade between the photo and the camera">
+        <span>Now</span>
+      </label>
+      <div class="align-btns">
+        <button id="align-skip" class="align-btn ghost">Skip</button>
+        <button id="align-snap" class="align-btn ghost" hidden>Snap</button>
+        <button id="align-ok" class="align-btn" hidden>Lined up ✓</button>
+      </div>
+      <p class="align-tip">Slide left or right on the screen to turn the photo. Pinch to make it bigger or smaller.</p>
     </div>
-    <p class="help small" id="link-out"></p>
   </section>
-</main>
 
-<footer class="wrap foot">
-  <p>Everything is stored in the link itself — there’s no account and no database. Bookmark this page to come back and edit, or just make a new code.</p>
-</footer>
+  <p id="hint" class="hint" role="status" hidden></p>
 
-<script src="js/create.js"></script>
+  <audio id="audio" preload="auto" playsinline></audio>
+  <script src="js/viewer.js"></script>
 </body>
 </html>

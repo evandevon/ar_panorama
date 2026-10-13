@@ -9,9 +9,26 @@
   'use strict';
 
   const $ = id => document.getElementById(id);
+  // Toolbar icons (drawn, so they look the same on every phone, unlike emoji)
+  const SVG = d => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + d + '</svg>';
+  const ICON = {
+    play: SVG('<path d="M7 4v16l13-8z"/>'),
+    pause: SVG('<path d="M8 4v16M16 4v16"/>'),
+    soundOn: SVG('<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>'),
+    soundOff: SVG('<path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6M16 9l6 6"/>'),
+    lineUp: SVG('<path d="M4 7h3l2-3h6l2 3h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="4"/>')
+  };
+  // Every toolbar button keeps a spoken name, even when its words are hidden on small screens
+  function setButton(b, icon, label) {
+    b.querySelector('.ico').innerHTML = ICON[icon];
+    b.querySelector('.lbl').textContent = label;
+    b.setAttribute('aria-label', label);
+  }
   const sceneEl = $('scene'), sky = $('sky'), vsphere = $('vsphere'), rig = $('rig'), cam = $('cam');
   const params = new URLSearchParams(location.search);
   const PREVIEW = params.get('preview') === '1';
+  // Shown inside another website (an <iframe>), rather than in its own tab
+  const EMBEDDED = !PREVIEW && (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
   const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const cfg = {
@@ -20,7 +37,8 @@
     title: params.get('t') || 'Look around',
     yaw: Number(params.get('y')) || 0,
     loop: params.get('l') === '1',
-    align: params.get('al') === '1'          // offer "line up with this room" (camera overlay)
+    align: params.get('al') === '1',         // offer "line up with this room" (camera overlay)
+    bright: Number(params.get('mb')) || 1     // brightness of 3D models (1 = normal)
   };
 
   let mode = 'drag';             // 'drag' or 'motion'
@@ -135,7 +153,7 @@
       try { // a video from a host that doesn't allow sharing plays, but can't be drawn
         const c = document.createElement('canvas'); c.width = c.height = 2;
         const ctx = c.getContext('2d'); ctx.drawImage(video, 0, 0, 2, 2); ctx.getImageData(0, 0, 1, 1);
-        tell({ type: 'status', state: 'ready', width: video.videoWidth, height: video.videoHeight });
+        tell({ type: 'status', state: 'ready', video: true, width: video.videoWidth, height: video.videoHeight });
       } catch (e) {
         showError('The video’s host doesn’t allow it to be shown in 360.<br><br>' + Media.hostingHint(provider));
       }
@@ -213,14 +231,12 @@
     duck(on) {
       const v = on ? 0.25 : 1;
       if (this.kind === 'file') $('audio').volume = v;
-      else if (this.kind === 'video') video.volume = v;
+      else if (this.kind === 'video' || (this.kind === 'spots' && video)) video.volume = v;
       else if (this.kind === 'yt' && this.ytReady) this.yt.setVolume(v * 100);
     },
     set(on) {
       this.playing = on;
-      const b = $('btn-sound');
-      b.querySelector('.ico').textContent = on ? '⏸' : '▶';
-      b.querySelector('.lbl').textContent = on ? 'Pause' : (this.kind === 'video' ? 'Play' : 'Play audio');
+      setButton($('btn-sound'), on ? 'pause' : 'play', on ? 'Pause' : (this.kind === 'video' ? 'Play' : 'Play audio'));
     }
   };
   $('btn-sound').addEventListener('click', () => {
@@ -232,9 +248,9 @@
   function setSpotsMuted(m) {
     spotsMuted = m;
     spots.setMuted(m);
+    if (video) video.muted = m;
     const b = $('btn-sound');
-    b.querySelector('.ico').textContent = m ? '🔇' : '🔊';
-    b.querySelector('.lbl').textContent = m ? 'Muted' : 'Sound on';
+    setButton(b, m ? 'soundOff' : 'soundOn', m ? 'Sound off' : 'Sound on');
     b.setAttribute('aria-pressed', String(!m));
   }
 
@@ -267,8 +283,9 @@
     // Drags can start on the picture or on a spot marker (so markers never get in the way of looking around)
     const down = e => {
       // In the author's preview, only the picture itself turns the view (spots are moved instead)
-      if (e.target !== el && (PREVIEW || !e.target.closest('.spot-marker'))) return;
-      if (e.target !== el) e.target.closest('.spot-marker').style.touchAction = 'none';
+      const passThrough = '.spot-marker, .spot-model';
+      if (e.target !== el && (PREVIEW || !e.target.closest(passThrough))) return;
+      if (e.target !== el) e.target.closest(passThrough).style.touchAction = 'none';
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pointers.size === 1) travelled = 0;
       cancelAnimationFrame(spin); vel = { x: 0, y: 0 };
@@ -307,7 +324,7 @@
     window.addEventListener('pointercancel', end);
     // A drag that started on a marker shouldn't also count as tapping it
     $('spots').addEventListener('click', e => {
-      if (travelled > 10 && e.target.closest('.spot-marker')) { e.stopPropagation(); e.preventDefault(); }
+      if (travelled > 10 && e.target.closest('.spot-marker, .spot-model')) { e.stopPropagation(); e.preventDefault(); }
       travelled = 0;
     }, true);
     el.addEventListener('wheel', e => { e.preventDefault(); zoom(e.deltaY > 0 ? 1.08 : 1 / 1.08); }, { passive: false });
@@ -417,7 +434,7 @@
   const aligner = Aligner({
     sceneEl: sceneEl,
     getLook: () => lc,
-    panoSource: () => document.getElementById('pano-src'),
+    panoSource: () => document.getElementById('pano-src') || document.getElementById('pano-video'),
     onDone: () => afterAlign('Lined up! Look around the room.'),
     onSkip: () => afterAlign(mode === 'motion' ? 'Turn around to look.' : 'Drag to look around.')
   });
@@ -425,14 +442,14 @@
     aligned = true;
     spots.start();
     $('toolbar').hidden = false;
-    $('btn-centre').querySelector('.lbl').textContent = 'Line up';
+    setButton($('btn-centre'), 'lineUp', 'Line up');
     $('btn-centre').title = 'Line the photo up with the room again';
     hint(msg);
   }
   function enterAlign() {
     // Inside the tap: unlock sound for later, and ask for motion (iPhones only ask from a tap)
     spots.unlock();
-    if (video && Sound.kind !== 'video') { video.muted = false; video.play().catch(() => {}); }
+    if (video) { video.muted = spotsMuted; video.play().catch(() => {}); }
     startMotion();
     $('start').classList.add('gone');
     setTimeout(() => { $('start').hidden = true; }, 500);
@@ -462,8 +479,12 @@
       spots.set((m.spots || []).map(HotSpots.decode));
     } else if (m.type === 'lookAt') {
       lookAt(m.yaw, m.pitch);
+    } else if (m.type === 'pinSpot') {
+      spots.pinSpot(m.index, m.on);
     } else if (m.type === 'selectSpot') {
       spots.setSelected(m.index);
+    } else if (m.type === 'setBrightness') {
+      spots.setBrightness(m.value);
     } else if (m.type === 'stopAll') {
       spots.stopAll();
     }
@@ -473,6 +494,7 @@
   const spots = HotSpots({
     sceneEl: sceneEl,
     editable: PREVIEW,
+    brightness: cfg.bright,
     onEdit: (i, v) => tell(Object.assign({ type: 'spotEdit', index: i }, v)),
     onSelect: i => tell({ type: 'spotSelect', index: i }),
     layer: $('spots'),
@@ -492,8 +514,11 @@
     $('title').textContent = cfg.title;
 
     if (!cfg.pano) {
-      $('title').textContent = 'Nothing to show yet';
-      showError('This link doesn’t include a 360 photo. <a href="./">Make an experience</a>.');
+      $('title').textContent = 'Scan a QR code to begin';
+      $('error').classList.add('info');
+      $('error').setAttribute('role', 'status');
+      showError('This page shows 360° experiences made with the <a href="make.html">360° QR Experience Maker</a>. ' +
+        'Scan an experience’s QR code, or <a href="make.html">make your own</a>.');
       return;
     }
 
@@ -507,7 +532,8 @@
     const isVideo = Media.looksLikeVideo(cfg.pano);
     if (isVideo) loadVideo(cfg.pano);
     Sound.init(cfg.audio);
-    if (Sound.kind === 'none' && spots.count) {
+    // With spots, the sound button mutes everything (a 360 video background included)
+    if ((Sound.kind === 'none' || Sound.kind === 'video') && spots.count) {
       Sound.kind = 'spots';
       $('btn-sound').hidden = false;
       setSpotsMuted(false);
@@ -530,7 +556,16 @@
       return;
     }
 
-    const canAlign = cfg.align && motionPossible() && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    if (EMBEDDED) {
+      // Phones often block motion and the camera inside another site, so offer a way out into a full tab
+      document.body.classList.add('embedded');
+      const full = location.href;
+      $('embed-open-link').href = full;
+      $('embed-open').hidden = false;
+      $('btn-full').hidden = false;
+      $('btn-full').addEventListener('click', () => window.open(full, '_blank', 'noopener'));
+    }
+    const canAlign = !EMBEDDED && cfg.align && motionPossible() && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
     if (canAlign) {
       $('go-align').hidden = false;
       $('go-motion').hidden = false;
