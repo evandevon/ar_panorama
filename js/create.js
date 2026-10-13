@@ -347,7 +347,7 @@
 
   $('add-spot').addEventListener('click', () => {
     if (spots.length >= MAX_SPOTS) return;
-    spots.push({ src: '', yaw: viewYaw, pitch: viewPitch, w: HotSpots.DEFAULT_W, play: 'tap', type: '', hidden: false, loop: false, label: '' });
+    spots.push({ src: '', yaw: viewYaw, pitch: viewPitch, w: 20, play: 'tap', type: '', hidden: false, loop: false, label: '' });
     renderSpots();
     spotsChanged(false);
     const cards = $('spot-list').querySelectorAll('.sp-src');

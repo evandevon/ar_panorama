@@ -55,7 +55,7 @@ Use **📱 Phone** view when sizing videos. A phone held upright sees much less 
 
 | Option | What it does |
 |---|---|
-| **Plays when the viewer taps it** | Videos show YouTube's own poster and play button. Sounds show a speaker marker to tap. |
+| **Plays when the viewer taps it** | Videos show a poster with a play button. Sounds show a speaker marker to tap. |
 | **Plays automatically when the viewer looks at it** | Plays while the centre of the screen (the crosshair) is on the video, and pauses as soon as it moves off. For sounds, the centre needs to be within about 12° of the marker. Viewers see a small dot in the centre of the screen so they know where they're aiming. |
 | **Plays automatically as soon as it opens** | Starts when the viewer taps to enter. |
 | **Sound only** | No picture, just a speaker marker. MP3 links are always sound only. |
@@ -68,7 +68,9 @@ Pictures keep their own shape. Transparent PNG, GIF and WebP images show the roo
 
 **Background sound:** add an MP3 spot and set it to *Sound only*, *Hidden*, *Plays as soon as it opens* and *Loop*. While any video plays, sound-only spots drop to a quarter of their volume. Viewers can mute everything with the **Sound** button.
 
-Video sizes are stored as an angle (for example, "40° wide"), so a video stays the same size in the room on every screen. YouTube videos never shrink below 356 × 200 pixels, which is YouTube's minimum player size.
+Video sizes are stored as an angle (for example, "20° wide"), so a video stays the same size in the room on every screen.
+
+**YouTube spots start small.** A YouTube spot sits in the room as a poster (the video's thumbnail) at the size you chose. When it starts playing it grows smoothly into the player, and 1.5 seconds after it stops it shrinks back to the poster. It needs to grow because YouTube's player can't be smaller than 356 × 200 pixels while it's showing. Video files (MP4 and others) have no minimum, so they play at exactly the size you set.
 
 **Two things to know about YouTube spots:**
 

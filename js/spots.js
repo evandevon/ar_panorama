@@ -188,9 +188,33 @@
       s.frame.append(s.labelEl, s.mediaHost, s.unmute);
       s.labelEl.textContent = labelText(s);
       s.labelEl.hidden = !labelText(s);
+
+      // YouTube: sit in the room as a small poster at the author's size, then grow into the
+      // player (YouTube's minimum is 356×200) while it plays, and shrink back when it stops.
+      if (s.yt) {
+        s.el.classList.add('yt');
+        s.poster = el('button', 'spot-poster',
+          '<img alt="" src="https://i.ytimg.com/vi/' + s.yt.id + '/mqdefault.jpg"><span class="spot-play" aria-hidden="true">▶</span>');
+        s.poster.setAttribute('aria-label', 'Play video' + (s.label ? ': ' + s.label : ''));
+        s.poster.querySelector('img').addEventListener('error', e => {
+          if (!/hqdefault/.test(e.target.src)) e.target.src = 'https://i.ytimg.com/vi/' + s.yt.id + '/hqdefault.jpg';
+        });
+        s.poster.addEventListener('click', () => { s.userPaused = false; play(s); });
+        s.frame.appendChild(s.poster);
+      }
       if (opts.editable) addEditHandles(s);
       s.el.appendChild(s.frame);
       opts.layer.appendChild(s.el);
+    }
+
+    function expand(s, on) {
+      if (!s.poster || !!s.expanded === on) return;
+      s.expanded = on;
+      clearTimeout(s.collapseT);
+      s.frame.classList.add('resizing');                       // animate the grow / shrink
+      clearTimeout(s.resizeT);
+      s.resizeT = setTimeout(() => s.frame.classList.remove('resizing'), 450);
+      s.el.classList.toggle('expanded', on);
     }
 
     // A picture in the room. PNG, GIF and WebP transparency show through to the room behind.
@@ -319,6 +343,7 @@
 
     // ---------------------------------------------------------- playing
     function play(s) {
+      expand(s, true);
       if (!s.ready) { s.wantPlay = true; return; }
       s.wantPlay = false;
       if (s.media) {
@@ -362,6 +387,11 @@
       s.playing = on;
       if (s.el) s.el.classList.toggle('playing', on);
       if (s.testBtn) s.testBtn.textContent = on ? '❚❚ Pause' : '▶ Test';
+      if (on) { clearTimeout(s.collapseT); expand(s, true); }
+      else if (s.poster) {                                      // shrink back to the poster a moment after stopping
+        clearTimeout(s.collapseT);
+        s.collapseT = setTimeout(() => { if (!s.playing && !s.wantPlay) expand(s, false); }, 1500);
+      }
       activityChanged();
     }
     // While a video is playing, background sounds drop to a quarter volume
@@ -381,8 +411,14 @@
       const camera = opts.sceneEl.camera;
       return opts.sceneEl.canvas.clientHeight / ((camera && camera.fov) || 75);
     }
+    // The size the author chose (a YouTube spot's poster size)
+    function authoredWidth(s) {
+      return Math.max(s.isImage ? 24 : 60, s.w * pxPerDegree());
+    }
+    // The size it's shown at right now: a playing YouTube video never goes below YouTube's minimum
     function frameWidth(s) {
-      return Math.max(s.yt ? YT_MIN_PX : s.isImage ? 24 : 120, s.w * pxPerDegree());
+      if (s.yt) return s.expanded ? Math.max(YT_MIN_PX, s.w * pxPerDegree()) : authoredWidth(s);
+      return Math.max(s.isImage ? 24 : 120, s.w * pxPerDegree());
     }
     // Screen point → direction in the room
     function directionAt(sx, sy) {
@@ -414,9 +450,12 @@
         if (started && s.play === 'look' && !s.dragging) {
           let on, off;
           if (s.inScene && onScreen) {
-            const fw = frameWidth(s), fh = fw / s.aspect, dx = Math.abs(w / 2 - x), dy = Math.abs(h / 2 - y);
-            on = dx < fw / 2 && dy < fh / 2;
-            off = dx > fw / 2 + 6 || dy > fh / 2 + 6;              // a few pixels of slack stops flickering at the edge
+            // Starts when the crosshair is on the spot as the author sized it; stops when it leaves
+            // what's showing (for YouTube that's the bigger player while it plays)
+            const aw = s.yt ? authoredWidth(s) : frameWidth(s), fw = frameWidth(s);
+            const dx = Math.abs(w / 2 - x), dy = Math.abs(h / 2 - y);
+            on = dx < aw / 2 && dy < aw / s.aspect / 2;
+            off = dx > fw / 2 + 6 || dy > fw / s.aspect / 2 + 6;   // a few pixels of slack stops flickering at the edge
           } else if (s.inScene) {
             on = false; off = true;
           } else {
