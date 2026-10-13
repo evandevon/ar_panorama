@@ -109,7 +109,7 @@ A 3D model sits in the room as a real object: as viewers look around, they see i
 - Drag the **round handle** above it to turn it: sideways turns it around, up and down tilts it. The **Turn**, **Tilt**, **Roll** and **Reset** buttons on its card do the same in 15° steps.
 - **Spins slowly** keeps it turning (about 20° a second), which helps viewers notice it's 3D.
 - **Shows: all the time / only while looked at** and **Appears: after looking at a dot** work as for pictures.
-- **3D model brightness** (step 3, shown once there's a model) lights every model at once. Turn it down for a dim photo and up for a bright one, so the models don't look pasted on.
+- **Brightness of all 3D models** (under the spot list in step 2, shown once there's a model) lights every model at once. Turn it down for a dim photo and up for a bright one, so the models don't look pasted on.
 
 Models are placed 8 m from the viewer in the direction you choose, and their size is stored as an angle like everything else, so they look the same size on every screen.
 
@@ -133,6 +133,14 @@ Tick **Line up with the real room** (step 3) when viewers will stand in the room
 - the room isn't full of people standing between the viewer and the walls.
 
 Viewers can always skip it or line things up by eye, and it isn't offered on computers or phones without a camera or motion sensors.
+
+**If the camera won't start**, viewers get a short explanation and steps for their phone, with **Try again**, **Switch camera** and **Look around without the camera** buttons:
+- *Being used by another app* (the most common): close the Camera app, video calls and QR-scanner tabs, then Try again.
+- *Not allowed*: steps to turn the camera permission back on in Safari or Chrome.
+- *No camera found* or *no picture after a few seconds*: Switch camera, or close other camera apps.
+- *This browser can't use the camera* (often a QR scanner's or social app's built-in browser): **Copy link** and open it in Safari or Chrome.
+
+While lining up, a camera button next to Skip switches between the phone's cameras.
 
 ### What works where
 

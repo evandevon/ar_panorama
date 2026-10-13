@@ -46,6 +46,16 @@
       <p class="help" id="spots-empty">No spots yet.</p>
       <ol class="spot-list" id="spot-list"></ol>
       <button type="button" class="btn ghost add-spot" id="add-spot" disabled>+ Add a spot at the crosshair</button>
+      <div class="bright-row" id="bright-row" hidden>
+        <label for="in-bright">Brightness of all 3D models <output id="bright-out" for="in-bright">Normal</output></label>
+        <div class="bright-ctl">
+          <span aria-hidden="true">Darker</span>
+          <input type="range" id="in-bright" min="0.3" max="2.5" step="0.05" value="1" aria-describedby="bright-help">
+          <span aria-hidden="true">Brighter</span>
+          <button type="button" class="btn small ghost" id="bright-reset">Reset</button>
+        </div>
+        <p class="help" id="bright-help">Lights every 3D model at once. Match them to the photo: darker for a dim room, brighter for a sunny one.</p>
+      </div>
     </section>
 
     <section class="panel step-title" aria-labelledby="h-title">
@@ -58,16 +68,6 @@
         <summary>How lining up works</summary>
         <p>Viewers get a <b>Line up with this room</b> option. Their camera shows the room with your photo faded over it; they turn until the two match, and the page tells them when it <b>looks lined up</b>. Then the spots sit on the real walls. It works best when the photo was taken from where viewers will stand (e.g. by the QR code) and the room still looks similar. Viewers can always skip it.</p>
       </details>
-      <div class="bright-row" id="bright-row" hidden>
-        <label for="in-bright">3D model brightness <output id="bright-out" for="in-bright">Normal</output></label>
-        <div class="bright-ctl">
-          <span aria-hidden="true">Darker</span>
-          <input type="range" id="in-bright" min="0.3" max="2.5" step="0.05" value="1" aria-describedby="bright-help">
-          <span aria-hidden="true">Brighter</span>
-          <button type="button" class="btn small ghost" id="bright-reset">Reset</button>
-        </div>
-        <p class="help" id="bright-help">Lights every 3D model at once. Match them to the photo: darker for a dim room, brighter for a sunny one.</p>
-      </div>
     </section>
   </form>
 

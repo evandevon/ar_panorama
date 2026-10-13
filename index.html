@@ -77,6 +77,18 @@
   <!-- Lining up with the real room -->
   <section id="align" class="align" hidden aria-label="Line up the photo with the room">
     <p id="align-status" class="align-status" role="status" aria-live="polite"></p>
+    <!-- Shown instead of the controls when the camera can't start -->
+    <div id="cam-help" class="cam-help" role="alertdialog" aria-labelledby="cam-help-title" aria-describedby="cam-help-text" hidden>
+      <h2 id="cam-help-title">The camera didn’t start</h2>
+      <p id="cam-help-text"></p>
+      <ol id="cam-help-steps"></ol>
+      <div class="cam-help-btns">
+        <button id="cam-retry" class="align-btn">Try again</button>
+        <button id="cam-switch" class="align-btn ghost" hidden>Switch camera</button>
+        <button id="cam-copy" class="align-btn ghost" hidden>Copy link</button>
+        <button id="cam-skip" class="align-btn ghost">Look around without the camera</button>
+      </div>
+    </div>
     <div class="align-panel">
       <label class="align-mix">
         <span>Then</span>
@@ -85,6 +97,7 @@
       </label>
       <div class="align-btns">
         <button id="align-skip" class="align-btn ghost">Skip</button>
+        <button id="align-switch" class="align-btn ghost icon" hidden aria-label="Switch camera" title="Switch camera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h3l2-3h6l2 3h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><path d="M9 13a3 3 0 0 1 5.2-2M15 13a3 3 0 0 1-5.2 2"/><path d="M14 9v2h-2M10 17v-2h2"/></svg></button>
         <button id="align-snap" class="align-btn ghost" hidden>Snap</button>
         <button id="align-ok" class="align-btn" hidden>Lined up ✓</button>
       </div>

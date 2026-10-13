@@ -853,7 +853,10 @@
           x = (tmp.x + 1) / 2 * w; y = (1 - tmp.y) / 2 * h;
         }
 
-        if (s.isModel && s.ent && s.ent.object3D) placeModel(s, camera, w, h, dt);
+        if (s.isModel && s.ent && s.ent.object3D) {
+          placeModel(s, camera, w, h, dt);
+          if (s.offView) onScreen = false;       // its box would be distorted out of all proportion: don't show it
+        }
 
         // A dot waiting to be looked at: fill its ring while the crosshair rests on it
         if (s.dwell && !s.revealed) {
@@ -938,7 +941,7 @@
     }
 
     // Put a model in its place, size and turn it, and work out the box it covers on screen
-    const _c = new THREE.Vector3(), _q = [];
+    const _c = new THREE.Vector3(), _d = new THREE.Vector3(), _q = [];
     function placeModel(s, camera, w, h, dt) {
       const o = s.ent.object3D;
       o.position.copy(s.dir).multiplyScalar(MODEL_DIST);
@@ -953,13 +956,21 @@
       if (!s.localBox) { s.boxW = 0; return; }
       // screen box: project the corners of its (turned, scaled) bounding box
       s.fit.object3D.updateMatrixWorld(true);
+      camera.updateMatrixWorld();
       const m = s.fit.object3D.matrixWorld, b = s.localBox;      // the box is in the holder's space
-      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9, off = false;
       for (let i = 0; i < 8; i++) {
-        _c.set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z).applyMatrix4(m).project(camera);
+        _c.set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z).applyMatrix4(m);
+        // Corners level with or behind the viewer project to nonsense (huge or flipped): treat it as out of view
+        _d.copy(_c).applyMatrix4(camera.matrixWorldInverse);
+        if (_d.z > -0.5) off = true;
+        _c.project(camera);
+        if (Math.abs(_c.x) > 3 || Math.abs(_c.y) > 3) off = true;  // well beyond the screen's edges
         const px = (_c.x + 1) / 2 * w, py = (1 - _c.y) / 2 * h;
         x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py);
       }
+      s.offView = off;
+      if (off) return;
       s.boxW = Math.max(30, x1 - x0); s.boxH = Math.max(30, y1 - y0);
       s.aspect = s.boxW / s.boxH;
     }
