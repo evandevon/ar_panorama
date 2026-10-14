@@ -73,14 +73,20 @@
 
   <!-- ============ 2. Preview ============ -->
   <section class="panel preview-panel" aria-labelledby="pv-h">
-    <h2 id="pv-h">Preview <span class="opt">drag the picture to look around · drag spots to move them</span></h2>
+    <h2 id="pv-h">Preview <span class="opt">drag the picture or use the arrows to look around · drag spots to move them</span></h2>
     <div class="shape" role="group" aria-label="Preview shape">
       <button type="button" id="shape-phone" aria-pressed="true">Phone</button>
       <button type="button" id="shape-wide" aria-pressed="false">Wide</button>
       <span class="help-inline">Phones held upright see less of the room — check sizes in Phone view.</span>
     </div>
-    <div class="frame phone" id="frame">
-      <div class="empty" id="empty">Paste a 360° photo link to see it here.</div>
+    <div class="frame-nav phone" id="frame-nav" role="group" aria-label="Turn the preview">
+      <button type="button" class="nav-btn nav-up" data-dir="up" aria-label="Look up" title="Look up (hold to keep turning)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 15 6-6 6 6"/></svg></button>
+      <button type="button" class="nav-btn nav-left" data-dir="left" aria-label="Look left" title="Look left (hold to keep turning)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 6-6 6 6 6"/></svg></button>
+      <div class="frame phone" id="frame">
+        <div class="empty" id="empty">Paste a 360° photo link to see it here.</div>
+      </div>
+      <button type="button" class="nav-btn nav-right" data-dir="right" aria-label="Look right" title="Look right (hold to keep turning)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6"/></svg></button>
+      <button type="button" class="nav-btn nav-down" data-dir="down" aria-label="Look down" title="Look down (hold to keep turning)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg></button>
     </div>
     <div class="facing">
       <p id="facing-text">Starts facing the centre of the photo.</p>

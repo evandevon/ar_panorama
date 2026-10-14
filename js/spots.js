@@ -622,17 +622,41 @@
         '<svg viewBox="0 0 44 44" aria-hidden="true"><circle class="dw-bg" cx="22" cy="22" r="18"/>' +
         '<circle class="dw-ring" cx="22" cy="22" r="18" pathLength="100"/></svg><span class="dw-core" aria-hidden="true"></span>');
       dot.setAttribute('aria-label', 'Show ' + (s.label || labelText(s) || 'this'));
-      dot.addEventListener('click', e => { e.stopPropagation(); reveal(s); });   // tapping works too
+      dot.addEventListener('click', e => { e.stopPropagation(); reveal(s, 'tap'); });   // tapping works too
       dot.addEventListener('pointerdown', e => { if (opts.editable) e.stopPropagation(); });
       s.dwellRing = dot.querySelector('.dw-ring');
       s.dwellDot = dot;
       s.el.appendChild(dot);
     }
-    function reveal(s) {
+    function reveal(s, how) {
       if (s.revealed) return;
       s.revealed = true;
+      s.revealedBy = how || 'look';
+      s.seen = s.revealedBy === 'look';
+      s.awayT = 0;
       s.el.classList.add('revealed');
       if (!s.isStill) { s.userPaused = false; play(s); }
+    }
+    // Back behind its dot once the viewer has looked away from it (it can be brought back the same way)
+    function conceal(s) {
+      if (!s.revealed) return;
+      s.revealed = false;
+      s.el.classList.remove('revealed');
+      s.dwellT = 0; s.awayT = 0;
+      if (s.dwellRing) s.dwellRing.style.strokeDashoffset = '100';
+      if (s.playing || s.wantPlay) pause(s);
+      s.userPaused = false;
+    }
+    // Is the crosshair on what the dot revealed? (with a little slack, so it doesn't flicker at the edges)
+    function crosshairOn(s, x, y, w, h, angle, slack) {
+      if (!s.inScene) return angle < 18;                       // a sound: near its marker
+      if (s.quad) return insideQuad(s.quad, w / 2, h / 2, slack);
+      if (s.isModel) {
+        return Math.abs(w / 2 - x) < (s.boxW || 40) / 2 + slack && Math.abs(h / 2 - y) < (s.boxH || 40) / 2 + slack;
+      }
+      const fw = s.yt ? authoredWidth(s) : frameWidth(s);    // a YouTube player grows while playing: use its set size
+      const fh = s.frame && s.frame.offsetHeight && !s.yt ? s.frame.offsetHeight : fw / (s.aspect || 16 / 9);
+      return Math.abs(w / 2 - x) < fw / 2 + slack && Math.abs(h / 2 - y) < fh / 2 + slack;
     }
 
     // Full-screen reading view for text spots
@@ -904,8 +928,17 @@
             const near = Math.hypot(w / 2 - x, h / 2 - y) < 30;
             s.dwellT = near ? s.dwellT + dt : Math.max(0, s.dwellT - dt * 2);
             if (s.dwellRing) s.dwellRing.style.strokeDashoffset = String(100 - Math.min(100, s.dwellT / DWELL_MS * 100));
-            if (s.dwellT >= DWELL_MS) reveal(s);
+            if (s.dwellT >= DWELL_MS) reveal(s, 'look');
           }
+        }
+        // Revealed: hide it again once the crosshair has moved off it for a moment. (Revealed by a tap and not
+        // looked at yet? Then it stays until it's turned out of view.)
+        else if (s.dwell && s.revealed && started && !s.dragging) {
+          const on = onScreen && crosshairOn(s, x, y, w, h, angle, 24);
+          if (on) s.seen = true;
+          const away = s.seen ? !on : !onScreen || x < 0 || x > w || y < 0 || y > h;
+          s.awayT = away ? (s.awayT || 0) + dt : 0;
+          if (s.awayT > 700) conceal(s);
         }
         // "Plays when looked at": while the centre of the screen (the crosshair) is on it
         else if (started && s.play === 'look' && !s.dragging) {

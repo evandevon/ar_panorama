@@ -107,7 +107,7 @@
     if (!f.pano) {
       showEmpty('Paste a 360° photo link to see it here.');
       status('pano-status');
-      panoOk = null; loadedKey = '';
+      panoOk = null; setNavEnabled(panoOk === true); loadedKey = '';
       renderQr(null);
       return;
     }
@@ -115,7 +115,7 @@
     if (bad) {
       showEmpty('');
       status('pano-status', 'err', bad);
-      panoOk = false; loadedKey = '';
+      panoOk = false; setNavEnabled(panoOk === true); loadedKey = '';
       renderQr(null);
       return;
     }
@@ -124,7 +124,7 @@
     const key = [f.pano, yaw].join('|');
     if (key !== loadedKey) {
       loadedKey = key;
-      panoOk = null;
+      panoOk = null; setNavEnabled(panoOk === true);
       status('pano-status', 'wait', 'Loading the photo…');
       const frame = $('frame');
       frame.querySelectorAll('iframe').forEach(i => i.remove());
@@ -151,7 +151,7 @@
     if (e.origin !== location.origin || !m || m.from !== 'viewer360') return;
     if (m.type === 'status') {
       if (m.state === 'ready') {
-        panoOk = true;
+        panoOk = true; setNavEnabled(panoOk === true);
         $('set-start').disabled = false;
         sendSpots();
         renderSpots();
@@ -162,7 +162,7 @@
         } else status('pano-status', m.warning ? 'note' : 'ok', m.warning || ('Photo loaded (' + m.width + ' × ' + m.height + ').' +
           (m.width > 8192 ? ' That’s very large — around 4096 × 2048 loads faster on phones.' : '')));
       } else if (m.state === 'error') {
-        panoOk = false;
+        panoOk = false; setNavEnabled(panoOk === true);
         status('pano-status', 'err', escapeHtml(m.message));
       }
       renderQr(readForm());
@@ -701,9 +701,33 @@
     yaw = 0; updateFacing(); refresh();
   });
 
+  // Arrow buttons around the preview: a click turns 15°, holding keeps turning. Handy when spots fill the view
+  // and dragging the picture keeps grabbing them instead.
+  const NUDGE = { up: [0, 1], down: [0, -1], left: [1, 0], right: [-1, 0] };
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    const [dy, dp] = NUDGE[btn.dataset.dir];
+    let holdTimer = 0, repeat = 0, held = false;
+    const stop = () => { clearTimeout(holdTimer); clearInterval(repeat); };
+    btn.addEventListener('pointerdown', e => {
+      if (btn.disabled || e.button > 0) return;
+      held = false; stop();
+      holdTimer = setTimeout(() => {
+        held = true;
+        repeat = setInterval(() => post({ type: 'nudge', yaw: dy * 2.5, pitch: dp * 2.5 }), 30);   // about 80° a second
+      }, 300);
+    });
+    ['pointerup', 'pointerleave', 'pointercancel', 'blur'].forEach(ev => btn.addEventListener(ev, stop));
+    btn.addEventListener('click', () => {                 // a tap, or Enter / Space from the keyboard
+      if (held) { held = false; return; }
+      post({ type: 'nudge', yaw: dy * 15, pitch: dp * 15 });
+    });
+  });
+  function setNavEnabled(on) { document.querySelectorAll('.nav-btn').forEach(b => { b.disabled = !on; }); }
+
   // Preview shape: an upright phone (what most viewers will see) or a wide screen
   function setShape(phone) {
     $('frame').classList.toggle('phone', phone);
+    $('frame-nav').classList.toggle('phone', phone);
     $('shape-phone').setAttribute('aria-pressed', String(phone));
     $('shape-wide').setAttribute('aria-pressed', String(!phone));
   }

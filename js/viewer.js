@@ -466,6 +466,7 @@
     else recentre();
   });
 
+  let nudgeReport = 0;
   // The author page can change the starting direction without reloading the preview
   window.addEventListener('message', e => {
     const m = e.data;
@@ -483,6 +484,12 @@
       spots.pinSpot(m.index, m.on);
     } else if (m.type === 'selectSpot') {
       spots.setSelected(m.index);
+    } else if (m.type === 'nudge') {
+      // The author page's arrow buttons: turn by a few degrees (left and up are positive)
+      if (mode === 'motion') setMode('drag');
+      lc.yawObject.rotation.y += (m.yaw || 0) * Math.PI / 180;
+      lc.pitchObject.rotation.x = clampPitch(lc.pitchObject.rotation.x + (m.pitch || 0) * Math.PI / 180);
+      clearTimeout(nudgeReport); nudgeReport = setTimeout(reportView, 120);
     } else if (m.type === 'setBrightness') {
       spots.setBrightness(m.value);
     } else if (m.type === 'stopAll') {

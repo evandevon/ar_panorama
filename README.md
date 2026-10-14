@@ -59,6 +59,7 @@ Spots place videos, sounds, pictures, text, links and 3D models around the room.
 Pick a spot's kind with **Type**, at the top of each spot's card. It's set automatically when the link ends in a file type, but Google Drive and OneDrive links don't show the file type, so choose it yourself for those. HEIC photos from iPhones and TIFFs won't display in most phone browsers; save them as JPEG or PNG first.
 
 1. Turn the preview so the **crosshair** is where you want the spot.
+   The **arrow buttons around the preview** turn the view too: tap for 15°, or hold to keep turning. They're handy when spots fill the view and dragging keeps grabbing them.
 2. Press **+ Add a spot at the crosshair** and paste the link.
 3. In the preview, **drag a video or picture to move it** and **pull its corner tags to resize it**. Sound markers can be dragged too. Dragging the 360 picture itself turns the view.
 4. Use **▶ Test** on a video in the preview to play it there. **Show me** turns the preview to a spot, and clicking a spot in the preview highlights its settings.
@@ -79,7 +80,7 @@ Use **📱 Phone** view when sizing videos. A phone held upright sees much less 
 | **Hidden** | Nothing shows; it just plays. Only available with one of the automatic options. In the preview, hidden spots appear faintly so you can still move them. |
 | **Loop** | Starts again when it ends. |
 | **Appears: straight away** | The spot is in the room from the start. |
-| **Appears: after the viewer rests the crosshair on a dot** | Only a small pulsing dot shows. While the crosshair stays on it, a ring fills over 1.5 seconds; when it's full, the spot appears, and videos and sounds start playing. Tapping the dot works too. This works for every kind of spot. |
+| **Appears: after the viewer rests the crosshair on a dot** | Only a small pulsing dot shows. While the crosshair stays on it, a ring fills over 1.5 seconds; when it's full, the spot appears, and videos and sounds start playing. Tapping the dot works too. When the viewer looks away from it again, it goes back behind its dot after a moment (videos and sounds stop), ready to be revealed again. A spot revealed by tapping stays until it's been looked at and then looked away from, or turned out of view. This works for every kind of spot. |
 | **Pictures: Shows all the time** | The picture sits in the room. Viewers can tap it to see it full screen, which is handy for old letters, posters or maps. |
 | **Pictures: Shows only while the viewer looks at it** | The picture fades in while the crosshair is on it and fades out when it moves off. |
 
