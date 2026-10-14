@@ -383,8 +383,7 @@
       cam.setAttribute('look-controls', 'magicWindowTrackingEnabled', true);
     }
     mode = next;
-    $('mode-motion').setAttribute('aria-pressed', String(mode === 'motion'));
-    $('mode-drag').setAttribute('aria-pressed', String(mode === 'drag'));
+    $('mode-toggle').setAttribute('aria-checked', String(mode === 'motion'));
   }
 
   // Must be called straight from a tap: iPhones only ask for motion permission then.
@@ -403,7 +402,7 @@
       window.addEventListener('deviceorientation', on);
       setTimeout(() => {
         window.removeEventListener('deviceorientation', on);
-        if (!seen) { setMode('drag'); hint('This device has no motion sensor — drag to look around.', 5000); }
+        if (!seen) { setMode('drag'); $('mode-toggle').hidden = true; hint('This device has no motion sensor — drag to look around.', 5000); }
         else hint('Turn around to look. You can still drag left and right.');
       }, 1200);
     }).catch(() => { setMode('drag'); hint('Motion isn’t available — drag to look around.', 5000); });
@@ -426,8 +425,14 @@
 
     $('start').classList.add('gone');
     $('toolbar').hidden = false;
+    $('mode-toggle').hidden = !motionPossible();
     setTimeout(() => { $('start').hidden = true; }, 500);
   }
+  // Tapping anywhere on the start screen starts too (the usual way, without aiming for a button)
+  $('start').addEventListener('click', e => {
+    if (e.target.closest('button, a') || $('tap-any').hidden || !document.querySelector('.card.ready') || $('start').classList.contains('gone')) return;
+    enter(motionPossible() ? 'motion' : 'drag');
+  });
 
   // ------------------------------------------------------------- lining up with the real room
   let aligned = false;
@@ -442,6 +447,7 @@
     aligned = true;
     spots.start();
     $('toolbar').hidden = false;
+    $('mode-toggle').hidden = !motionPossible();
     setButton($('btn-centre'), 'lineUp', 'Line up');
     $('btn-centre').title = 'Line the photo up with the room again';
     hint(msg);
@@ -459,8 +465,10 @@
 
   $('go-motion').addEventListener('click', () => enter('motion'));
   $('go-drag').addEventListener('click', () => enter('drag'));
-  $('mode-motion').addEventListener('click', () => { if (mode !== 'motion') startMotion(); });
-  $('mode-drag').addEventListener('click', () => { setMode('drag'); hint('Drag to look around'); });
+  $('mode-toggle').addEventListener('click', () => {
+    if (mode !== 'motion') startMotion();
+    else { setMode('drag'); hint('Motion off — drag to look around'); }
+  });
   $('btn-centre').addEventListener('click', () => {
     if (aligned) { if (mode !== 'motion') startMotion(); $('toolbar').hidden = true; aligner.begin(); }
     else recentre();
@@ -550,7 +558,6 @@
 
     if (PREVIEW) {
       // The author's preview: straight in, mouse only. Sound waits for a click on Play.
-      $('mode-seg').hidden = true;
       $('start').hidden = true;
       $('toolbar').hidden = false;
       if (Sound.kind === 'yt') $('yt-wrap').hidden = false;
@@ -573,23 +580,25 @@
       $('btn-full').addEventListener('click', () => window.open(full, '_blank', 'noopener'));
     }
     const canAlign = !EMBEDDED && cfg.align && motionPossible() && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    // One tap to start. Phones look around by moving (the tap is what lets iPhones use motion and sound);
+    // a small switch on screen turns that off for dragging with a finger.
+    $('go-drag').hidden = motionPossible();
     if (canAlign) {
       $('go-align').hidden = false;
       $('go-motion').hidden = false;
       $('go-motion').classList.add('secondary');
       $('go-motion').querySelector('b').textContent = 'Skip lining up';
       $('go-motion').querySelector('small').textContent = 'Just move your phone to look around';
-      $('go-drag').classList.add('secondary');
-      $('drag-sub').textContent = 'Use your finger instead';
       $('tip').textContent = 'Stand where the QR code is. Nothing from your camera is saved or sent anywhere.';
     } else if (motionPossible()) {
       $('go-motion').hidden = false;
-      $('go-drag').classList.add('secondary');
-      $('drag-sub').textContent = 'Use your finger instead';
-      $('tip').textContent = (cfg.audio ? 'Turn your sound up — headphones help. ' : '') + 'You can switch any time.';
+      $('go-motion').querySelector('b').textContent = 'Start';
+      $('go-motion').querySelector('small').textContent = 'Then move your phone to look around';
+      $('tip').textContent = (cfg.audio ? 'Turn your sound up — headphones help. ' : '') + 'Prefer your finger? Switch Motion off at the top.';
+      $('tap-any').hidden = false;
     } else {
-      $('mode-seg').hidden = true;
       $('drag-label').textContent = 'Start';
+      $('tap-any').hidden = false;
       $('drag-sub').textContent = matchMedia('(pointer: coarse)').matches ? 'Drag with your finger to look around' : 'Drag with your mouse to look around';
       $('tip').textContent = cfg.audio ? 'Turn your sound up — headphones help.' : '';
     }

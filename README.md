@@ -161,11 +161,13 @@ Why some hosts fail: browsers only let a web page draw a photo in 3D if the phot
 
 ## For viewers
 
-- **Move my phone.** Hold the phone up and turn around. iPhones ask for permission; tap **Allow**. You can still drag left and right to adjust.
-- **Drag to look.** Use a finger, or a mouse on a computer. Pinch or scroll to zoom.
-- Switch modes at any time with the **Move / Drag** buttons. **Recentre** returns to the starting view.
+- **One tap to start.** Tap **Start**, or anywhere on the start screen. On phones, moving the phone then looks around straight away. iPhones ask for permission first; tap **Allow**. The tap is needed because phones only allow motion sensors and sound to start from a tap.
+- **Motion switch** (top right): turn it off to drag with a finger instead, and on again to go back to moving the phone. With motion on, you can still drag left and right to adjust.
+- On computers, and phones without a motion sensor, it starts with dragging (mouse or finger). Pinch or scroll to zoom.
+- **Recentre** returns to the starting view.
 - If motion isn't allowed or the device has no motion sensor, the viewer switches to dragging and says why.
 - Keyboard: arrow keys look around, `+`/`-` zoom.
+- **Links** are buttons with a pointing-hand icon and a soft white glow, so they stand out from text cards, which can't be followed.
 
 ## Embedding in another website
 

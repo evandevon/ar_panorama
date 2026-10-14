@@ -600,7 +600,7 @@
       const a = el('a', 'spot-a');
       let text = s.label;
       if (!text) { try { text = new URL(href).hostname.replace(/^www\./, ''); } catch (e) { text = 'Open link'; } }
-      a.innerHTML = '<span class="spot-a-ico" aria-hidden="true">🔗</span><span class="spot-a-text"></span><span aria-hidden="true">↗</span>';
+      a.innerHTML = '<span class="spot-a-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M22 14a8 8 0 0 1-8 8"/><path d="M18 11v-1a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/><path d="M14 10V9a2 2 0 0 0-2-2a2 2 0 0 0-2 2v1"/><path d="M10 9.5V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v10"/><path d="M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg></span><span class="spot-a-text"></span><span class="spot-a-out" aria-hidden="true">↗</span>';
       a.querySelector('.spot-a-text').textContent = text;
       if (href) { a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; }
       else opts.onError(s.index, 'Link spots need a web address starting with https://');

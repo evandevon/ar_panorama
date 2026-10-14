@@ -50,6 +50,7 @@
       </div>
       <div class="progress" aria-hidden="true"><div id="bar"></div></div>
       <p class="tip" id="tip"></p>
+      <p class="tap-any" id="tap-any" hidden>or tap anywhere to start</p>
       <p class="embed-open" id="embed-open" hidden><a id="embed-open-link" target="_blank" rel="noopener">Open full screen ↗</a> — best on phones</p>
       <p id="error" class="error" role="alert" hidden></p>
     </div>
@@ -57,20 +58,25 @@
 
   <!-- Controls once inside -->
   <nav id="toolbar" class="toolbar" aria-label="Viewer controls" hidden>
-    <div class="seg" id="mode-seg" role="group" aria-label="How to look around">
-      <button id="mode-motion" aria-pressed="false"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></span><span class="lbl">Move</span></button>
-      <button id="mode-drag" aria-pressed="true"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg></span><span class="lbl">Drag</span></button>
-    </div>
     <button id="btn-centre" title="Face the starting direction"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span><span class="lbl">Recentre</span></button>
     <button id="btn-sound" hidden><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 4v16l13-8z"/></svg></span><span class="lbl">Play audio</span></button>
     <button id="btn-full" hidden title="Open in its own tab, full screen"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5"/></svg></span><span class="lbl">Full screen</span></button>
+  </nav>
+
+  <!-- Moving the phone is the default; this small switch swaps to dragging with a finger (and back) -->
+  <nav aria-label="How to look around">
+  <button id="mode-toggle" class="mode-toggle" role="switch" aria-checked="true" hidden title="Look around by moving your phone, or turn this off to drag with your finger">
+    <span class="mt-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></span>
+    <span class="mt-lbl">Motion</span>
+    <span class="mt-switch" aria-hidden="true"><span class="mt-knob"></span></span>
+  </button>
   </nav>
 
   <!-- YouTube audio: YouTube's rules require its player to stay visible (at least 200×200) -->
   <div id="yt-wrap" class="yt-wrap" hidden><div id="yt"></div></div>
 
   <!-- Video spots are drawn here, over the 360 view -->
-  <div id="spots" class="spots-layer"></div>
+  <div id="spots" class="spots-layer" role="region" aria-label="Things in the room"></div>
   <div id="spots-offscreen" class="spots-offscreen" aria-hidden="true"></div>
   <div id="crosshair" class="crosshair" hidden aria-hidden="true"></div>
 
