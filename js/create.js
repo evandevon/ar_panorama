@@ -324,7 +324,8 @@
             '<button type="button" class="btn small ghost sp-rot" data-axis="2" data-step="15" aria-label="Roll sideways">Roll ⟲</button>' +
             '<button type="button" class="btn small ghost sp-rot-reset" aria-label="Reset rotation">Reset</button>' +
           '</span>' +
-          '<label class="check sp-spin-row"><input type="checkbox" class="sp-spin"><span>Spins slowly</span></label></div>' +
+          '<label class="check sp-spin-row"><input type="checkbox" class="sp-spin"><span>Spins slowly</span></label>' +
+          '<label class="check sp-flat-row"><input type="checkbox" class="sp-flat"><span>Bright, flat colours <span class="help-inline">— matte, with the colours as you picked them, like Tinkercad shows them. Untick for the file’s own materials (shinier, often paler).</span></span></label></div>' +
         '<p class="status sp-status" role="status" aria-live="polite"></p>' +
       '</div>';
 
@@ -337,6 +338,7 @@
     q('.sp-loop').checked = !!sp.loop;
     q('.sp-pin').checked = !!sp.pin;
     q('.sp-spin').checked = !!sp.spin;
+    q('.sp-flat').checked = !!sp.flat;
     li.dataset.index = i;
     li.addEventListener('focusin', () => selectCard(i, false));
     q('.sc-toggle').addEventListener('click', () => { openCard(openIndex === i ? -1 : i, false); selectCard(i, false); });
@@ -382,6 +384,7 @@
     }));
     q('.sp-rot-reset').addEventListener('click', () => { sp.rot = [0, 0, 0]; updatePlaceText(i); spotsChanged(true); });
     q('.sp-spin').addEventListener('change', e => { sp.spin = e.target.checked; updateSummary(li, sp); spotsChanged(true); });
+    q('.sp-flat').addEventListener('change', e => { sp.flat = e.target.checked; updateSummary(li, sp); spotsChanged(true); });
     q('.sp-show').addEventListener('click', () => post({ type: 'lookAt', yaw: sp.yaw, pitch: sp.pitch }));
     q('.sp-remove').addEventListener('click', () => removeSpot(i));
 
@@ -413,6 +416,7 @@
       else if (kind === 'video' || kind === 'audio') bits.push(sp.play === 'look' ? 'plays when looked at' : sp.play === 'start' ? 'plays at once' : 'tap to play');
       else if ((kind === 'image' || kind === 'model') && sp.play === 'look') bits.push('shows when looked at');
       if (kind === 'model' && sp.spin) bits.push('spins');
+      if (kind === 'model' && sp.flat) bits.push('flat colours');
       if (sp.hidden) bits.push('hidden');
       if (sp.loop && (kind === 'video' || kind === 'audio')) bits.push('loops');
       if (sp.pin) bits.push('pinned');
@@ -574,7 +578,7 @@
 
   $('add-spot').addEventListener('click', () => {
     if (spots.length >= MAX_SPOTS) return;
-    spots.push({ src: '', yaw: viewYaw, pitch: viewPitch, w: 20, play: 'tap', type: '', hidden: false, loop: false, dwell: false, label: '', rot: [0, 0, 0], spin: false });
+    spots.push({ src: '', yaw: viewYaw, pitch: viewPitch, w: 20, play: 'tap', type: '', hidden: false, loop: false, dwell: false, label: '', rot: [0, 0, 0], spin: false, flat: false });
     openIndex = spots.length - 1;
     renderSpots();
     spotsChanged(false);

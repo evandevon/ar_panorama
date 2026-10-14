@@ -101,7 +101,7 @@
     const kindFlag = kind === 'text' || kind === guess || (kind === 'video' && Media.youTube(s.src)) ? ''
       : { audio: 'a', video: 'v', image: 'i', link: 'k', model: 'm' }[kind];
     const flags = (s.play === 'look' ? 'l' : s.play === 'start' ? 's' : '') + kindFlag +
-      (s.hidden ? 'h' : '') + (s.loop ? 'r' : '') + (s.dwell ? 'd' : '') + (s.spin ? 'o' : '');
+      (s.hidden ? 'h' : '') + (s.loop ? 'r' : '') + (s.dwell ? 'd' : '') + (s.spin ? 'o' : '') + (s.flat ? 'f' : '');
     const label = (s.label || '').trim();
     const w = s.w && Math.round(s.w) !== DEFAULT_W ? Math.round(s.w) : '';
     const src = kind === 'text' ? 't:' + s.src.trim() : shorten ? Media.shorten(s.src) : s.src.trim();
@@ -129,6 +129,7 @@
       w: Number(parts[5]) || DEFAULT_W,
       pin: parsePin(parts[6]),
       spin: flags.includes('o'),
+      flat: flags.includes('f'),
       rot: (() => { const r = String(parts[7] || '').split(',').map(Number); return r.length === 3 && r.every(Number.isFinite) ? r : [0, 0, 0]; })()
     };
   }
@@ -186,6 +187,7 @@
           Object.assign(old, { yaw: d.yaw, pitch: d.pitch, w: d.w || DEFAULT_W, label: d.label, dir: dirFrom(d.yaw, d.pitch),
             pin: validPin(d.pin) ? d.pin.map(c => c.slice()) : null, lastW: null,
             rot: Array.isArray(d.rot) ? d.rot.slice() : [0, 0, 0], spin: !!d.spin });
+          if (old.isModel && !!d.flat !== !!old.flat) { old.flat = !!d.flat; applyLook(old); }
           if (old.labelEl) { old.labelEl.textContent = labelText(old); old.labelEl.hidden = !labelText(old); }
           next.push(old);
         } else {
@@ -389,6 +391,8 @@
         s.maxDim = Math.max(size.x, size.y, size.z) || 1;
         s.modelObj = obj;
         s.localBox = new THREE_.Box3().setFromCenterAndSize(new THREE_.Vector3(), size);
+        rememberLook(s, obj);
+        applyLook(s);
         if (s.el) s.el.classList.add('loaded');
       };
       if (/\.stl(\?|#|$)/i.test(Media.expand(s.src))) {
@@ -432,6 +436,42 @@
       }
       s.el.appendChild(s.frame);
       opts.layer.appendChild(s.el);
+    }
+
+    // "Bright, flat colours (like Tinkercad)": the author's choice, made while watching the preview.
+    // Treats the colours stored in the file as ordinary screen colours and makes every surface matte plastic,
+    // which is how Tinkercad itself shows them. Off = the file shown exactly as the glTF standard says.
+    // (We keep the file's own values, so it can be switched either way at any time.)
+    function rememberLook(s, root) {
+      s.looks = [];
+      const seen = new Set();
+      root.traverse(o => {
+        if (!o.isMesh) return;
+        const col = o.geometry && o.geometry.getAttribute('color');
+        if (col && !seen.has(col)) { seen.add(col); s.looks.push({ col: col, orig: col.array.slice() }); }
+        (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => {
+          if (!m || seen.has(m)) return;
+          seen.add(m);
+          s.looks.push({ mat: m, metalness: m.metalness, roughness: m.roughness, color: m.color ? m.color.clone() : null });
+        });
+      });
+    }
+    function applyLook(s) {
+      if (!s.looks) return;
+      const toLinear = c => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+      s.looks.forEach(l => {
+        if (l.col) {
+          const a = l.col.array, w = l.col.itemSize;
+          for (let i = 0; i < a.length; i++) a[i] = s.flat && i % w < 3 ? toLinear(l.orig[i]) : l.orig[i];   // never the alpha
+          l.col.needsUpdate = true;
+        } else {
+          const m = l.mat;
+          if ('metalness' in m) m.metalness = s.flat ? 0 : l.metalness;
+          if ('roughness' in m) m.roughness = s.flat ? 0.75 : l.roughness;
+          if (m.color && l.color) { m.color.copy(l.color); if (s.flat) m.color.convertSRGBToLinear(); }
+          m.needsUpdate = true;
+        }
+      });
     }
 
     // STL (from Tinkercad, Fusion, 3D-printing sites): binary or text
