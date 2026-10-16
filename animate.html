@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Animate my drawing</title>
+  <meta name="description" content="Bring a drawing to life: the camera copies a real person's movements onto the drawn character. Runs in the browser — nothing is uploaded.">
+  <meta name="theme-color" content="#101418">
+  <meta name="version" content="v7">
+  <script src="js/core/failsafe.js?v=5d27624d"></script>
+  <link rel="icon" href="assets/sparkle.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/progress.css?v=c68c0312">
+  <link rel="stylesheet" href="css/animate.css?v=6a093f1b">
+</head>
+<body>
+  <header class="topbar">
+    <a class="home" href="./" aria-label="Home">←</a>
+    <ol class="steps" aria-label="Steps">
+      <li data-step="drawing"><button type="button" data-goto="drawing">Drawing</button></li>
+      <li data-step="cutout"><button type="button" data-goto="cutout">Cut out</button></li>
+      <li data-step="joints"><button type="button" data-goto="joints">Joints</button></li>
+      <li data-step="scene"><button type="button" data-goto="scene">Background</button></li>
+      <li data-step="perform"><button type="button" data-goto="perform">Perform</button></li>
+    </ol>
+  </header>
+
+  <main>
+    <!-- 1. drawing -->
+    <section class="step" id="step-drawing" data-step="drawing">
+      <div class="intro">
+        <h1>Animate my drawing</h1>
+        <p>Draw one character, take a photo, then a partner films you moving — and your drawing copies you.</p>
+        <ul class="tips">
+          <li><b>Plain white paper</b>, thick dark lines.</li>
+          <li><b>Stand it like a star:</b> arms and legs apart, not touching the body.</li>
+          <li>Photograph it flat, in good light, filling most of the photo.</li>
+        </ul>
+        <div class="big-buttons">
+          <button class="btn primary big" id="photoBtn" type="button">Take a photo</button>
+          <input type="file" id="photoInput" accept="image/*" capture="environment" hidden>
+          <label class="btn big file"><input type="file" id="fileInput" accept="image/*">Choose a picture</label>
+          <button class="btn big" id="exampleBtn" type="button">Try the example</button>
+        </div>
+        <div id="savedWrap" hidden>
+          <h2>Your characters</h2>
+          <p class="fine">Kept on this device only.</p>
+          <ul class="saved" id="savedList"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. cut out -->
+    <section class="step" id="step-cutout" data-step="cutout" hidden>
+      <p class="caption">The bright part is your character. Paint to fix any mistakes.</p>
+      <div class="work"><canvas id="cutCanvas" aria-label="Your drawing, with the cut-out area shown bright"></canvas></div>
+      <div class="tools">
+        <div class="seg" role="group" aria-label="Brush">
+          <button type="button" class="seg-btn" id="addBrush" aria-pressed="true">+ Add</button>
+          <button type="button" class="seg-btn" id="eraseBrush" aria-pressed="false">− Erase</button>
+        </div>
+        <label class="mini">Brush <input type="range" id="brushSize" min="6" max="80" value="28"></label>
+        <button type="button" class="btn" id="undoBtn">Undo</button>
+        <label class="mini">Faint lines <input type="range" id="sensitivity" min="0" max="1" step="0.05" value="0.5"></label>
+      </div>
+      <nav class="stepnav"><button class="btn" data-go="drawing" type="button">Back</button><button class="btn primary" id="cutNext" type="button">Next</button></nav>
+    </section>
+
+    <!-- 3. joints -->
+    <section class="step" id="step-joints" data-step="joints" hidden>
+      <p class="caption">Drag each dot onto the joint. <span class="key l">Blue</span> = limbs on the left, <span class="key r">orange</span> = on the right.</p>
+      <div class="work"><canvas id="jointCanvas" aria-label="Your character with joint dots to drag"></canvas></div>
+      <div class="tools">
+        <span id="jointHint" class="fine" aria-live="polite"></span>
+        <button type="button" class="btn" id="resetDots">Reset dots</button>
+      </div>
+      <nav class="stepnav"><button class="btn" data-go="cutout" type="button">Back</button><button class="btn primary" id="jointsNext" type="button">Next</button></nav>
+    </section>
+
+    <!-- 4. background (internally "scene") -->
+    <section class="step" id="step-scene" data-step="scene" hidden>
+      <div class="scene-layout">
+        <div class="work preview"><canvas id="previewCanvas" aria-label="Preview of the background"></canvas></div>
+        <div class="options">
+          <h2>Background</h2>
+          <div class="tiles" id="sceneTiles" role="radiogroup" aria-label="Background"></div>
+          <label class="row" id="colourRow" hidden>Colour <input type="color" id="bgColour" value="#ffd9e8"></label>
+          <label class="btn file" id="pictureRow" hidden><input type="file" id="bgPicture" accept="image/*">Choose a background picture</label>
+          <p class="fine note" id="bgNote" hidden></p>
+
+          <h2>Camera</h2>
+          <label class="row"><span class="sr">Camera</span><select id="camSelectScene" aria-label="Camera"></select></label>
+          <p class="fine">Plug in a webcam or document camera and it appears here.</p>
+
+          <h2>Camera in the corner</h2>
+          <div class="seg" role="radiogroup" aria-label="Camera in the corner" id="insetSeg">
+            <button type="button" class="seg-btn" data-inset="off">Off</button>
+            <button type="button" class="seg-btn" data-inset="tl" aria-label="Top left">↖</button>
+            <button type="button" class="seg-btn" data-inset="tr" aria-label="Top right">↗</button>
+            <button type="button" class="seg-btn" data-inset="bl" aria-label="Bottom left">↙</button>
+            <button type="button" class="seg-btn" data-inset="br" aria-label="Bottom right">↘</button>
+          </div>
+          <label class="check"><input type="checkbox" id="insetDots"> Show tracking dots on the camera</label>
+
+          <h2>Video shape</h2>
+          <div class="seg" role="radiogroup" aria-label="Video shape" id="shapeSeg">
+            <button type="button" class="seg-btn" data-shape="landscape">Wide</button>
+            <button type="button" class="seg-btn" data-shape="portrait">Tall</button>
+            <button type="button" class="seg-btn" data-shape="square">Square</button>
+          </div>
+
+          <h2>Sound</h2>
+          <label class="check"><input type="checkbox" id="soundOn"> Record sound from the microphone</label>
+          <div id="micRow" hidden>
+            <label class="row"><span class="sr">Microphone</span><select id="micSelect" aria-label="Microphone"></select></label>
+            <div class="meter" aria-hidden="true"><span></span></div>
+            <p class="fine">The bar moves when the microphone hears you. On a phone, the filming partner’s phone does the listening — speak up!</p>
+          </div>
+
+          <h2>Character</h2>
+          <label class="row">Size <input type="range" id="charSize" min="0.35" max="1" step="0.05" value="0.72"></label>
+          <label class="check"><input type="checkbox" id="moveAround" checked> Moves around when you move</label>
+        </div>
+      </div>
+      <nav class="stepnav"><button class="btn" data-go="joints" type="button">Back</button><button class="btn primary" id="sceneNext" type="button">Start performing</button></nav>
+    </section>
+
+    <!-- 5. perform -->
+    <section class="step perform" id="step-perform" data-step="perform" hidden>
+      <div class="stage-wrap">
+        <canvas id="stageCanvas" aria-label="Your animated character"></canvas>
+        <div class="countdown" id="countdown" hidden aria-live="assertive"></div>
+        <div class="pill" id="performHint" aria-live="polite"></div>
+        <div class="rec-time" id="recTime" hidden></div>
+      </div>
+      <div class="perform-bar">
+        <button class="round" type="button" data-go="scene" aria-label="Back to background settings">⚙</button>
+        <button class="round" type="button" id="flipCam" aria-label="Next camera">⟲</button>
+        <label class="cam-pick"><span class="sr">Camera</span><select id="camSelect" aria-label="Camera"></select></label>
+        <button class="rec" type="button" id="recBtn" aria-label="Start recording"><span></span></button>
+        <button class="round" type="button" id="snapBtn" aria-label="Take a picture">◉</button>
+        <button class="round mic" type="button" id="micBtn" aria-pressed="false" aria-label="Sound off — tap to record sound"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/><path class="slash" d="M4 4l16 16"/></svg></button>
+        <button class="round" type="button" id="fullBtn" aria-label="Full screen">⛶</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- webcam photo (computers) -->
+  <div class="sheet" id="photoSheet" hidden role="dialog" aria-modal="true" aria-labelledby="photoTitle">
+    <div class="sheet-card wide">
+      <h2 id="photoTitle">Take a photo of the drawing</h2>
+      <div class="photo-frame"><canvas id="photoCanvas" aria-label="Live camera view"></canvas><div class="photo-msg" id="photoMsg" aria-live="polite"></div></div>
+      <div class="photo-tools">
+        <label class="grow"><span class="sr">Camera</span><select id="photoCam" aria-label="Camera"></select></label>
+        <button class="btn" id="photoRotate" type="button" aria-label="Rotate the picture">⟳ Rotate</button>
+      </div>
+      <p class="fine">Hold the drawing flat, in good light, so it fills most of the picture. A document camera works brilliantly.</p>
+      <div class="btn-row">
+        <button class="btn" id="photoCancel" type="button">Cancel</button>
+        <button class="btn primary" id="photoShoot" type="button">Take photo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- recording result -->
+  <div class="sheet" id="resultSheet" hidden role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+    <div class="sheet-card">
+      <h2 id="resultTitle">Your animation</h2>
+      <div class="result-frame"><video id="resultVideo" controls playsinline loop></video></div>
+      <p class="fine note" id="resultNote" hidden></p>
+      <div class="btn-row">
+        <button class="btn primary" id="saveVideo" type="button">Save video</button>
+        <button class="btn" id="closeResult" type="button">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <video id="camera" playsinline muted autoplay class="offscreen"></video>
+  <video id="photoVideo" playsinline muted autoplay class="offscreen"></video>
+  <canvas id="glCanvas" class="offscreen"></canvas>
+
+  <script type="module" src="js/animate/main.js?v=58d941e2"></script>
+</body>
+</html>
