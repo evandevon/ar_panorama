@@ -1,133 +1,208 @@
-# AR Body
+# 360° QR Experience Maker
 
-Camera tools that track a person's body, for the classroom. No server, no build step, no accounts — everything runs in the browser using Google's MediaPipe pose tracker, so it can be hosted free on GitHub Pages.
+A free, sign-in-free website hosted on GitHub Pages. An **author** pastes a link to a 360° photo, places videos and sounds around it, previews it, and prints a QR code. A **viewer** scans the code and looks around on their phone, either by moving the phone or by dragging with a finger.
 
-The home page links to:
+There's no server or database. Everything about an experience lives inside the QR code's link.
 
-- **Animate my drawing** (`animate.html`) — photograph a drawn character; the camera copies a real person's movements onto it; record a video.
-- **AR Overlays** (`overlays.html`) — stick pictures and videos to a head, hands, bones and body; share a setup as a link.
-- **Body Explorer** — coming soon.
+## Pages
 
-Nothing from the camera leaves the device. Snapshots and recordings are saved straight to the device.
+| Page | Who uses it |
+|---|---|
+| `make.html` | Authors. Paste links, preview with the mouse, set the starting view, then copy, print, save or embed the QR code. |
+| `index.html` | Viewers. This is what QR codes open: the site's main address. Visiting it without a code shows a pointer to the maker. |
+| `view.html` | Only forwards older links to the main address. Keep it so earlier QR codes keep working. |
 
-## Put it on GitHub Pages
+## Put it online
 
-1. Create a new repository on GitHub (e.g. `ar-body`), public.
-2. Upload everything in this folder to it (**Add file → Upload files**, drag the contents in, commit). Keep the folder structure: `index.html` must be at the top level.
-3. Go to **Settings → Pages**. Under *Build and deployment*, choose **Deploy from a branch**, branch **main**, folder **/ (root)**, then **Save**.
-4. After a minute the site is live at `https://<your-username>.github.io/ar-body/`.
+1. Create a **public** GitHub repository.
+2. Upload everything in this folder, keeping the folders as they are. Include the hidden `.nojekyll` file.
+3. Go to **Settings → Pages** and set the source to **Deploy from a branch** → `main` → `/ (root)`.
+4. After a minute or two the site is at `https://<username>.github.io/<repo>/`.
 
-The camera needs `https://`, which GitHub Pages provides.
+Make QR codes from `https://<username>.github.io/<repo>/make.html` on GitHub Pages. Codes made from a copy on your own computer won't open on phones, and the page warns you if you try.
 
-## Animate my drawing
+## For authors
 
-1. **Drawing** — take a photo of a drawing (or choose one, or *Try the example*). Best results: one character on plain white paper, thick dark lines, standing like a star with arms and legs apart and not touching the body.
-2. **Cut out** — the page removes the paper and evens out the lighting. White paper *inside* the outline stays part of the character. Paint with **Add / Erase** to fix mistakes; **Faint lines** picks up lighter pencil.
-3. **Joints** — drag the dots onto the head, neck, shoulders, elbows, hands, hips, knees and feet. Blue dots are limbs on the left of the picture, orange on the right. (Keyboard: Tab to the picture, `[` `]` choose a dot, arrows move it.)
-4. **Background** — pick a background (animated sunny day, night sky, under the sea, stage, **green screen**, **transparent**, a plain colour, your own picture, or the live camera), the camera to use, where the **camera in the corner** goes (or off), the video shape (wide / tall / square), the character's size, and whether it moves around when the performer does.
-The numbered steps along the top are buttons: jump to any step once there's a drawing (anything in between is done automatically). Anything that takes time — downloading the body tracker, finding the character in a photo — shows a progress bar with a percentage.
+**360° photo.** You can paste any of these:
+- a Google Drive share link
+- a Dropbox share link
+- a OneDrive share link
+- a direct link to a JPEG
 
-5. **Perform** — a partner points the camera (the back camera on phones) at the performer. The drawing copies their movements: each bone of the drawing copies the *angle* of the performer's matching bone, so any drawing works whatever its proportions. Press record for a 3-2-1 countdown; afterwards **Save video** (on phones this opens the share sheet, so it can go to Photos).
+Set sharing to **Anyone with the link**. The photo should be equirectangular (2:1), which is what 360 cameras and phone "photo sphere" modes export. About **4096 × 2048** and under 3 MB loads quickly on school Wi-Fi.
 
-The limb on the left of the camera picture moves the limb on the left of the drawing, so the character moves like the person looks on screen. Body parts the camera can't see (e.g. legs out of frame) relax back to the drawn pose.
+**360° video instead of a photo.** Paste a link to an equirectangular (2:1) 360 video file (MP4, WebM or MOV) in step 1. Everything else works on top of it, including spots, corner pinning, look-to-reveal dots and Line up with the real room.
+- The video loops, and starts when the viewer taps to begin.
+- With spots, the toolbar's **Sound** button mutes everything, the video included.
+- The video's own sound drops to a quarter while a video spot plays.
+- **Hosting:** use this GitHub repo (under 100 MB per file). Google Drive doesn't reliably allow its videos to be used this way, and its links don't show that they're videos.
+- **A classroom-friendly file:** H.264 MP4, 2880 × 1440 (or 1920 × 960 for older phones), about 5–8 Mbps, 1–2 minutes long, which comes to roughly 40–90 MB. Many phones can't play 360 video wider than 4096 px, and the author page warns about that. Remember that a whole class loading a video at once is heavy on school Wi-Fi.
+- **YouTube 360 videos can't be used as the background.** Browsers don't let a page use the picture inside a YouTube player, and YouTube doesn't allow anything drawn over its player. If it's your own video, download the original from YouTube Studio and host the file.
 
-**For video editing:** *Green screen* records the character on bright green — remove it with any editor's chroma-key effect. *Transparent* records a WebM video with a genuinely see-through background, in Chrome and Edge only (Safari and Firefox can't record transparency). Some editors don't read transparent WebM; if yours shows black behind the character, use Green screen. To convert a transparent WebM for Final Cut / Premiere / After Effects: `ffmpeg -c:v libvpx -i my-animation.webm -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le my-animation.mov`. Snapshots (◉) on Transparent save as see-through PNGs. Neither background draws the ground shadow, so keying is clean.
+**Starting view.** Drag the preview so the important thing is in front of you, then press **Start from this view**.
 
-**Sound:** tick *Record sound from the microphone* in Background (or tap the microphone button while performing) to include sound in the video. It's off by default. The level bar shows the microphone is hearing you; pick a different microphone from the list if needed.
+The preview loads the photo exactly the way a phone will. If it shows a green tick, the QR code will work.
 
-Characters are kept on that device (browser storage) and appear under **Your characters** next time. They are not uploaded or put in a link. Recordings can leave out the camera picture entirely (camera corner **Off**), so students can share work without appearing in it.
+### Spots
 
-## AR Overlays
+Spots place videos, sounds, pictures, text, links and 3D models around the room. You can add up to 8.
 
-- **Start camera**, then step back so the tracker can see the body. Sticking points the camera can't see fade out.
-- **Add pictures and videos by web address.** The address must go straight to the file (ending in `.png`, `.gif`, `.svg`, `.mp4`, `.webm`…). You can also drag a picture in from another browser tab, or paste an address anywhere on the page.
-- Each overlay card sets what it **sticks to**, its size, position, turn, see-through level, and whether it **tilts with the body**. Double-click a slider to reset it.
-- **Bones** (upper arms, forearms, thighs, shins and spine) stretch a picture from one joint to the next, so it turns and lengthens with the limb. The top of the picture sits at the joint nearer the body (shoulder, elbow, hip, knee, neck), so draw bone pictures standing upright, cropped close. **Size** is then the length: 100% = joint to joint.
-- **Examples** loads a ready-made layout: *Crown & sparkles*, or a full *Skeleton* (skull, ribs, spine, pelvis and all eight limb bones).
-- **Remove green screen** keys out green backgrounds — film something against a green sheet and it becomes a cut-out.
-- **↑ / ↓** change which overlay is in front. **⧉** duplicates.
-- **People** tracks up to 4 people; every overlay is applied to each person.
+| Kind | What to put in |
+|---|---|
+| Video | A YouTube link, or an MP4 / WebM / MOV file |
+| Sound | An MP3, M4A, AAC, OGG, Opus, WAV or FLAC file, or a YouTube video's sound |
+| Picture | A PNG, JPEG, GIF (animated GIFs play), WebP, AVIF, SVG or BMP file |
+| Text | Just type the words (line breaks are kept). The label becomes its heading. Viewers can tap it to read it full screen. |
+| 3D model | A `.glb` file (best), or `.gltf`, `.obj` or `.stl`. See **3D models** below. |
+| Link | A web page address. It shows as a button that opens the page in a new tab; the label is the button text. Only ordinary `https://` addresses are allowed. |
 
-### Debugging
+Pick a spot's kind with **Type**, at the top of each spot's card. It's set automatically when the link ends in a file type, but Google Drive and OneDrive links don't show the file type, so choose it yourself for those. HEIC photos from iPhones and TIFFs won't display in most phone browsers; save them as JPEG or PNG first.
 
-- **Skeleton** (toolbar button, the checkbox under Tracking, or press **S**) draws the tracked points and bones. Points the tracker is unsure about are drawn faded orange, each person is numbered, and the tracking speed (fps) shows in the corner.
-- **Show sticking points** labels every anchor the overlays can attach to.
+1. Turn the preview so the **crosshair** is where you want the spot.
+   The **arrow buttons around the preview** turn the view too: tap for 15°, or hold to keep turning. They're handy when spots fill the view and dragging keeps grabbing them.
+2. Press **+ Add a spot at the crosshair** and paste the link.
+3. In the preview, **drag a video or picture to move it** and **pull its corner tags to resize it**. Sound markers can be dragged too. Dragging the 360 picture itself turns the view.
+4. Use **▶ Test** on a video in the preview to play it there. **Show me** turns the preview to a spot, and clicking a spot in the preview highlights its settings.
 
-## Layouts live in the link
+**Pin corners** (videos, pictures, text and links): tick it, and the four corner tags stop resizing and move one at a time instead. Drag each corner onto the matching point in the photo, such as the corners of a picture frame, a window or the blackboard. The spot is warped to fit, so it looks painted onto the wall and keeps its perspective as viewers look around. Dragging the middle still moves the whole thing, and unticking turns it back into a flat rectangle.
+- Pinned pictures stretch to fill their corners exactly.
+- A pinned YouTube poster straightens into the normal flat player while it plays, because YouTube's player can't be skewed, and goes back to its pinned shape afterwards. MP4 videos stay pinned while playing.
+- Each pinned spot adds about 25–35 characters to the QR code's link.
 
-There's nothing to save or upload. The whole layout — every overlay's web address and settings, plus the number of people and accuracy setting — is compressed into the page's address after the `#`, and the address bar updates as you make changes.
+Use **📱 Phone** view when sizing videos. A phone held upright sees much less of the room than a wide screen, so a video that looks small in Wide view can fill a phone.
 
-- **Copy link to this layout** copies it. Bookmark it, or share it with students or colleagues.
-- Opening the link rebuilds the layout exactly, on any device.
-- A link with no layout (`https://<your-username>.github.io/ar-body/overlays.html`) opens with the example crown, sunglasses and sparkles. **Clear all** gives a link to an empty layout.
-- Nothing about the camera is stored in the link.
+| Option | What it does |
+|---|---|
+| **Plays when the viewer taps it** | Videos show a poster with a play button. Sounds show a speaker marker to tap. |
+| **Plays automatically when the viewer looks at it** | Plays while the centre of the screen (the crosshair) is on the video at the size you set, and pauses as soon as it moves off, however the video was started. (A YouTube player grows while it plays, but only your original size counts.) For sounds, the centre needs to be within about 12° of the marker. Viewers always see a small dot in the centre of the screen so they know where they're aiming. |
+| **Plays automatically as soon as it opens** | Starts when the viewer taps to enter. |
+| **Sound only** | No picture, just a speaker marker. MP3 links are always sound only. |
+| **Hidden** | Nothing shows; it just plays. Only available with one of the automatic options. In the preview, hidden spots appear faintly so you can still move them. |
+| **Loop** | Starts again when it ends. |
+| **Appears: straight away** | The spot is in the room from the start. |
+| **Appears: after the viewer rests the crosshair on a dot** | Only a small pulsing dot shows. While the crosshair stays on it, a ring fills over 1.5 seconds; when it's full, the spot appears, and videos and sounds start playing. Tapping the dot works too. When the viewer looks away from it again, it goes back behind its dot after a moment (videos and sounds stop), ready to be revealed again. A spot revealed by tapping stays until it's been looked at and then looked away from, or turned out of view. This works for every kind of spot. |
+| **Pictures: Shows all the time** | The picture sits in the room. Viewers can tap it to see it full screen, which is handy for old letters, posters or maps. |
+| **Pictures: Shows only while the viewer looks at it** | The picture fades in while the crosshair is on it and fades out when it moves off. |
 
-### Where to host pictures and videos
+Pictures keep their own shape. Transparent PNG, GIF and WebP images show the room through the see-through parts, so cut-out objects look like they're really there. Picture links don't need any special sharing permission beyond "Anyone with the link", so most hosts work.
 
-Any web address works for showing an overlay. But some websites don't allow their files to be used by other sites, and for those the browser blocks **snapshots, recording and green screen** while that overlay is on screen (the page tells you which overlay). Hosts that do allow it:
+**Background sound:** add an MP3 spot and set it to *Sound only*, *Hidden*, *Plays as soon as it opens* and *Loop*. While any video plays, sound-only spots drop to a quarter of their volume. Viewers can mute everything with the **Sound** button.
 
-- **Your own GitHub repo** — put files in the `assets` folder and use `https://<your-username>.github.io/ar-body/assets/<file>`. This is the most reliable option.
-- Most image CDNs and GIF sites' direct file links.
+Video sizes are stored as an angle (for example, "20° wide"), so a video stays the same size in the room on every screen.
 
-Links to file *pages* (e.g. a Google Drive or Google Photos page) won't work — they're web pages, not the file itself.
+**YouTube spots start small.** A YouTube spot sits in the room as a poster (the video's thumbnail) at the size you chose. When it starts playing it grows smoothly into the player, and 1.5 seconds after it stops it shrinks back to the poster. It needs to grow because YouTube's player can't be smaller than 356 × 200 pixels while it's showing. Video files (MP4 and others) have no minimum, so they play at exactly the size you set.
 
-## Testing on your own computer
+**Two things to know about YouTube spots:**
 
-Opening `index.html` by double-clicking won't work (browsers block the scripts from `file://`). Run a tiny local server in the folder instead:
+- **YouTube's rules.** YouTube's terms say its player must stay visible: at least 200 × 200 pixels, with nothing covering it. Videos in the room follow this. Sound-only and hidden YouTube spots don't. Use an MP3 for those where you can; the author page warns you when needed.
+- **Autoplay on phones.** Phones, especially iPhones, often block sound that doesn't start from a tap. If an automatic YouTube spot is blocked, it plays muted with a **Tap for sound** button. MP3 and MP4 spots are unlocked during the viewer's first tap, so they're more reliable for automatic sound.
 
-```
-python3 -m http.server 8000
-```
+### 3D models
 
-then open `http://localhost:8000`.
+A 3D model sits in the room as a real object: as viewers look around, they see it from the matching angle, and it's lit like a solid thing rather than a flat picture. Viewers can **tap it to look at it up close**, turning it over with a finger (or mouse/arrow keys) and pinching or scrolling to zoom.
 
-## If the camera doesn't appear
+**Formats:** `.glb` is best: one file with colours and textures included. Tinkercad, SketchUp, Blender and Sketchfab downloads can all export it. **Tinkercad `.glb` files:** Tinkercad's exporter has a few known problems, so colours can look washed out or dull, and parts made with a Shape Generator or a group can lose their colour or shift other parts' colours. To avoid that, group those parts and turn on **Multicolor** before exporting. The brightness slider helps with models that look dull. `.stl` files (3D-printing files from Tinkercad or Thingiverse) work too but have no colours, so they show in a plain stone colour; they're turned upright automatically. `.obj` works but loses its colours unless they're baked in. `.gltf` files that come with separate texture files won't find them, so export as `.glb` instead.
 
-The camera starts on its own, even if body tracking can't load, and the page says what went wrong:
+**Hosting:** put the file in this site's `models/` folder on GitHub (most reliable), or use a Dropbox link. You can paste the GitHub page link for a file (`github.com/…/blob/…`): it's converted to the file itself automatically, and a file in this site's own repo shrinks to just its path, e.g. `models/inkwell.glb`. Google Drive and OneDrive don't work for 3D models, because they don't let other sites load the file. Keep files under about 5 MB so they load quickly on phones; the sample inkwell is 23 KB.
 
-- **"opened as a file"** — open the page from its web address, not by double-clicking the file.
-- **"Part of this page didn't load"** — refresh with Ctrl+Shift+R (Cmd+Shift+R on a Mac). If it keeps happening, a file is missing from the website: upload all the files from the latest update. The page version is shown on the home page and in the message.
-- **"Camera permission is blocked"** — click the camera/lock icon in the address bar and allow the camera. On a Mac, also allow the browser in System Settings → Privacy & Security → Camera.
-- **"The camera is busy"** / **"not sending a picture"** — another app (Teams, Zoom, Camera) is using it. Close it, or pick another camera.
-- **"Body tracking couldn't …"** — see *Body tracking files* below.
+**In the author page:**
+- **Drag** the model in the preview to move it, and pull a **corner tag** to make it bigger or smaller.
+- Drag the **round handle** above it to turn it: sideways turns it around, up and down tilts it. The **Turn**, **Tilt**, **Roll** and **Reset** buttons on its card do the same in 15° steps.
+- **Bright, flat colours** shows the colours exactly as you picked them, on matte plastic, the way Tinkercad shows them. Without it, the file's own materials are used, which for Tinkercad files look paler and slightly metallic. Try both in the preview and keep whichever looks right.
+- **Spins slowly** keeps it turning (about 20° a second), which helps viewers notice it's 3D.
+- **Shows: all the time / only while looked at** and **Appears: after looking at a dot** work as for pictures.
+- **Brightness of all 3D models** (under the spot list in step 2, shown once there's a model) lights every model at once. Turn it down for a dim photo and up for a bright one, so the models don't look pasted on.
 
-The camera lists update by themselves when a webcam or document camera is plugged in or out.
+Models are placed 8 m from the viewer in the direction you choose, and their size is stored as an angle like everything else, so they look the same size on every screen.
 
-## Body tracking files
+### Line up with the real room
 
-Body tracking is Google's MediaPipe, released under the Apache License 2.0, which allows hosting it yourself:
+Tick **Line up with the real room** (step 3) when viewers will stand in the room where the 360 photo was taken.
 
-- `vendor/mediapipe/` — the tracker library and engine (about 26 MB), bundled with the site, unmodified, with its licence.
-- `models/` — the trained body model. Download the model file(s) into this folder — links and exact names are in `models/README.md`. "Fast" (`pose_landmarker_lite.task`) is the one most people need.
+**What viewers see:**
+- The start screen offers **📷 Line up with this room**.
+- Their camera shows the room with your photo faded over it. A **Then ⟷ Now** slider changes the mix.
+- They turn the phone until the photo overlaps the room, then slide left or right to fine-tune. They can pinch if the photo looks bigger or smaller than the room.
+- The page checks the match a few times a second. It shows **✓ Looks lined up**, or **Nearly — about 12° out** with a **Snap** button that turns the photo the rest of the way.
+- They tap **Lined up ✓** (or **Skip**), the camera switches off, and the experience begins. The spots now sit on the real walls.
+- The toolbar's **Line up** button lets them redo it later, for example if things drift after a few minutes.
 
-The site uses its own copies first, and only falls back to the internet (cdn.jsdelivr.net / unpkg.com for the library, storage.googleapis.com for the model) for anything missing. With both folders uploaded, the site needs nothing but your github.io address — handy on school networks.
+**How the check works:** the phone's motion sensors already know which way is up, so only the left–right turn is unknown. The page compares the outlines (edges) in the camera picture with the same view of your photo at a range of turns, up to 30° either way. It only reports a match when one turn clearly beats the rest, so a room that doesn't match never shows "lined up". Nothing from the camera is saved or sent anywhere.
 
-The model card notes the tracker is designed for people within about 4 m of the camera, works best with one person, and does not do — and cannot be used for — identity recognition.
+**It works best when:**
+- the photo was taken from where viewers stand (by the QR code is ideal), at about phone height;
+- the room still has the same fixed features (doors, windows, ceiling lines, the blackboard wall), even if the furniture has changed;
+- the room isn't full of people standing between the viewer and the walls.
 
-## Updates
+Viewers can always skip it or line things up by eye, and it isn't offered on computers or phones without a camera or motion sensors.
 
-Each update comes as a zip of **only the files that changed**, in the same folders. Upload its contents over the top of the repository (GitHub: *Add file → Upload files*, drag in the contents, commit). If an update deletes a file, its notes say which. `CHANGELOG.md` lists every version. Script and style links carry a fingerprint (`?v=…`) of their contents, so browsers never mix old and new files.
+**If the camera won't start**, viewers get a short explanation and steps for their phone, with **Try again**, **Switch camera** and **Look around without the camera** buttons:
+- *Being used by another app* (the most common): close the Camera app, video calls and QR-scanner tabs, then Try again.
+- *Not allowed*: steps to turn the camera permission back on in Safari or Chrome.
+- *No camera found* or *no picture after a few seconds*: Switch camera, or close other camera apps.
+- *This browser can't use the camera* (often a QR scanner's or social app's built-in browser): **Copy link** and open it in Safari or Chrome.
 
-## Notes
+While lining up, a camera button next to Skip switches between the phone's cameras.
 
-- The tracker loads from `cdn.jsdelivr.net` and `storage.googleapis.com` the first time (a few MB). If a school network blocks those, the page will say it can't load the body tracker.
-- **Accuracy**: *Fast* suits most laptops, tablets and phones; *Most accurate* needs a strong computer.
+### What works where
 
-## Files
+| Host | 360 photo | Sound |
+|---|---|---|
+| This GitHub repo (`panoramas/`, `audio/`) | ✅ Always | ✅ Always |
+| Google Drive | ✅ Usually | ✅ Usually |
+| Dropbox | ✅ Usually | ✅ Usually |
+| Personal OneDrive | ⚠️ Sometimes | ⚠️ Usually |
+| School/work OneDrive | ❌ Usually blocked | ⚠️ Only if external sharing is allowed |
+| YouTube | — | ✅ If the owner allows embedding |
 
-```
-index.html               home page
-animate.html             Animate my drawing
-overlays.html            AR Overlays
-css/                     styling
-js/app.js, js/body.js    AR Overlays: camera, overlays, sticking points
-js/animate/              Animate: cut-out, rig (mesh + bones), WebGL renderer, scenes, storage
-js/core/camera.js        shared camera, camera/mic lists, microphone
-js/core/tracker.js       body tracker loader (with backup source)
-js/core/failsafe.js      explains what's wrong if the page can't run
-vendor/mediapipe/        bundled body-tracking library + engine (Apache-2.0)
-models/                  body model files (you add these; see models/README.md)
-CHANGELOG.md             what changed in each version
-assets/                  sample stickers, skeleton pictures, example drawing — host your own here too
-.nojekyll         tells GitHub Pages to serve files as-is
-```
+Why some hosts fail: browsers only let a web page draw a photo in 3D if the photo's host allows it. Cloud drives decide this themselves and change their rules without notice. Plain audio playback doesn't need that permission, so sound is more forgiving.
+
+**About YouTube sound.** YouTube's rules require its player to stay visible, at least 200 × 200 pixels and not covered. When an experience uses YouTube sound, viewers see a small YouTube player in the top-left corner while it plays. An MP3 avoids this. Some YouTube videos can't be played on other websites at all; the preview tells you if so. School networks that block YouTube will also block the sound.
+
+## For viewers
+
+- **One tap to start.** Tap **Start**, or anywhere on the start screen. On phones, moving the phone then looks around straight away. iPhones ask for permission first; tap **Allow**. The tap is needed because phones only allow motion sensors and sound to start from a tap.
+- **Motion switch** (top right): turn it off to drag with a finger instead, and on again to go back to moving the phone. With motion on, you can still drag left and right to adjust.
+- On computers, and phones without a motion sensor, it starts with dragging (mouse or finger). Pinch or scroll to zoom.
+- **Recentre** returns to the starting view.
+- If motion isn't allowed or the device has no motion sensor, the viewer switches to dragging and says why.
+- Keyboard: arrow keys look around, `+`/`-` zoom.
+- **Links** are buttons with a pointing-hand icon and a soft white glow, so they stand out from text cards, which can't be followed.
+
+## Embedding in another website
+
+Press **Embed** on the author page for a ready-to-paste `<iframe>` code, at 400, 500 or 650 px tall, or 16:9 filling the width. It works in Google Sites (**Insert → Embed → Embed code**), WordPress, Wix, Squarespace, Canvas and Moodle. SharePoint only allows embeds from sites an administrator has approved.
+
+When the viewer finds itself inside another site:
+- It uses a more compact start card.
+- It adds an **Open full screen ↗** link and a **Full screen** toolbar button, which open the same experience in its own tab.
+- It doesn't offer **Line up with this room**.
+
+Dragging, sound, video, text, links and look-to-reveal dots all work inside an embed. Moving the phone to look around usually works on Android, but iPhones often block motion sensors (and always the camera) inside another site, so iPhone users should use **Open full screen**.
+
+## Link format
+
+`?p=<photo>&t=<title>&y=<start direction°>&al=1&mb=<model brightness>&s=<spot>&s=<spot>…&v=2`
+
+Each spot is written as `link~yaw~pitch~flags~label~width°~corners~turn`. Text spots use `t:` followed by the text instead of a link. Corners (only for pinned spots) are eight whole-degree offsets from the centre: top-left, top-right, bottom-right, bottom-left, each as yaw,pitch. Turn (only for 3D models) is `turn,tilt,roll` in whole degrees. `mb` is only included when it isn't 1 (normal). The flags are `l` (plays/shows when looked at), `s` (plays at start), `h` (hidden), `r` (loop), `d` (appears after the dot), `o` (3D model spins), `f` (3D model in bright, flat colours), and `a` / `v` / `i` / `k` / `m` (sound / video / picture / link / 3D model), used when the kind can't be told from the link.
+
+**The format is safe for email and chat.** It uses only characters that email, chat and document apps keep inside a clickable link. Inside each field, `% ~ | ! * ' ( )` and line breaks are escaped. Links always end with `v=2`, so a full stop or bracket at the end of a label can't be mistaken for the end of the sentence.
+
+**Short codes** keep the link and QR code smaller:
+
+| Code | Stands for |
+|---|---|
+| `yt:ID` (`yt:ID.65` = start at 65 s) | a YouTube video |
+| `gd:ID` | a Google Drive file |
+| `wp:` | `https://en.wikipedia.org/wiki/` |
+| `db:` | `https://www.dropbox.com/` |
+| `od:` | `https://1drv.ms/` |
+| `gx:` | `https://docs.google.com/` |
+| `gr:` | `https://raw.githubusercontent.com/` (GitHub files from another repo) |
+| `w:` | `https://www.` |
+| `h:` | `https://` |
+| `folder/file.ext` | a file on this site |
+
+Once a code is used in a printed QR code it must keep its meaning forever. New codes can be added, but existing ones must never change.
+
+**Older links** (made before the change to `~`, using `|` between fields and `view.html` in the address) are still read correctly.
