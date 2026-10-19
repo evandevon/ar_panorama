@@ -299,7 +299,10 @@
       s.el = el('div', 'spot spot-video spot-drive');
       s.labelEl = el('div', 'spot-cap');
       s.frame = el('div', 'spot-frame');
-      s.frame.style.aspectRatio = s.kind === 'audio' ? '3 / 1' : '16 / 9';
+      // Google's player lays itself out badly in a small window (its top bar pushes things out of view),
+      // so it gets a normal-sized window that is then shrunk to fit the spot
+      s.driveSize = s.kind === 'audio' ? [480, 160] : [640, 360];
+      s.frame.style.aspectRatio = s.driveSize[0] + ' / ' + s.driveSize[1];
       s.mediaHost = el('div', 'spot-media');
       s.labelEl.textContent = s.label || '';
       s.labelEl.hidden = !s.label;
@@ -307,6 +310,9 @@
       const f = document.createElement('iframe');
       f.title = (s.label || (s.kind === 'audio' ? 'Sound' : 'Video')) + ' (Google Drive player)';
       f.allow = 'autoplay; fullscreen';
+      f.className = 'drive-frame';
+      f.style.width = s.driveSize[0] + 'px';
+      f.style.height = s.driveSize[1] + 'px';
       s.driveFrame = f;
       // Behind a dot: load it only once revealed (and unload it to stop it when hidden again)
       if (!(s.dwell && !opts.editable)) { f.src = drivePlayerUrl(s); f.dataset.on = '1'; }
@@ -1037,7 +1043,7 @@
       if (s.yt) return s.expanded ? Math.max(YT_MIN_PX, s.w * pxPerDegree()) : authoredWidth(s);
       if (s.isText || s.isLink || s.isDoc) return Math.max(60, s.w * pxPerDegree());
       if (s.isModel) return s.boxW || 40;
-      return Math.max(s.isImage ? 24 : s.drivePlayer ? 220 : 120, s.w * pxPerDegree());
+      return Math.max(s.isImage ? 24 : s.drivePlayer ? 240 : 120, s.w * pxPerDegree());
     }
     // Screen point → direction in the room
     function directionAt(sx, sy) {
@@ -1212,6 +1218,7 @@
             s.lastW = fw;
             if (s.isText) s.frame.style.fontSize = Math.max(9, Math.min(40, fw * 0.075)).toFixed(1) + 'px';
             if (s.isLink || s.isDoc) s.frame.style.fontSize = Math.max(9, Math.min(36, fw * (s.isDoc ? 0.075 : 0.09))).toFixed(1) + 'px';
+            if (s.driveFrame) s.driveFrame.style.transform = 'scale(' + (fw / s.driveSize[0]).toFixed(4) + ')';
           }
           if (s.isModel) s.frame.style.height = Math.round(s.boxH || 40) + 'px';
         }

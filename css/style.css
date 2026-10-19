@@ -397,3 +397,5 @@ body.aligning .mode-toggle { display: none; }
 .spot-drive .spot-media { background: #202124; }
 .spot.testing .spot-edit { pointer-events: none; border-style: dotted; }
 .spot.testing .spot-edit > * { pointer-events: auto; }
+.spot-drive .spot-media { position: relative; }
+.spot-media iframe.drive-frame { position: absolute; left: 0; top: 0; width: auto; height: auto; transform-origin: 0 0; }
