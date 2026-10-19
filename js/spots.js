@@ -62,6 +62,7 @@
     if (Media.looksLikeModel(src)) return 'model';
     if (/^(https?:\/\/|www\.)/i.test(src)) return FILE_HOSTS.test(src) ? '' : 'link';
     if (/^[\w.\/~-]+$/.test(src) && src.includes('/')) return '';   // a file on this site
+    if (/^[\w.~-]+\.[a-z0-9]{2,5}$/i.test(src) && Media.looksLikeDoc(src)) return '';   // a document next to the page
     return 'text';                                                    // anything else is words to show
   }
   // The kind it will actually be shown as
@@ -70,6 +71,7 @@
     const guess = guessKind(d.src);
     if (t === 'text' || guess === 'text') return 'text';
     if (t === 'link') return 'link';
+    if (t === 'doc') return 'doc';                 // a document, shown full screen (always chosen by the author)
     if (Media.youTube(d.src)) return t === 'audio' ? 'audio' : 'video';
     if (guess === 'image') return 'image';
     if (guess === 'audio') return 'audio';
@@ -99,7 +101,7 @@
   function encodeSpot(s, shorten) {
     const kind = kindOf(s), guess = guessKind(s.src);
     const kindFlag = kind === 'text' || kind === guess || (kind === 'video' && Media.youTube(s.src)) ? ''
-      : { audio: 'a', video: 'v', image: 'i', link: 'k', model: 'm' }[kind];
+      : { audio: 'a', video: 'v', image: 'i', link: 'k', model: 'm', doc: 'p' }[kind];
     const flags = (s.play === 'look' ? 'l' : s.play === 'start' ? 's' : '') + kindFlag +
       (s.hidden ? 'h' : '') + (s.loop ? 'r' : '') + (s.dwell ? 'd' : '') + (s.spin ? 'o' : '') + (s.flat ? 'f' : '');
     const label = (s.label || '').trim();
@@ -121,7 +123,7 @@
       yaw: Number(parts[1]) || 0,
       pitch: Number(parts[2]) || 0,
       play: flags.includes('l') ? 'look' : flags.includes('s') ? 'start' : 'tap',
-      type: isText ? 'text' : flags.includes('m') ? 'model' : flags.includes('k') ? 'link' : flags.includes('i') ? 'image' : flags.includes('a') ? 'audio' : flags.includes('v') ? 'video' : '',
+      type: isText ? 'text' : flags.includes('p') ? 'doc' : flags.includes('m') ? 'model' : flags.includes('k') ? 'link' : flags.includes('i') ? 'image' : flags.includes('a') ? 'audio' : flags.includes('v') ? 'video' : '',
       dwell: flags.includes('d'),
       hidden: flags.includes('h'),
       loop: flags.includes('r'),
@@ -203,7 +205,7 @@
     function labelText(s) {
       if (s.label) return s.label;
       if (s.frame) return '';
-      return s.isImage ? 'Picture' : s.isLink ? 'Link' : s.showsPicture ? 'Video' : 'Sound';
+      return s.isImage ? 'Picture' : s.isLink ? 'Link' : s.isDoc ? 'Document' : s.showsPicture ? 'Video' : 'Sound';
     }
 
     function build(def, index) {
@@ -218,8 +220,9 @@
       s.isText = s.kind === 'text';
       s.isLink = s.kind === 'link';
       s.isModel = s.kind === 'model';
+      s.isDoc = s.kind === 'doc';
       s.rot = Array.isArray(def.rot) ? def.rot.slice() : [0, 0, 0];
-      s.isStill = s.isImage || s.isText || s.isLink || s.isModel;   // nothing to play
+      s.isStill = s.isImage || s.isText || s.isLink || s.isModel || s.isDoc;   // nothing to play
       s.isVideoFile = !s.yt && s.kind === 'video';
       if (s.isStill) { s.hidden = false; s.loop = false; if (s.play === 'start' || !(s.isImage || s.isModel)) s.play = 'tap'; }
       if (s.isModel) s.pin = null;
@@ -237,6 +240,7 @@
       else if (visible && s.isImage) buildImage(s);
       else if (visible && s.isText) buildText(s);
       else if (visible && s.isLink) buildLink(s);
+      else if (visible && s.isDoc) buildDoc(s);
       else if (visible && s.inScene) buildFrame(s);
       else if (visible) buildMarker(s);
       if (s.dwell && s.el) addDwell(s);
@@ -592,6 +596,157 @@
       opts.layer.appendChild(s.el);
     }
 
+    // ---------------------------------------------------------- documents
+    // A card in the room (with a first-page preview for Google files); tap to read it full screen
+    const DOC_STYLE = { pdf: ['#b3261e', 'PDF'], word: ['#2b579a', 'Word'], slides: ['#c4501b', 'Slides'], sheet: ['#217346', 'Sheet'], doc: ['#5f6b66', 'Document'] };
+    function buildDoc(s) {
+      const kind = Media.docKind(s.src), view = Media.docViewer(s.src);
+      const [colour, word] = DOC_STYLE[kind];
+      s.el = el('div', 'spot spot-doc');
+      s.frame = el('div', 'spot-frame');
+      const card = el('div', 'doc-card');
+      card.style.setProperty('--doc', colour);
+      let title = s.label;
+      if (!title) {
+        const name = Media.expand(s.src).split(/[?#]/)[0].split('/').pop();
+        title = /\.[a-z0-9]{2,5}$/i.test(name) ? decodeURIComponent(name) : word;
+      }
+      card.innerHTML = '<span class="doc-thumb" hidden></span>' +
+        '<span class="doc-row"><span class="doc-ico" aria-hidden="true">' + DOC_SVG + '<b></b></span>' +
+        '<span class="doc-txt"><span class="doc-title"></span><span class="doc-sub">Tap to open</span></span></span>';
+      card.querySelector('.doc-ico b').textContent = kind === 'pdf' ? 'PDF' : word === 'Document' ? '' : word.slice(0, 1);
+      if (kind === 'pdf') card.querySelector('.doc-ico b').classList.add('small');
+      card.querySelector('.doc-title').textContent = title;
+      // Google files: a picture of the first page (an ordinary picture, so no permission needed)
+      const gid = (view.url.match(/\/(?:file|document|presentation|spreadsheets)\/d\/([\w-]{10,})/) || [])[1];
+      if (gid) {
+        const img = new Image();
+        img.alt = '';
+        img.referrerPolicy = 'no-referrer';
+        img.onload = () => { const t = card.querySelector('.doc-thumb'); t.appendChild(img); t.hidden = false; };
+        img.src = 'https://drive.google.com/thumbnail?id=' + gid + '&sz=w640';
+      }
+      s.labelEl = card.querySelector('.doc-title');
+      s.docTitle = title;
+      s.frame.appendChild(card);
+      if (opts.editable) addEditHandles(s);
+      else {
+        card.setAttribute('role', 'button');
+        card.tabIndex = 0;
+        card.setAttribute('aria-label', 'Open ' + title + ' (' + word.toLowerCase() + ')');
+        card.addEventListener('click', () => openDoc(s));
+        card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDoc(s); } });
+      }
+      s.el.appendChild(s.frame);
+      opts.layer.appendChild(s.el);
+    }
+
+    // Full screen: the host's own viewer in a frame, or the built-in PDF reader. Always with a way out to a new tab.
+    function openDoc(s) {
+      if (s.dwell && !s.revealed && !opts.editable) return;
+      const view = Media.docViewer(s.src);
+      const box = el('div', 'doc-reader');
+      box.setAttribute('role', 'dialog');
+      box.setAttribute('aria-modal', 'true');
+      box.setAttribute('aria-label', s.docTitle || 'Document');
+      box.innerHTML = '<div class="doc-bar"><span class="doc-bar-title"></span>' +
+        '<span class="doc-zoom" hidden><button type="button" class="doc-btn" data-z="-1" aria-label="Zoom out">−</button>' +
+        '<button type="button" class="doc-btn" data-z="1" aria-label="Zoom in">+</button></span>' +
+        '<a class="doc-btn doc-out" target="_blank" rel="noopener noreferrer">Open in new tab ↗</a>' +
+        '<button type="button" class="doc-btn doc-close" aria-label="Close">✕</button></div>' +
+        '<div class="doc-body"><p class="doc-wait">Opening…</p></div>';
+      box.querySelector('.doc-bar-title').textContent = s.docTitle || 'Document';
+      const out = box.querySelector('.doc-out');
+      if (/^https?:\/\//.test(view.open)) out.href = view.open; else out.remove();
+      const body = box.querySelector('.doc-body');
+      const prevFocus = document.activeElement;
+      let alive = true;
+      const shut = () => {
+        alive = false; box.remove(); document.removeEventListener('keydown', onKey);
+        if (prevFocus && prevFocus.focus) prevFocus.focus({ preventScroll: true });
+      };
+      const onKey = e => { if (e.key === 'Escape') shut(); };
+      box.querySelector('.doc-close').addEventListener('click', shut);
+      document.addEventListener('keydown', onKey);
+      document.body.appendChild(box);
+      box.querySelector('.doc-close').focus();
+
+      if (view.mode === 'frame') {
+        const f = document.createElement('iframe');
+        f.className = 'doc-frame';
+        f.title = s.docTitle || 'Document';
+        f.allow = 'fullscreen';
+        f.referrerPolicy = 'no-referrer-when-downgrade';
+        f.src = view.url;
+        f.addEventListener('load', () => { const w = body.querySelector('.doc-wait'); if (w) w.remove(); });
+        body.appendChild(f);
+        // A frame can't say when the host refuses to show the file, so offer the way out if it's slow
+        setTimeout(() => {
+          const w = body.querySelector('.doc-wait');
+          if (alive && w) w.textContent = 'Still opening… If nothing appears, use “Open in new tab”.';
+        }, 6000);
+      } else if (view.mode === 'pdf') {
+        renderPdf(view.url, body, box, () => alive).catch(() => {
+          if (!alive) return;
+          body.innerHTML = '<p class="doc-wait">This PDF couldn’t be opened here. Try “Open in new tab”.</p>';
+          opts.onError(s.index, 'This PDF couldn’t be opened. Check the link, or keep the PDF in your GitHub site or Dropbox.');
+        });
+      } else {
+        body.innerHTML = '<p class="doc-wait">Nothing to show.</p>';
+      }
+    }
+
+    // The built-in PDF reader (PDF.js, loaded only when a PDF is first opened)
+    let pdfLib = null;
+    function loadPdfLib() {
+      if (!pdfLib) {
+        const base = new URL('vendor/pdfjs/', document.baseURI).href;
+        pdfLib = import(base + 'pdf.min.js').then(lib => {
+          lib.GlobalWorkerOptions.workerSrc = base + 'pdf.worker.min.js';
+          return lib;
+        });
+      }
+      return pdfLib;
+    }
+    async function renderPdf(url, body, box, isOpen) {
+      const lib = await loadPdfLib();
+      const pdf = await lib.getDocument({ url: url }).promise;
+      body.innerHTML = '';
+      body.classList.add('doc-pages');
+      body.tabIndex = 0;                               // so keyboard users can scroll the pages
+      body.setAttribute('role', 'region');
+      body.setAttribute('aria-label', 'Document pages');
+      const zoomBox = box.querySelector('.doc-zoom');
+      zoomBox.hidden = false;
+      let zoom = 1, drawing = 0;
+      const draw = async () => {
+        const run = ++drawing;
+        const width = Math.min(body.clientWidth - 16, 1000) * zoom;
+        body.innerHTML = '';
+        for (let n = 1; n <= Math.min(pdf.numPages, 60); n++) {
+          if (!isOpen() || run !== drawing) return;
+          const page = await pdf.getPage(n);
+          const base = page.getViewport({ scale: 1 });
+          const scale = width / base.width, dpr = Math.min(2, window.devicePixelRatio || 1);
+          const vp = page.getViewport({ scale: scale * dpr });
+          const c = document.createElement('canvas');
+          c.className = 'doc-page';
+          c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
+          c.style.width = Math.floor(vp.width / dpr) + 'px';
+          c.setAttribute('role', 'img');
+          c.setAttribute('aria-label', 'Page ' + n + ' of ' + pdf.numPages);
+          body.appendChild(c);
+          await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+        }
+        if (pdf.numPages > 60 && run === drawing) body.appendChild(el('p', 'doc-wait', 'Showing the first 60 pages. Use “Open in new tab” for the rest.'));
+      };
+      zoomBox.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+        zoom = Math.max(0.6, Math.min(3, zoom * (+b.dataset.z > 0 ? 1.25 : 0.8)));
+        draw();
+      }));
+      await draw();
+    }
+
     // A button that opens a web page in a new tab
     function buildLink(s) {
       s.el = el('div', 'spot spot-link');
@@ -612,6 +767,8 @@
       s.el.appendChild(s.frame);
       opts.layer.appendChild(s.el);
     }
+
+    const DOC_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 2h8l5 5v15H6z"/><path d="M14 2v5h5"/></svg>';
 
     // A small dot that reveals (and starts) the spot once the crosshair has rested on it
     const DWELL_MS = 1500;
@@ -830,7 +987,7 @@
     // The size it's shown at right now: a playing YouTube video never goes below YouTube's minimum
     function frameWidth(s) {
       if (s.yt) return s.expanded ? Math.max(YT_MIN_PX, s.w * pxPerDegree()) : authoredWidth(s);
-      if (s.isText || s.isLink) return Math.max(60, s.w * pxPerDegree());
+      if (s.isText || s.isLink || s.isDoc) return Math.max(60, s.w * pxPerDegree());
       if (s.isModel) return s.boxW || 40;
       return Math.max(s.isImage ? 24 : 120, s.w * pxPerDegree());
     }
@@ -849,7 +1006,7 @@
 
     // The flat, upright rectangle a spot fills now, as corner offsets in degrees (the starting point for pinning)
     function rectPin(s) {
-      const aspect = (s.isText || s.isLink) && s.frame && s.frame.offsetHeight
+      const aspect = (s.isText || s.isLink || s.isDoc) && s.frame && s.frame.offsetHeight
         ? s.frame.offsetWidth / s.frame.offsetHeight : s.aspect || 16 / 9;
       const c = anglesFrom(s.dir);
       const hh = s.w / aspect / 2;
@@ -987,7 +1144,7 @@
           if (s.lastW !== 'pin') {
             s.frame.style.width = PIN_W + 'px';
             if (s.isText) s.frame.style.fontSize = (PIN_W * 0.075) + 'px';
-            if (s.isLink) s.frame.style.fontSize = (PIN_W * 0.09) + 'px';
+            if (s.isLink || s.isDoc) s.frame.style.fontSize = (PIN_W * (s.isDoc ? 0.075 : 0.09)) + 'px';
             s.lastW = 'pin';
             s.pinH = s.frame.offsetHeight || PIN_W * 9 / 16;
           }
@@ -1006,7 +1163,7 @@
             s.frame.style.width = fw + 'px';
             s.lastW = fw;
             if (s.isText) s.frame.style.fontSize = Math.max(9, Math.min(40, fw * 0.075)).toFixed(1) + 'px';
-            if (s.isLink) s.frame.style.fontSize = Math.max(9, Math.min(36, fw * 0.09)).toFixed(1) + 'px';
+            if (s.isLink || s.isDoc) s.frame.style.fontSize = Math.max(9, Math.min(36, fw * (s.isDoc ? 0.075 : 0.09))).toFixed(1) + 'px';
           }
           if (s.isModel) s.frame.style.height = Math.round(s.boxH || 40) + 'px';
         }
@@ -1054,8 +1211,9 @@
       edit.innerHTML = '<button type="button" class="spot-test" title="Play or pause">▶ Test</button>' +
         ['nw', 'ne', 'sw', 'se'].map(c => '<span class="spot-handle h-' + c + '" data-corner="' + c + '"></span>').join('');
       const test = edit.querySelector('.spot-test');
-      if (s.isStill) test.remove();
-      test.addEventListener('click', e => { e.stopPropagation(); toggle(s); });
+      if (s.isDoc) { test.textContent = '⤢ Open'; test.title = 'Open the document, as viewers will see it'; }
+      else if (s.isStill) test.remove();
+      test.addEventListener('click', e => { e.stopPropagation(); if (s.isDoc) openDoc(s); else toggle(s); });
       test.addEventListener('pointerdown', e => e.stopPropagation());
       s.frame.appendChild(edit);
       s.testBtn = test;
@@ -1066,7 +1224,7 @@
         const corner = e.target.dataset && e.target.dataset.corner;
         const ci = { nw: 0, ne: 1, se: 2, sw: 3 }[corner];
         const rotStart = (s.rot || [0, 0, 0]).slice();
-        if ((s.isText || s.isLink) && s.frame.offsetHeight) s.aspect = s.frame.offsetWidth / s.frame.offsetHeight;
+        if ((s.isText || s.isLink || s.isDoc) && s.frame.offsetHeight) s.aspect = s.frame.offsetWidth / s.frame.offsetHeight;
         const r = s.el.getBoundingClientRect();                    // the spot's centre point
         const grab = { dx: e.clientX - r.left, dy: e.clientY - r.top };
         beginDrag(s, edit, e, ev => {

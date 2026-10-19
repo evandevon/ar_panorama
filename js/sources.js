@@ -114,6 +114,65 @@
   function looksLikeModel(token) {
     return /\.(glb|gltf|stl|obj)(\?|#|$)/i.test(token || '');
   }
+  function looksLikeDoc(token) {
+    token = token || '';
+    return /\.(pdf|docx?|pptx?|xlsx?|odt|odp|ods|rtf)(\?|#|$)/i.test(token) ||
+      /docs\.google\.com\/(document|presentation|spreadsheets)\/d\//i.test(expand(token)) ||
+      /sharepoint\.com\/:[wpxb]:\/|onedrive\.live\.com\/embed|1drv\.ms\/[a-z]\/c\/[^?]*\?[^#]*embed|[?&]action=embedview/i.test(expand(token));
+  }
+  function docKind(token) {                                   // for choosing an icon
+    const u = expand(token || '');
+    if (/\.pdf(\?|#|$)/i.test(u)) return 'pdf';
+    if (/\.(docx?|odt|rtf)(\?|#|$)/i.test(u) || /docs\.google\.com\/document\//i.test(u) || /:w:\//.test(u)) return 'word';
+    if (/\.(pptx?|odp)(\?|#|$)/i.test(u) || /docs\.google\.com\/presentation\//i.test(u) || /:p:\//.test(u)) return 'slides';
+    if (/\.(xlsx?|ods)(\?|#|$)/i.test(u) || /docs\.google\.com\/spreadsheets\//i.test(u) || /:x:\//.test(u)) return 'sheet';
+    return 'doc';
+  }
+
+  /**
+   * How to show a document full screen, without needing the host's permission to read the file:
+   *  - Google Drive / Docs / Slides / Sheets: Google's own preview, in a frame
+   *  - OneDrive (personal): its Embed link, in a frame (Share → Embed)
+   *  - OneDrive for work or school / SharePoint: its embed view, in a frame (if the school allows outside sharing)
+   *  - a PDF elsewhere (this site, Dropbox, GitHub…): drawn by the built-in PDF reader
+   *  - Word / PowerPoint / Excel elsewhere: Microsoft's free Office viewer, in a frame
+   * @returns {{mode: 'frame'|'pdf'|'none', url: string, open: string, provider: string}}
+   */
+  function docViewer(token) {
+    let url = expand(token || '');
+    if (!url) return { mode: 'none', url: '', open: '', provider: 'none' };
+    const m = url.match(/docs\.google\.com\/(document|presentation|spreadsheets)\/d\/([\w-]{10,})/i);
+    if (m) {
+      const open = 'https://docs.google.com/' + m[1] + '/d/' + m[2] + '/edit';
+      return { mode: 'frame', url: 'https://docs.google.com/' + m[1] + '/d/' + m[2] + '/preview', open: open, provider: 'google-drive' };
+    }
+    const g = url.match(/^gd:([\w-]+)$/);
+    const gid = g ? g[1] : googleDriveId(url);
+    if (gid) return { mode: 'frame', url: 'https://drive.google.com/file/d/' + gid + '/preview', open: 'https://drive.google.com/file/d/' + gid + '/view', provider: 'google-drive' };
+    if (/^(https?:\/\/)?(1drv\.ms|onedrive\.live\.com)\//i.test(url)) {
+      if (!/^https?:/i.test(url)) url = 'https://' + url;
+      return { mode: 'frame', url: url, open: url.replace(/\/embed\?/, '/?'), provider: 'onedrive' };
+    }
+    if (/\.sharepoint\.com\//i.test(url)) {
+      const view = /[?&]action=embedview/.test(url) ? url : url + (url.includes('?') ? '&' : '?') + 'action=embedview';
+      return { mode: 'frame', url: view, open: url, provider: 'sharepoint' };
+    }
+    const direct = resolveMediaUrl(token, 'doc');
+    let abs = direct.url;
+    try { abs = new URL(direct.url, location.href).href; } catch (e) {}
+    if (/\.pdf(\?|#|$)/i.test(url)) return { mode: 'pdf', url: direct.url, open: abs, provider: direct.provider };
+    return {
+      mode: 'frame', url: 'https://view.officeapps.live.com/op/embed.aspx?src=' + encodeURIComponent(abs),
+      open: abs, provider: direct.provider
+    };
+  }
+
+  // OneDrive's Share → Embed gives a bit of HTML; keep just the address from it
+  function fromEmbedCode(text) {
+    const m = String(text || '').match(/<iframe[^>]*\ssrc\s*=\s*["']([^"']+)["']/i);
+    return m ? m[1].replace(/&amp;/g, '&') : null;
+  }
+
   function looksLikeAudio(token) {
     return /\.(mp3|m4a|aac|ogg|oga|opus|wav|flac)(\?|#|$)/i.test(token || '');
   }
@@ -132,7 +191,9 @@
     if (g) gid = g[1]; else gid = googleDriveId(url);
     if (gid) {
       if (kind === 'image') return { url: 'https://lh3.googleusercontent.com/d/' + gid + '=s0', provider: 'google-drive' };
-      return { url: 'https://drive.google.com/uc?export=download&id=' + gid, provider: 'google-drive' };
+      // Sounds and videos are only played (not read by the page), so Drive's direct download works;
+      // confirm=t skips the "can't scan this file for viruses" page Drive shows for bigger files.
+      return { url: 'https://drive.usercontent.google.com/download?id=' + gid + '&export=download&confirm=t', provider: 'google-drive' };
     }
 
     if (/^(https?:\/\/)?(1drv\.ms|onedrive\.live\.com)\//i.test(url)) {
@@ -163,7 +224,7 @@
         return 'Check the Google Drive file is shared as <b>“Anyone with the link”</b>. Very large files may not load from Drive.';
       case 'onedrive':
       case 'sharepoint':
-        return 'Check the OneDrive file is shared with <b>“Anyone with the link”</b>. School and work OneDrive accounts often block this; if so, try Google Drive or Dropbox.';
+        return 'OneDrive no longer lets other websites play or show most files directly, and school OneDrive accounts usually block outside sharing. Use Google Drive, Dropbox or your GitHub site for this file. (Documents can still come from OneDrive: use <b>Share → Embed</b> and paste that code.)';
       case 'this-site':
         return 'Check the file name and folder are exactly right (capital letters matter).';
       default:
@@ -171,5 +232,6 @@
     }
   }
 
-  global.Media = { shorten, expand, youTube, looksLikeVideo, looksLikeImage, looksLikeAudio, looksLikeModel, resolveMediaUrl, hostingHint };
+  global.Media = { shorten, expand, youTube, looksLikeVideo, looksLikeImage, looksLikeAudio, looksLikeModel, looksLikeDoc, docKind,
+    docViewer, fromEmbedCode, resolveMediaUrl, hostingHint };
 })(window);

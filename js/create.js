@@ -85,9 +85,47 @@
   // ------------------------------------------------------------- status lines
   function status(id, kind, html) {
     const el = $(id);
+    if (id === 'pano-status') {                    // problems with the photo link: an icon beside the field
+      fieldError($('in-pano'), kind === 'err' ? html : '');
+      if (kind === 'err') { el.className = 'status'; el.innerHTML = ''; return; }
+    }
     el.className = 'status ' + (kind || '');
     el.innerHTML = html || '';
   }
+
+  // ------------------------------------------------------------- problems with a link: ⚠ beside the field
+  // The message shows as a tooltip on hover, on keyboard focus, or when the icon is tapped (phones have no hover).
+  function fieldError(input, html) {
+    const wrap = input && input.closest('.field-wrap');
+    if (!wrap) return;
+    const btn = wrap.querySelector('.field-err'), tip = wrap.querySelector('.err-tip');
+    if (!html) {
+      btn.hidden = true; tip.hidden = true; tip.innerHTML = '';
+      btn.setAttribute('aria-expanded', 'false');
+      input.removeAttribute('aria-invalid'); wrap.classList.remove('has-err');
+      return;
+    }
+    if (tip.innerHTML !== html) tip.innerHTML = html;
+    btn.hidden = false;
+    input.setAttribute('aria-invalid', 'true'); wrap.classList.add('has-err');
+  }
+  function showTip(btn, on) {
+    const tip = btn.parentElement.querySelector('.err-tip');
+    if (!tip || btn.hidden) return;
+    tip.hidden = !on;
+    btn.setAttribute('aria-expanded', String(on));
+  }
+  let pinnedTip = null;                             // opened by a tap/click: stays until tapped again or elsewhere
+  document.addEventListener('mouseover', e => { const b = e.target.closest && e.target.closest('.field-err'); if (b) showTip(b, true); });
+  document.addEventListener('mouseout', e => { const b = e.target.closest && e.target.closest('.field-err'); if (b && b !== pinnedTip && !b.contains(e.relatedTarget)) showTip(b, false); });
+  document.addEventListener('focusin', e => { if (e.target.classList && e.target.classList.contains('field-err')) showTip(e.target, true); });
+  document.addEventListener('focusout', e => { if (e.target.classList && e.target.classList.contains('field-err') && e.target !== pinnedTip) showTip(e.target, false); });
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('.field-err');
+    if (pinnedTip && pinnedTip !== b) { showTip(pinnedTip, false); pinnedTip = null; }
+    if (b) { const open = pinnedTip !== b; showTip(b, open); pinnedTip = open ? b : null; }
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && pinnedTip) { showTip(pinnedTip, false); pinnedTip.focus(); pinnedTip = null; } });
 
   function checkPanoLink(link) {
     if (Media.youTube(link)) return 'That’s a YouTube link. Paste a link to a 360° <b>photo</b> here — YouTube goes in step 2 for sound.';
@@ -246,12 +284,13 @@
     image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>',
     text: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
     link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 14a8 8 0 0 1-8 8"/><path d="M18 11v-1a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/><path d="M14 10V9a2 2 0 0 0-2-2a2 2 0 0 0-2 2v1"/><path d="M10 9.5V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v10"/><path d="M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>',
+    doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 2h8l5 5v15H6z"/><path d="M14 2v5h5M9 13h6M9 17h6"/></svg>',
     model: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/></svg>',
     none: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/></svg>'
   };
   const CHEVRON = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
   const TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>';
-  const KIND_NAMES = { video: 'Video', audio: 'Sound', image: 'Picture', text: 'Text', link: 'Link', model: '3D model' };
+  const KIND_NAMES = { video: 'Video', audio: 'Sound', image: 'Picture', text: 'Text', link: 'Link', model: '3D model', doc: 'Document' };
 
   function renderSpots() {
     const list = $('spot-list');
@@ -293,9 +332,11 @@
       '<div class="sc-body" id="' + id + '-body" hidden>' +
         '<div class="sc-field sc-type"><label for="' + id + '-type">Type</label><select id="' + id + '-type" class="sp-type">' +
             '<option value="">Choose, or paste a link below…</option><option value="video">Video</option><option value="audio">Sound only</option><option value="image">Picture</option>' +
-            '<option value="text">Text</option><option value="link">Link to a web page</option><option value="model">3D model</option></select></div>' +
+            '<option value="text">Text</option><option value="link">Link to a web page</option><option value="doc">Document (PDF, Word, slides…)</option><option value="model">3D model</option></select></div>' +
         '<div class="sc-field"><label for="' + id + '-src" class="sp-src-label">Link or text</label>' +
-          '<textarea id="' + id + '-src" class="sp-src" rows="1" placeholder="Paste a link (YouTube, video, sound, picture or web page) — or type some text"></textarea></div>' +
+          '<span class="field-wrap"><textarea id="' + id + '-src" class="sp-src" rows="1" aria-describedby="' + id + '-err" placeholder="Paste a link (YouTube, video, sound, picture or web page) — or type some text"></textarea>' +
+          '<button type="button" class="field-err" hidden aria-label="Problem with this link — show details" aria-controls="' + id + '-err" aria-expanded="false">!</button>' +
+          '<span class="err-tip" id="' + id + '-err" role="tooltip" hidden></span></span></div>' +
         '<div class="sc-field"><label for="' + id + '-label">Label <span class="opt">optional</span></label>' +
           '<input id="' + id + '-label" type="text" class="sp-label" maxlength="40" placeholder="e.g. The teacher’s desk"></div>' +
         '<div class="sc-grid">' +
@@ -345,8 +386,14 @@
 
     let typing = 0;
     q('.sp-src').addEventListener('input', e => {
+      // OneDrive's Share → Embed gives a bit of HTML: keep just its address
+      const embedded = Media.fromEmbedCode(e.target.value);
+      if (embedded) { e.target.value = embedded; sp.type = 'doc'; sp.autoDoc = true; }
       grow(e.target);
       sp.src = e.target.value; sp.error = '';
+      // A document link becomes a Document spot by itself (the author can still change it)
+      if (Media.looksLikeDoc(sp.src) && !sp.type) { sp.type = 'doc'; sp.autoDoc = true; }
+      else if (sp.autoDoc && sp.type === 'doc' && !Media.looksLikeDoc(sp.src) && !/drive\.google|1drv\.ms|onedrive|sharepoint/i.test(sp.src)) { sp.type = ''; sp.autoDoc = false; }
       syncCard(li, sp, i);
       clearTimeout(typing); typing = setTimeout(() => spotsChanged(true), 600);
     });
@@ -355,7 +402,7 @@
       updateSummary(li, sp);
       clearTimeout(typing); typing = setTimeout(() => spotsChanged(true), 600);
     });
-    q('.sp-type').addEventListener('change', e => { sp.type = e.target.value; sp.error = ''; syncCard(li, sp, i); spotsChanged(true); });
+    q('.sp-type').addEventListener('change', e => { sp.type = e.target.value; sp.autoDoc = false; sp.error = ''; syncCard(li, sp, i); spotsChanged(true); });
     q('.sp-dwell').addEventListener('change', e => { sp.dwell = e.target.value === '1'; if (sp.dwell) sp.hidden = false; syncCard(li, sp, i); spotsChanged(true); });
     q('.sp-play').addEventListener('change', e => { sp.play = e.target.value; if (sp.play === 'tap') sp.hidden = false; syncCard(li, sp, i); spotsChanged(true); });
     q('.sp-hide').addEventListener('change', e => { sp.hidden = e.target.checked; syncCard(li, sp, i); spotsChanged(true); });
@@ -459,20 +506,21 @@
     const type = q('.sp-type');
     const allowed = guess === 'text' ? ['text'] : guess === 'model' ? ['model']
       : yt ? ['video', 'audio', 'link'] : guess === 'image' ? ['image', 'link'] : guess === 'audio' ? ['audio', 'link']
-      : guess === 'video' ? ['video', 'audio', 'link'] : guess === 'link' ? ['link', 'image', 'video', 'audio']
-      : !sp.src.trim() ? ['video', 'audio', 'image', 'link', 'text', 'model'] : ['video', 'audio', 'image', 'link', 'model'];
+      : guess === 'video' ? ['video', 'audio', 'link'] : guess === 'link' ? ['link', 'doc', 'image', 'video', 'audio']
+      : !sp.src.trim() ? ['video', 'audio', 'image', 'link', 'doc', 'text', 'model'] : ['video', 'audio', 'image', 'link', 'doc', 'model'];
     [...type.options].forEach(o => { o.disabled = !allowed.includes(o.value); });
     type.value = (sp.src.trim() || sp.type) ? kind : '';
 
     // Plays / Shows: not for text and links; and a dot-revealed spot plays when it appears
     const isModel = kind === 'model';
     const isImage = kind === 'image' || isModel;      // models show like pictures: all the time, or while looked at
-    const still = kind === 'text' || kind === 'link';
+    const still = kind === 'text' || kind === 'link' || kind === 'doc';
     q('.sp-play').closest('.sp-row').hidden = still || !!sp.dwell;
     q('.sp-src').placeholder = {
       text: 'Type the words to show', link: 'https://…  the web page to open', image: 'Link to a picture (PNG, JPEG, GIF…)',
       model: 'Link to a .glb, .gltf, .obj or .stl file', audio: 'Link to a sound (MP3…) or a YouTube video',
-      video: 'Link to a YouTube video or a video file (MP4…)'
+      video: 'Link to a YouTube video or a video file (MP4…)',
+      doc: 'Link to a PDF, Word, PowerPoint or Excel file, or a Google Doc — or paste OneDrive’s Embed code'
     }[sp.src.trim() || sp.type ? kind : ''] || 'Paste a link (YouTube, video, sound, picture, 3D model or web page) — or type some text';
     const decided = !!(sp.src.trim() || sp.type);
     q('.sp-src-label').textContent = !decided ? 'Link or text' : kind === 'text' ? 'Text' : 'Link';
@@ -513,12 +561,32 @@
     const el = li.querySelector('.sp-status');
     const yt = Media.youTube(sp.src);
     const kind = HotSpots.kindOf(sp);
-    const set = (k, html) => { el.className = 'status sp-status ' + k; el.innerHTML = html; };
+    const set = (k, html) => {
+      fieldError(li.querySelector('.sp-src'), k === 'err' ? html : '');
+      if (k === 'err') { el.className = 'status sp-status'; el.innerHTML = ''; return; }
+      el.className = 'status sp-status ' + k; el.innerHTML = html;
+    };
     if (!sp.src.trim()) return set('', '');
     if (sp.error) return set('err', escapeHtml(sp.error));
     const dwellNote = sp.dwell ? ' It appears after the viewer rests the crosshair on its dot for a moment (or taps the dot)' +
       (kind === 'video' || kind === 'audio' ? ', and starts playing then.' : '.') : '';
     if (kind === 'text') return set('ok', 'Text card. Drag it in the preview to move it; pull its corners to make the text bigger or smaller. Viewers can tap it to read it full screen.' + dwellNote);
+    if (kind === 'doc') {
+      const v = Media.docViewer(sp.src), raw = Media.expand(sp.src);
+      const how = ' Drag the card in the preview to move it; pull its corners to resize. Use <b>⤢ Open</b> on it to see what viewers will see.';
+      if (v.provider === 'onedrive' && !/embed/i.test(raw)) {
+        return set('err', 'A normal OneDrive share link can’t be shown inside the tour. In OneDrive, choose <b>Share → Embed</b> (or right-click the file → <b>Embed</b>), copy the code and paste it here instead.');
+      }
+      if (v.provider === 'google-drive') return set('ok', 'Shown with Google’s own viewer. Make sure the file is shared as <b>Anyone with the link</b>.' + how + dwellNote);
+      if (v.provider === 'onedrive') return set('ok', 'Shown with OneDrive’s own viewer.' + how + dwellNote);
+      if (v.provider === 'sharepoint') return set('note', 'School and work OneDrive files only show if your school allows sharing with people outside it. Test the link in a private browser window first.' + how + dwellNote);
+      if (v.mode === 'pdf') {
+        return set(v.provider === 'web' ? 'note' : 'ok', 'Shown by the built-in PDF reader.' +
+          (v.provider === 'web' ? ' PDFs on some other websites can’t be opened here; viewers can still use “Open in new tab”.' : '') + how + dwellNote);
+      }
+      if (v.provider === 'this-site' && /^(localhost|127\.)/.test(location.hostname)) return set('note', 'Shown with Microsoft’s free Office viewer once your site is online (it can’t reach files on this computer).' + how);
+      return set('ok', 'Shown with Microsoft’s free Office viewer. The file has to be reachable by anyone on the internet.' + how + dwellNote);
+    }
     if (kind === 'link') {
       if (!/^(https?:\/\/|www\.)/i.test(sp.src.trim())) return set('err', 'Links need a web address starting with https://');
       return set('ok', 'A button that opens this page in a new tab. Viewers tap it to go there.' + dwellNote);
@@ -547,6 +615,10 @@
     }
     const inRoom = kind === 'video' && !sp.hidden;
     if (sp.play === 'tap' && inRoom) return set('ok', 'Viewers press play on the video. Use <b>▶ Test</b> on it in the preview to try it.');
+    const drive = /drive\.google|^gd:/.test(sp.src.trim());
+    if (drive && (kind === 'audio' || kind === 'video') && !sp.hidden && sp.play === 'tap') {
+      return set('ok', 'Playing straight from Google Drive. Try it in the preview: if it won’t play, check it’s shared as <b>Anyone with the link</b>.');
+    }
     if (sp.play === 'tap') return set('ok', 'Click its marker in the preview to try it.');
     set('ok', 'Click anywhere in the preview once, then ' + (sp.play === 'look' ? 'turn towards it' : 'it will start') + '.');
   }
@@ -556,7 +628,7 @@
     const sp = spots[i];
     if (!li || !sp) return;
     const kind = HotSpots.kindOf(sp);
-    const inRoom = sp.src && (kind === 'image' || kind === 'model' || kind === 'text' || kind === 'link' || (kind === 'video' && !sp.hidden));
+    const inRoom = sp.src && (kind === 'image' || kind === 'model' || kind === 'text' || kind === 'link' || kind === 'doc' || (kind === 'video' && !sp.hidden));
     li.querySelector('.sp-where').textContent = 'Placed ' + describePlace(sp.yaw, sp.pitch) +
       (inRoom ? (sp.pin ? ' · corners pinned' : ' · ' + Math.round(sp.w || HotSpots.DEFAULT_W) + '° wide') : '');
     li.querySelector('.sp-smaller').hidden = li.querySelector('.sp-bigger').hidden = !inRoom || !!sp.pin;

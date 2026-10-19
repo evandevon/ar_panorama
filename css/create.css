@@ -198,3 +198,23 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 .bright-row output { float: right; font-weight: 600; color: var(--ink-soft); }
 .bright-ctl { display: flex; align-items: center; gap: 10px; font-size: .86rem; color: var(--ink-soft); }
 .bright-ctl input[type=range] { flex: 1; min-width: 0; min-height: 44px; accent-color: var(--brass-dark, #8a5f22); }
+
+/* A problem with a link: ⚠ inside the end of the field; its message shows as a tooltip */
+.field-wrap { position: relative; display: block; }
+.field-wrap.has-err input, .field-wrap.has-err textarea { border-color: var(--danger, #b3261e); box-shadow: 0 0 0 1px var(--danger, #b3261e); padding-right: 44px; }
+.field-err {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px;
+  display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%;
+  background: var(--danger, #b3261e); color: #fff; font: 800 1rem/1 var(--sans, system-ui); cursor: help;
+}
+textarea + .field-err { top: 8px; transform: none; }
+.field-err[hidden] { display: none; }
+.field-err:focus-visible { outline: 3px solid var(--slate, #1f2a24); outline-offset: 2px; }
+.err-tip {
+  position: absolute; z-index: 30; right: 0; top: calc(100% + 8px); width: min(320px, 100%); min-width: 220px;
+  padding: 10px 12px; border-radius: 8px; background: #3a1410; color: #fff;
+  font: 500 .88rem/1.45 var(--sans, system-ui); box-shadow: 0 8px 24px rgba(0,0,0,.3);
+}
+.err-tip::before { content: ""; position: absolute; right: 14px; top: -6px; border: 6px solid transparent; border-top: 0; border-bottom-color: #3a1410; }
+.err-tip[hidden] { display: none; }
+.err-tip b { font-weight: 700; }

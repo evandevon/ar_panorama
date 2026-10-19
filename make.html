@@ -25,7 +25,11 @@
     <section class="panel step-photo" aria-labelledby="h-photo">
       <h2 id="h-photo"><span class="num" aria-hidden="true">1</span> 360° photo or video</h2>
       <label for="in-pano">Link to a 360° photo</label>
-      <input id="in-pano" type="url" inputmode="url" placeholder="https://drive.google.com/file/d/…" aria-describedby="pano-help">
+      <span class="field-wrap">
+        <input id="in-pano" type="url" inputmode="url" placeholder="https://drive.google.com/file/d/…" aria-describedby="pano-help pano-err-tip">
+        <button type="button" class="field-err" hidden aria-label="Problem with this link — show details" aria-controls="pano-err-tip" aria-expanded="false">!</button>
+        <span class="err-tip" id="pano-err-tip" role="tooltip" hidden></span>
+      </span>
       <p class="help" id="pano-help">A Google Drive, OneDrive or Dropbox share link, a direct link to a JPEG, or a 360 video (MP4). Set sharing to <b>Anyone with the link</b>.</p>
       <button type="button" class="btn small ghost" id="sample">Try a sample</button>
       <p class="status" id="pano-status" role="status" aria-live="polite"></p>

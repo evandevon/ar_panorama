@@ -54,9 +54,10 @@ Spots place videos, sounds, pictures, text, links and 3D models around the room.
 | Picture | A PNG, JPEG, GIF (animated GIFs play), WebP, AVIF, SVG or BMP file |
 | Text | Just type the words (line breaks are kept). The label becomes its heading. Viewers can tap it to read it full screen. |
 | 3D model | A `.glb` file (best), or `.gltf`, `.obj` or `.stl`. See **3D models** below. |
+| Document | A PDF, Word, PowerPoint or Excel file, or a Google Doc, Slides or Sheet. It sits in the room as a card; viewers tap it to read it full screen, with **Open in new tab** as a backup. See **Documents** below. |
 | Link | A web page address. It shows as a button that opens the page in a new tab; the label is the button text. Only ordinary `https://` addresses are allowed. |
 
-Pick a spot's kind with **Type**, at the top of each spot's card. It's set automatically when the link ends in a file type, but Google Drive and OneDrive links don't show the file type, so choose it yourself for those. HEIC photos from iPhones and TIFFs won't display in most phone browsers; save them as JPEG or PNG first.
+Pick a spot's kind with **Type**, at the top of each spot's card. If a link has a problem, a red **!** appears at the end of its field: hover over it (or tap it) to see what's wrong and how to fix it. It's set automatically when the link ends in a file type, but Google Drive and OneDrive links don't show the file type, so choose it yourself for those. HEIC photos from iPhones and TIFFs won't display in most phone browsers; save them as JPEG or PNG first.
 
 1. Turn the preview so the **crosshair** is where you want the spot.
    The **arrow buttons around the preview** turn the view too: tap for 15°, or hold to keep turning. They're handy when spots fill the view and dragging keeps grabbing them.
@@ -144,18 +145,32 @@ Viewers can always skip it or line things up by eye, and it isn't offered on com
 
 While lining up, a camera button next to Skip switches between the phone's cameras.
 
+### Documents
+
+Paste a link to the document and **Type** becomes **Document** by itself (for Google Drive links, choose it). How it's shown depends on where the file is:
+
+| Where the file is | Shown with |
+|---|---|
+| Google Drive, Google Docs / Slides / Sheets | Google's own viewer (share as **Anyone with the link**). The card shows a picture of the first page. |
+| Personal OneDrive | OneDrive's own viewer: in OneDrive choose **Share → Embed** (or right-click → **Embed**) and paste the code it gives you. A normal OneDrive share link can't be shown. |
+| School or work OneDrive / SharePoint | Its own viewer, but only if your school allows sharing with people outside it. Test in a private browser window. |
+| A PDF on this site, Dropbox or GitHub | The built-in PDF reader (pages with zoom buttons). |
+| Word / PowerPoint / Excel on this site, Dropbox or GitHub | Microsoft's free Office viewer (the file must be reachable on the internet). |
+
+Use **⤢ Open** on the card in the preview to see exactly what viewers will see.
+
 ### What works where
 
-| Host | 360 photo | Sound |
-|---|---|---|
-| This GitHub repo (`panoramas/`, `audio/`) | ✅ Always | ✅ Always |
-| Google Drive | ✅ Usually | ✅ Usually |
-| Dropbox | ✅ Usually | ✅ Usually |
-| Personal OneDrive | ⚠️ Sometimes | ⚠️ Usually |
-| School/work OneDrive | ❌ Usually blocked | ⚠️ Only if external sharing is allowed |
-| YouTube | — | ✅ If the owner allows embedding |
+| Host | 360 photo | Sound and video spots | Documents | 3D models |
+|---|---|---|---|---|
+| This GitHub repo | ✅ Always | ✅ Always | ✅ | ✅ |
+| Google Drive | ✅ Usually | ✅ Usually (played straight from Drive) | ✅ | ❌ |
+| Dropbox | ✅ Usually | ✅ Usually | ✅ | ✅ Usually |
+| Personal OneDrive | ❌ Rarely | ❌ Rarely | ✅ with **Share → Embed** | ❌ |
+| School/work OneDrive | ❌ Usually blocked | ❌ Usually blocked | ⚠️ Only if outside sharing is allowed | ❌ |
+| YouTube | — | ✅ If the owner allows embedding | — | — |
 
-Why some hosts fail: browsers only let a web page draw a photo in 3D if the photo's host allows it. Cloud drives decide this themselves and change their rules without notice. Plain audio playback doesn't need that permission, so sound is more forgiving.
+Why some hosts fail: browsers only let a web page draw a photo in 3D if the photo's host allows it. Cloud drives decide this themselves and change their rules without notice. Plain sound and video playback doesn't need that permission, so it's more forgiving; documents are shown with the host's own viewer, which needs none. Since late 2024 personal OneDrive no longer lets other sites fetch files directly.
 
 **About YouTube sound.** YouTube's rules require its player to stay visible, at least 200 × 200 pixels and not covered. When an experience uses YouTube sound, viewers see a small YouTube player in the top-left corner while it plays. An MP3 avoids this. Some YouTube videos can't be played on other websites at all; the preview tells you if so. School networks that block YouTube will also block the sound.
 
@@ -184,7 +199,7 @@ Dragging, sound, video, text, links and look-to-reveal dots all work inside an e
 
 `?p=<photo>&t=<title>&y=<start direction°>&al=1&mb=<model brightness>&s=<spot>&s=<spot>…&v=2`
 
-Each spot is written as `link~yaw~pitch~flags~label~width°~corners~turn`. Text spots use `t:` followed by the text instead of a link. Corners (only for pinned spots) are eight whole-degree offsets from the centre: top-left, top-right, bottom-right, bottom-left, each as yaw,pitch. Turn (only for 3D models) is `turn,tilt,roll` in whole degrees. `mb` is only included when it isn't 1 (normal). The flags are `l` (plays/shows when looked at), `s` (plays at start), `h` (hidden), `r` (loop), `d` (appears after the dot), `o` (3D model spins), `f` (3D model in bright, flat colours), and `a` / `v` / `i` / `k` / `m` (sound / video / picture / link / 3D model), used when the kind can't be told from the link.
+Each spot is written as `link~yaw~pitch~flags~label~width°~corners~turn`. Text spots use `t:` followed by the text instead of a link. Corners (only for pinned spots) are eight whole-degree offsets from the centre: top-left, top-right, bottom-right, bottom-left, each as yaw,pitch. Turn (only for 3D models) is `turn,tilt,roll` in whole degrees. `mb` is only included when it isn't 1 (normal). The flags are `l` (plays/shows when looked at), `s` (plays at start), `h` (hidden), `r` (loop), `d` (appears after the dot), `o` (3D model spins), `f` (3D model in bright, flat colours), and `a` / `v` / `i` / `k` / `m` / `p` (sound / video / picture / link / 3D model / document), used when the kind can't be told from the link.
 
 **The format is safe for email and chat.** It uses only characters that email, chat and document apps keep inside a clickable link. Inside each field, `% ~ | ! * ' ( )` and line breaks are escaped. Links always end with `v=2`, so a full stop or bracket at the end of a label can't be mistaken for the end of the sentence.
 
