@@ -617,7 +617,7 @@
     if (sp.play === 'tap' && inRoom) return set('ok', 'Viewers press play on the video. Use <b>▶ Test</b> on it in the preview to try it.');
     const drive = /drive\.google|^gd:/.test(sp.src.trim());
     if (drive && (kind === 'audio' || kind === 'video') && !sp.hidden && sp.play === 'tap') {
-      return set('ok', 'Playing straight from Google Drive. Try it in the preview: if it won’t play, check it’s shared as <b>Anyone with the link</b>.');
+      return set('note', 'Google Drive often refuses to play sounds and videos inside other websites. Try it in the preview; if it won’t play, put the file in your GitHub site or Dropbox instead.');
     }
     if (sp.play === 'tap') return set('ok', 'Click its marker in the preview to try it.');
     set('ok', 'Click anywhere in the preview once, then ' + (sp.play === 'look' ? 'turn towards it' : 'it will start') + '.');

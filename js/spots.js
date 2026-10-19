@@ -903,7 +903,9 @@
         m.addEventListener('play', () => setPlaying(s, true));
         m.addEventListener('pause', () => setPlaying(s, false));
         m.addEventListener('ended', () => { s.userPaused = true; setPlaying(s, false); });
-        m.addEventListener('error', () => opts.onError(s.index, 'This file couldn’t be loaded. Check the link and that it’s shared as “Anyone with the link”.'), { once: true });
+        m.addEventListener('error', () => opts.onError(s.index, /drive\.google|^gd:/.test(s.src.trim())
+          ? 'Google Drive won’t play this file inside other websites (Google started blocking this in 2024), even when it’s shared correctly. For now, put the sound in your GitHub site or Dropbox.'
+          : 'This file couldn’t be loaded. Check the link and that it’s shared as “Anyone with the link”.'), { once: true });
         s.mediaHost.appendChild(m);
         s.media = m;
         s.ready = true;

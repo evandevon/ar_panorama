@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drive sound test</title>
+<style>
+  :root { --ink: #2a1d12; --soft: #6b5743; --line: #d8c9a8; --ok: #2f6b3a; --bad: #8f2d1f; }
+  body { margin: 0; padding: 16px; background: #f6efe1; color: var(--ink); font: 16px/1.45 system-ui, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 1.4rem; margin: 0 0 6px; }
+  p { margin: 0 0 12px; color: var(--soft); }
+  label { font-weight: 600; display: block; margin: 12px 0 4px; }
+  input { width: 100%; box-sizing: border-box; min-height: 44px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; font: inherit; }
+  button { min-height: 44px; padding: 0 16px; border: 0; border-radius: 8px; background: #1f2a24; color: #fff; font: 600 1rem system-ui, sans-serif; cursor: pointer; }
+  ol { padding: 0; list-style: none; }
+  li { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center; padding: 12px; margin: 8px 0; background: #fff; border: 1px solid var(--line); border-radius: 8px; }
+  li small { grid-column: 1 / -1; color: var(--soft); overflow-wrap: anywhere; }
+  .res { grid-column: 1 / -1; font-weight: 700; }
+  .res.ok { color: var(--ok); } .res.bad { color: var(--bad); }
+  iframe { width: 100%; height: 120px; border: 0; grid-column: 1 / -1; }
+  #summary { padding: 12px; border-radius: 8px; background: #fff; border: 2px solid var(--line); font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Google Drive sound test</h1>
+  <p>Tries each way of playing a Google Drive sound inside a web page. Press <b>Run all tests</b>, wait a few seconds, then send the results.</p>
+  <label for="link">Google Drive share link</label>
+  <input id="link" value="https://drive.google.com/file/d/1OnvZbvApXc9eqGZkwcGARQTtVz74gYTu/view?usp=sharing">
+  <p style="margin-top:10px"><button id="run">Run all tests</button></p>
+  <p id="summary">Not run yet.</p>
+  <ol id="list"></ol>
+</main>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const idOf = s => (s.match(/\/d\/([\w-]{10,})/) || s.match(/[?&]id=([\w-]{10,})/) || [])[1] || s.trim();
+  const METHODS = [
+    ['A', 'Old download link', id => 'https://drive.google.com/uc?export=download&id=' + id, false],
+    ['B', 'Old download link, hiding which site asked', id => 'https://drive.google.com/uc?export=download&id=' + id, true],
+    ['C', 'New download link (the tool uses this now)', id => 'https://drive.usercontent.google.com/download?id=' + id + '&export=download&confirm=t', false],
+    ['D', 'New download link, hiding which site asked', id => 'https://drive.usercontent.google.com/download?id=' + id + '&export=download&confirm=t', true],
+    ['E', '“Open” link', id => 'https://docs.google.com/uc?export=open&id=' + id, false],
+    ['F', '“Open” link, hiding which site asked', id => 'https://docs.google.com/uc?export=open&id=' + id, true]
+  ];
+
+  // An <audio> in a tiny same-site frame whose page says "don't tell other sites who's asking"
+  function quietAudio(url) {
+    return new Promise(resolve => {
+      const f = document.createElement('iframe');
+      f.style.display = 'none';
+      f.srcdoc = '<!doctype html><meta name="referrer" content="no-referrer"><audio preload="auto"></audio>';
+      f.onload = () => { const a = f.contentDocument.querySelector('audio'); a.src = url; resolve({ audio: a, frame: f }); };
+      document.body.appendChild(f);
+    });
+  }
+  function test(audio) {
+    return new Promise(resolve => {
+      let done = false;
+      const finish = r => { if (!done) { done = true; resolve(r); } };
+      audio.addEventListener('canplay', () => finish({ ok: true, text: 'Plays ✓ (' + (isFinite(audio.duration) ? Math.round(audio.duration) + ' s long' : 'length unknown') + ')' }), { once: true });
+      audio.addEventListener('error', () => finish({ ok: false, text: 'Blocked ✕ (error ' + (audio.error ? audio.error.code : '?') + ')' }), { once: true });
+      setTimeout(() => finish({ ok: false, text: 'No answer after 12 s ✕' }), 12000);
+      audio.load();
+    });
+  }
+
+  $('run').addEventListener('click', async () => {
+    const id = idOf($('link').value);
+    const list = $('list');
+    list.innerHTML = '';
+    $('summary').textContent = 'Testing…';
+    const results = [];
+    await Promise.all(METHODS.map(async ([key, name, make, quiet]) => {
+      const li = document.createElement('li');
+      li.innerHTML = '<b>' + key + '. ' + name + '</b><button type="button">▶</button><small></small><span class="res">Testing…</span>';
+      list.appendChild(li);
+      const url = make(id);
+      li.querySelector('small').textContent = url;
+      let audio;
+      if (quiet) audio = (await quietAudio(url)).audio;
+      else { audio = new Audio(); audio.preload = 'auto'; audio.src = url; }
+      li.querySelector('button').addEventListener('click', () => { if (audio.paused) audio.play().catch(() => {}); else audio.pause(); });
+      const r = await test(audio);
+      const res = li.querySelector('.res');
+      res.textContent = r.text; res.className = 'res ' + (r.ok ? 'ok' : 'bad');
+      results.push(key + (r.ok ? ' ✓' : ' ✕'));
+    }));
+    // Google's own player, for comparison (needs a tap)
+    const li = document.createElement('li');
+    li.innerHTML = '<b>G. Google’s own player (tap play inside it)</b><span></span><iframe allow="autoplay" title="Google Drive player"></iframe>';
+    li.querySelector('iframe').src = 'https://drive.google.com/file/d/' + id + '/preview';
+    list.appendChild(li);
+    results.sort();
+    $('summary').textContent = 'Results: ' + results.join('  ·  ') + '  —  and does G play?  (' + navigator.userAgent.replace(/^.*?\(([^)]*)\).*$/, '$1') + ')';
+  });
+})();
+</script>
+</body>
+</html>
