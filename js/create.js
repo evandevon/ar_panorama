@@ -62,6 +62,12 @@
     return here.href + '?' + q.map(([k, v]) => k + '=' + enc(String(v))).join('&');
   }
 
+  // Google Drive sounds and videos can only play in Google's own player (Google blocks other sites since 2024)
+  function isDrivePlayer(sp) {
+    const kind = HotSpots.kindOf(sp);
+    return (kind === 'audio' || kind === 'video') && !Media.youTube(sp.src) && /drive\.google\.com|docs\.google\.com\/uc|^gd:/i.test(sp.src.trim());
+  }
+
   function hasModels() { return spots.some(sp => sp.src.trim() && HotSpots.kindOf(sp) === 'model'); }
 
   let brightT = 0;
@@ -460,6 +466,7 @@
     if (hasSrc) {
       bits.push(KIND_NAMES[kind]);
       if (sp.dwell) bits.push('behind a dot');
+      else if (isDrivePlayer(sp)) bits.push('Google Drive player');
       else if (kind === 'video' || kind === 'audio') bits.push(sp.play === 'look' ? 'plays when looked at' : sp.play === 'start' ? 'plays at once' : 'tap to play');
       else if ((kind === 'image' || kind === 'model') && sp.play === 'look') bits.push('shows when looked at');
       if (kind === 'model' && sp.spin) bits.push('spins');
@@ -515,7 +522,9 @@
     const isModel = kind === 'model';
     const isImage = kind === 'image' || isModel;      // models show like pictures: all the time, or while looked at
     const still = kind === 'text' || kind === 'link' || kind === 'doc';
-    q('.sp-play').closest('.sp-row').hidden = still || !!sp.dwell;
+    const drive = isDrivePlayer(sp);
+    if (drive) { sp.play = 'tap'; sp.hidden = false; sp.loop = false; }
+    q('.sp-play').closest('.sp-row').hidden = still || drive || !!sp.dwell;
     q('.sp-src').placeholder = {
       text: 'Type the words to show', link: 'https://…  the web page to open', image: 'Link to a picture (PNG, JPEG, GIF…)',
       model: 'Link to a .glb, .gltf, .obj or .stl file', audio: 'Link to a sound (MP3…) or a YouTube video',
@@ -537,10 +546,10 @@
 
     // Hidden doesn't apply to pictures, text, links or dot-revealed spots; Loop only to video and sound
     q('.sp-turn').hidden = !isModel || !sp.src.trim();
-    q('.sp-hide-row').hidden = isImage || still || !!sp.dwell;
-    q('.sp-loop-row').hidden = isImage || still;
+    q('.sp-hide-row').hidden = isImage || still || drive || !!sp.dwell;
+    q('.sp-loop-row').hidden = isImage || still || drive;
     const inRoomKind = isImage || still || (kind === 'video' && !sp.hidden);
-    q('.sp-pin-row').hidden = !inRoomKind || !sp.src.trim() || isModel;
+    q('.sp-pin-row').hidden = !inRoomKind || !sp.src.trim() || isModel || drive;
     const checks = [...li.querySelectorAll('.sc-checks > .check')];
     q('.sc-checks').hidden = checks.every(c => c.hidden);
     const hide = q('.sp-hide');
@@ -569,7 +578,7 @@
     if (!sp.src.trim()) return set('', '');
     if (sp.error) return set('err', escapeHtml(sp.error));
     const dwellNote = sp.dwell ? ' It appears after the viewer rests the crosshair on its dot for a moment (or taps the dot)' +
-      (kind === 'video' || kind === 'audio' ? ', and starts playing then.' : '.') : '';
+      ((kind === 'video' || kind === 'audio') && !isDrivePlayer(sp) ? ', and starts playing then.' : '.') : '';
     if (kind === 'text') return set('ok', 'Text card. Drag it in the preview to move it; pull its corners to make the text bigger or smaller. Viewers can tap it to read it full screen.' + dwellNote);
     if (kind === 'doc') {
       const v = Media.docViewer(sp.src), raw = Media.expand(sp.src);
@@ -599,6 +608,11 @@
       return set('note', 'YouTube’s rules say its player must stay visible, so a sound-only or hidden YouTube spot breaks them. ' +
         'An MP3 link is the safe choice here. On iPhones, sound that starts by itself may begin muted, with a “tap for sound” button.');
     }
+    if (isDrivePlayer(sp)) {
+      return set('note', 'Google Drive only lets its own player play this, so it sits in the room as Google’s player and viewers tap play in it. ' +
+        'Playing when looked at, background sound, Loop and the Sound button can’t control it. For those, put the file in your GitHub site or Dropbox.' +
+        ' Use <b>▶ Test</b> on it in the preview to try it.' + dwellNote);
+    }
     if (sp.dwell && (kind === 'video' || kind === 'audio')) {
       if (yt && kind === 'audio') return set('note', 'YouTube’s rules say its player must stay visible, so a sound-only YouTube spot breaks them. An MP3 link is the safe choice.' + dwellNote);
       return set('ok', 'Click once in the preview, then rest the crosshair on its dot to try it.' + dwellNote);
@@ -615,10 +629,6 @@
     }
     const inRoom = kind === 'video' && !sp.hidden;
     if (sp.play === 'tap' && inRoom) return set('ok', 'Viewers press play on the video. Use <b>▶ Test</b> on it in the preview to try it.');
-    const drive = /drive\.google|^gd:/.test(sp.src.trim());
-    if (drive && (kind === 'audio' || kind === 'video') && !sp.hidden && sp.play === 'tap') {
-      return set('note', 'Google Drive often refuses to play sounds and videos inside other websites. Try it in the preview; if it won’t play, put the file in your GitHub site or Dropbox instead.');
-    }
     if (sp.play === 'tap') return set('ok', 'Click its marker in the preview to try it.');
     set('ok', 'Click anywhere in the preview once, then ' + (sp.play === 'look' ? 'turn towards it' : 'it will start') + '.');
   }
@@ -628,7 +638,7 @@
     const sp = spots[i];
     if (!li || !sp) return;
     const kind = HotSpots.kindOf(sp);
-    const inRoom = sp.src && (kind === 'image' || kind === 'model' || kind === 'text' || kind === 'link' || kind === 'doc' || (kind === 'video' && !sp.hidden));
+    const inRoom = sp.src && (kind === 'image' || kind === 'model' || kind === 'text' || kind === 'link' || kind === 'doc' || isDrivePlayer(sp) || (kind === 'video' && !sp.hidden));
     li.querySelector('.sp-where').textContent = 'Placed ' + describePlace(sp.yaw, sp.pitch) +
       (inRoom ? (sp.pin ? ' · corners pinned' : ' · ' + Math.round(sp.w || HotSpots.DEFAULT_W) + '° wide') : '');
     li.querySelector('.sp-smaller').hidden = li.querySelector('.sp-bigger').hidden = !inRoom || !!sp.pin;

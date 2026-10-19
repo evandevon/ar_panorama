@@ -392,3 +392,8 @@ body.aligning .mode-toggle { display: none; }
 .doc-pages .doc-wait { position: static; }
 @media (max-width: 480px) { .doc-out { padding: 0 10px; font-size: .8rem; } }
 .doc-ico b.small { font-size: .4em; bottom: .4em; }
+
+/* Google Drive's own player sitting in the room */
+.spot-drive .spot-media { background: #202124; }
+.spot.testing .spot-edit { pointer-events: none; border-style: dotted; }
+.spot.testing .spot-edit > * { pointer-events: auto; }

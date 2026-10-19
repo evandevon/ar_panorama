@@ -161,10 +161,12 @@ Use **⤢ Open** on the card in the preview to see exactly what viewers will see
 
 ### What works where
 
+**Sounds and videos on Google Drive.** Since 2024 Google won't let other websites play Drive files directly, even when they're shared as "Anyone with the link". So a Drive sound or video sits in the room as Google's own small player, and viewers tap play in it. Because the tool can't control Google's player, these spots can't play when looked at, play by themselves, loop, be hidden or be muted with the Sound button. Behind a dot, the player appears when the dot is looked at and is stopped when the viewer looks away. For any of the other options, put the file in this GitHub site or Dropbox.
+
 | Host | 360 photo | Sound and video spots | Documents | 3D models |
 |---|---|---|---|---|
 | This GitHub repo | ✅ Always | ✅ Always | ✅ | ✅ |
-| Google Drive | ✅ Usually | ✅ Usually (played straight from Drive) | ✅ | ❌ |
+| Google Drive | ✅ Usually | ⚠️ In Google's own player only (see below) | ✅ | ❌ |
 | Dropbox | ✅ Usually | ✅ Usually | ✅ | ✅ Usually |
 | Personal OneDrive | ❌ Rarely | ❌ Rarely | ✅ with **Share → Embed** | ❌ |
 | School/work OneDrive | ❌ Usually blocked | ❌ Usually blocked | ⚠️ Only if outside sharing is allowed | ❌ |

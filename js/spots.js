@@ -221,8 +221,12 @@
       s.isLink = s.kind === 'link';
       s.isModel = s.kind === 'model';
       s.isDoc = s.kind === 'doc';
+      // Google Drive won't let other websites play its sounds and videos (since 2024): only its own player can.
+      // So those sit in the room as Google's player, which the viewer taps; nothing can start, stop or loop them.
+      s.drivePlayer = (s.kind === 'audio' || s.kind === 'video') && !Media.youTube(def.src) && /drive\.google\.com|docs\.google\.com\/uc|^gd:/i.test(Media.expand(def.src).trim());
+      if (s.drivePlayer) { s.hidden = false; s.loop = false; s.play = 'tap'; }
       s.rot = Array.isArray(def.rot) ? def.rot.slice() : [0, 0, 0];
-      s.isStill = s.isImage || s.isText || s.isLink || s.isModel || s.isDoc;   // nothing to play
+      s.isStill = s.isImage || s.isText || s.isLink || s.isModel || s.isDoc || s.drivePlayer;   // nothing to play
       s.isVideoFile = !s.yt && s.kind === 'video';
       if (s.isStill) { s.hidden = false; s.loop = false; if (s.play === 'start' || !(s.isImage || s.isModel)) s.play = 'tap'; }
       if (s.isModel) s.pin = null;
@@ -231,9 +235,9 @@
         if (s.play !== 'tap') s.play = 'tap';
       }
       if (s.hidden && s.play === 'tap') s.hidden = false;       // otherwise nothing could ever play it
-      s.showsPicture = s.kind !== 'audio';
+      s.showsPicture = s.kind !== 'audio' || s.drivePlayer;
       s.inScene = s.showsPicture && !s.hidden;                  // something sitting in the room
-      s.aspect = s.isImage ? 4 / 3 : 16 / 9;                    // a picture's real shape arrives when it loads
+      s.aspect = s.isImage ? 4 / 3 : s.drivePlayer && s.kind === 'audio' ? 3 : 16 / 9;                    // a picture's real shape arrives when it loads
 
       const visible = !s.hidden || opts.editable;               // the author still sees hidden spots, faintly
       if (visible && s.isModel) buildModel(s);
@@ -241,6 +245,7 @@
       else if (visible && s.isText) buildText(s);
       else if (visible && s.isLink) buildLink(s);
       else if (visible && s.isDoc) buildDoc(s);
+      else if (visible && s.drivePlayer) buildDrivePlayer(s);
       else if (visible && s.inScene) buildFrame(s);
       else if (visible) buildMarker(s);
       if (s.dwell && s.el) addDwell(s);
@@ -281,6 +286,45 @@
         s.frame.appendChild(s.poster);
       }
       if (opts.editable) addEditHandles(s);
+      s.el.appendChild(s.frame);
+      opts.layer.appendChild(s.el);
+    }
+
+    // Google Drive's own player, in a frame in the room
+    function drivePlayerUrl(s) {
+      const v = Media.docViewer(s.src);                // Drive files: …/file/d/ID/preview
+      return v.url;
+    }
+    function buildDrivePlayer(s) {
+      s.el = el('div', 'spot spot-video spot-drive');
+      s.labelEl = el('div', 'spot-cap');
+      s.frame = el('div', 'spot-frame');
+      s.frame.style.aspectRatio = s.kind === 'audio' ? '3 / 1' : '16 / 9';
+      s.mediaHost = el('div', 'spot-media');
+      s.labelEl.textContent = s.label || '';
+      s.labelEl.hidden = !s.label;
+      s.frame.append(s.labelEl, s.mediaHost);
+      const f = document.createElement('iframe');
+      f.title = (s.label || (s.kind === 'audio' ? 'Sound' : 'Video')) + ' (Google Drive player)';
+      f.allow = 'autoplay; fullscreen';
+      s.driveFrame = f;
+      // Behind a dot: load it only once revealed (and unload it to stop it when hidden again)
+      if (!(s.dwell && !opts.editable)) { f.src = drivePlayerUrl(s); f.dataset.on = '1'; }
+      s.mediaHost.appendChild(f);
+      if (opts.editable) {
+        addEditHandles(s);
+        // ▶ Test: let the author click inside Google's player (the drag layer steps aside until clicked again)
+        const t = el('button', 'spot-test', '▶ Test');
+        t.type = 'button';
+        t.title = 'Click into Google’s player to try it; click again to go back to moving it';
+        t.addEventListener('pointerdown', e => e.stopPropagation());
+        t.addEventListener('click', e => {
+          e.stopPropagation();
+          const on = s.el.classList.toggle('testing');
+          t.textContent = on ? '✓ Done' : '▶ Test';
+        });
+        s.frame.querySelector('.spot-edit').prepend(t);
+      }
       s.el.appendChild(s.frame);
       opts.layer.appendChild(s.el);
     }
@@ -792,6 +836,7 @@
       s.seen = s.revealedBy === 'look';
       s.awayT = 0;
       s.el.classList.add('revealed');
+      if (s.driveFrame && !s.driveFrame.dataset.on) { s.driveFrame.src = drivePlayerUrl(s); s.driveFrame.dataset.on = '1'; }
       if (!s.isStill) { s.userPaused = false; play(s); }
     }
     // Back behind its dot once the viewer has looked away from it (it can be brought back the same way)
@@ -801,6 +846,7 @@
       s.el.classList.remove('revealed');
       s.dwellT = 0; s.awayT = 0;
       if (s.dwellRing) s.dwellRing.style.strokeDashoffset = '100';
+      if (s.driveFrame && !opts.editable) { s.driveFrame.src = 'about:blank'; delete s.driveFrame.dataset.on; }   // the only way to stop Google's player
       if (s.playing || s.wantPlay) pause(s);
       s.userPaused = false;
     }
@@ -991,7 +1037,7 @@
       if (s.yt) return s.expanded ? Math.max(YT_MIN_PX, s.w * pxPerDegree()) : authoredWidth(s);
       if (s.isText || s.isLink || s.isDoc) return Math.max(60, s.w * pxPerDegree());
       if (s.isModel) return s.boxW || 40;
-      return Math.max(s.isImage ? 24 : 120, s.w * pxPerDegree());
+      return Math.max(s.isImage ? 24 : s.drivePlayer ? 220 : 120, s.w * pxPerDegree());
     }
     // Screen point → direction in the room
     function directionAt(sx, sy) {
