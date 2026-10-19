@@ -218,3 +218,8 @@ textarea + .field-err { top: 8px; transform: none; }
 .err-tip::before { content: ""; position: absolute; right: 14px; top: -6px; border: 6px solid transparent; border-top: 0; border-bottom-color: #3a1410; }
 .err-tip[hidden] { display: none; }
 .err-tip b { font-weight: 700; }
+
+/* see-through video: which kind */
+.sp-stk-kind { display: grid; gap: 2px; margin: -2px 0 6px 30px; }
+.sp-stk-kind[hidden] { display: none; }
+.sp-stk-kind .check { font-size: .9rem; }

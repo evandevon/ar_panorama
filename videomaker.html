@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>See-through Video Maker</title>
   <meta name="description" content="Turn a green-screen video into a see-through video for 360° tours. Everything happens on your computer; nothing is uploaded.">
-  <link rel="stylesheet" href="css/create.css?v=20261019b">
-  <link rel="stylesheet" href="css/videomaker.css?v=20261019d">
+  <link rel="stylesheet" href="css/create.css?v=20261020b">
+  <link rel="stylesheet" href="css/videomaker.css?v=20261020b">
 </head>
 <body>
 <header class="masthead">
@@ -165,9 +165,21 @@
     </div>
   </section>
 
-  <!-- 4. Size and sound -->
+  <!-- 4. File type, size and sound -->
   <section class="panel vm-step" aria-labelledby="h-4">
-    <h2 id="h-4"><span class="num" aria-hidden="true">4</span> Size and sound <span class="opt">optional</span></h2>
+    <h2 id="h-4"><span class="num" aria-hidden="true">4</span> File type, size and sound</h2>
+    <fieldset class="fmt-field">
+      <legend>What kind of file?</legend>
+      <label class="fmt"><input type="radio" name="fmt" value="stencil" checked>
+        <span><b>See-through MP4 for 360° tours</b> <span class="tag">best for tours</span><br>
+        <span class="help-inline">Plays on every phone, including iPhones.</span></span></label>
+      <label class="fmt"><input type="radio" name="fmt" value="webm">
+        <span><b>WebM with transparency</b><br>
+        <span class="help-inline">A truly see-through video for other apps and websites. Plays in Chrome, Edge and Firefox and on Android, but iPhones and iPads won't show it see-through.</span></span></label>
+      <label class="fmt"><input type="radio" name="fmt" value="gif">
+        <span><b>Animated GIF</b> <span class="tag">no sound</span><br>
+        <span class="help-inline">Works almost anywhere: slides, websites, the tour. Edges are crisp rather than soft, and files get big quickly, so keep it short and small.</span></span></label>
+    </fieldset>
     <p class="help">To trim, drag the dots at each end of the timeline under the preview.</p>
     <label for="size">Size</label>
     <select id="size">
@@ -175,27 +187,44 @@
       <option value="720" selected>Medium: good for most spots (720 wide)</option>
       <option value="1080">Large: for big spots (1080 wide)</option>
     </select>
-    <label class="check" style="margin-top:12px"><input type="checkbox" id="sound" checked> Keep the sound</label>
+    <div id="gif-opts" hidden>
+      <label for="gif-fps">Smoothness</label>
+      <select id="gif-fps">
+        <option value="10" selected>10 pictures a second: smaller file</option>
+        <option value="15">15 pictures a second: smoother</option>
+      </select>
+      <p class="help" id="gif-note"></p>
+    </div>
+    <label class="check" id="sound-row" style="margin-top:12px"><input type="checkbox" id="sound" checked> <span>Keep the sound <span class="help-inline" id="sound-note" hidden>(GIFs can't have sound)</span></span></label>
   </section>
 
   <!-- 5. Make -->
   <section class="panel vm-step" aria-labelledby="h-5">
-    <h2 id="h-5"><span class="num" aria-hidden="true">5</span> Make the see-through video</h2>
+    <h2 id="h-5"><span class="num" aria-hidden="true">5</span> Make it</h2>
     <p class="warn" id="browser-warn" hidden></p>
-    <button type="button" class="btn" id="make" disabled>Make see-through video</button>
+    <button type="button" class="btn" id="make" disabled>Make the see-through MP4</button>
     <button type="button" class="btn ghost" id="cancel" hidden>Cancel</button>
     <div class="progress" id="progress" hidden><div id="bar"></div></div>
     <p class="status" id="make-status" role="status" aria-live="polite"></p>
     <div class="result" id="result" hidden>
       <a class="btn" id="download" download>⬇ Download the video</a>
-      <ol class="next">
+      <ol class="next" id="next-stencil">
         <li>Upload it to the <b>videos</b> folder of your GitHub site (<b>Add file → Upload files</b>).</li>
-        <li>In the <a href="make.html">360° tour maker</a>, add a spot, paste the file's path (for example <code id="path-eg">videos/my-video.see-through.mp4</code>) and make sure <b>See-through video</b> is ticked.</li>
+        <li>In the <a href="make.html">360° tour maker</a>, add a spot, paste the file's path (for example <code class="path-eg">videos/my-video.see-through.mp4</code>) and make sure <b>See-through video</b> is ticked.</li>
+      </ol>
+      <ol class="next" id="next-webm" hidden>
+        <li>Use it in any app or website that plays WebM videos. It's see-through in Chrome, Edge, Firefox and on Android.</li>
+        <li>To use it in a tour, upload it to the <b>videos</b> folder and add a spot with its path (for example <code class="path-eg">videos/my-video.transparent.webm</code>). Leave <b>See-through video</b> unticked: that box is only for the MP4. For a tour that works on iPhones too, make the MP4 instead.</li>
+      </ol>
+      <ol class="next" id="next-gif" hidden>
+        <li>Drop it into slides, a document or a website like any picture.</li>
+        <li>To use it in a tour, upload it to your GitHub site (an <b>images</b> folder is a good place) and add a picture spot with its path (for example <code class="path-eg">images/my-video.gif</code>).</li>
       </ol>
     </div>
     <details class="howto">
       <summary>How does it work?</summary>
-      <p>The video it makes is an ordinary MP4, twice as tall as your picture: your picture on top (on black), and a black-and-white “stencil” underneath that says which parts are solid. Every phone can play an MP4, and the tour tool uses the stencil to cut your picture out, so the room shows around it. If you open the file by itself it will look strange; that's normal.</p>
+      <p>The <b>see-through MP4</b> is an ordinary MP4, twice as tall as your picture: your picture on top (on black), and a black-and-white “stencil” underneath that says which parts are solid. Every phone can play an MP4, and the tour tool uses the stencil to cut your picture out, so the room shows around it. If you open the file by itself it will look strange; that's normal.</p>
+      <p>The <b>WebM</b> keeps real transparency inside the video, but only some browsers can show it, and iPhones can't. The <b>GIF</b> can only be fully solid or fully see-through, so soft edges become crisp ones; it has no sound and is limited to 256 colours a frame.</p>
     </details>
   </section>
 </main>
@@ -205,6 +234,7 @@
 </footer>
 
 <video id="src" playsinline muted preload="auto" hidden></video>
-<script src="js/videomaker.js?v=20261019d"></script>
+<script src="vendor/fix-webm-duration/fix-webm-duration.js"></script>
+<script src="js/videomaker.js?v=20261020b"></script>
 </body>
 </html>

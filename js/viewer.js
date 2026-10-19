@@ -485,7 +485,8 @@
       rig.setAttribute('rotation', { x: 0, y: cfg.yaw, z: 0 });
       lc.yawObject.rotation.y -= delta;          // keep looking at the same spot
     } else if (m.type === 'setSpots') {
-      spots.set((m.spots || []).map(HotSpots.decode));
+      spotDefs = (m.spots || []).map(HotSpots.decode);
+      spots.set(spotDefs);
     } else if (m.type === 'lookAt') {
       lookAt(m.yaw, m.pitch);
     } else if (m.type === 'pinSpot') {
@@ -506,6 +507,7 @@
   });
 
   // ------------------------------------------------------------- video spots
+  let spotDefs = [];             // the spots shown, so a late error can say which file it was about
   const spots = HotSpots({
     sceneEl: sceneEl,
     editable: PREVIEW,
@@ -515,7 +517,7 @@
     layer: $('spots'),
     offscreen: $('spots-offscreen'),
     onActivity: n => Sound.duck(n > 0),
-    onError: (i, msg) => { tell({ type: 'spotError', index: i, message: msg }); if (!PREVIEW) console.warn('Video spot ' + (i + 1) + ': ' + msg); },
+    onError: (i, msg) => { tell({ type: 'spotError', index: i, message: msg, src: spotDefs[i] ? spotDefs[i].src : null }); if (!PREVIEW) console.warn('Video spot ' + (i + 1) + ': ' + msg); },
     onNeedTap: (text, fix) => {
       hint(text, 6000);
       document.addEventListener('pointerdown', fix, { once: true, capture: true });
@@ -542,7 +544,8 @@
     rig.setAttribute('rotation', { x: 0, y: cfg.yaw, z: 0 });
     bindDrag();
     rig.setAttribute('spot-tracker', '');
-    spots.set(params.getAll('s').map(HotSpots.decode));
+    spotDefs = params.getAll('s').map(HotSpots.decode);
+    spots.set(spotDefs);
 
     const isVideo = Media.looksLikeVideo(cfg.pano);
     if (isVideo) loadVideo(cfg.pano);

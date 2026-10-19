@@ -103,7 +103,7 @@
     const kindFlag = kind === 'text' || kind === guess || (kind === 'video' && Media.youTube(s.src)) ? ''
       : { audio: 'a', video: 'v', image: 'i', link: 'k', model: 'm', doc: 'p' }[kind];
     const flags = (s.play === 'look' ? 'l' : s.play === 'start' ? 's' : '') + kindFlag +
-      (s.hidden ? 'h' : '') + (s.loop ? 'r' : '') + (s.dwell ? 'd' : '') + (s.spin ? 'o' : '') + (s.flat ? 'f' : '') + (s.stacked && kind === 'video' ? 'x' : '');
+      (s.hidden ? 'h' : '') + (s.loop ? 'r' : '') + (s.dwell ? 'd' : '') + (s.spin ? 'o' : '') + (s.flat ? 'f' : '') + (s.stacked && kind === 'video' ? 'x' + (s.alpha ? 'w' : '') : '');
     const label = (s.label || '').trim();
     const w = s.w && Math.round(s.w) !== DEFAULT_W ? Math.round(s.w) : '';
     const src = kind === 'text' ? 't:' + s.src.trim() : shorten ? Media.shorten(s.src) : s.src.trim();
@@ -133,6 +133,7 @@
       spin: flags.includes('o'),
       flat: flags.includes('f'),
       stacked: flags.includes('x'),
+      alpha: flags.includes('x') && flags.includes('w'),       // a WebM with its own transparency (not a stencil MP4)
       rot: (() => { const r = String(parts[7] || '').split(',').map(Number); return r.length === 3 && r.every(Number.isFinite) ? r : [0, 0, 0]; })()
     };
   }
@@ -145,7 +146,7 @@
     return [[n[0], n[1]], [n[2], n[3]], [n[4], n[5]], [n[6], n[7]]];
   }
   // Settings that need the player rebuilt when they change (moving, resizing and relabelling don't)
-  const rebuildKey = d => [d.src, kindOf(d), d.play, !!d.hidden, !!d.loop, !!d.dwell, !!d.stacked, kindOf(d) === 'link' ? d.label : ''].join('|');
+  const rebuildKey = d => [d.src, kindOf(d), d.play, !!d.hidden, !!d.loop, !!d.dwell, !!d.stacked, !!d.alpha, kindOf(d) === 'link' ? d.label : ''].join('|');
   const MODEL_DIST = 8;            // 3D models sit this far from the viewer (the 360 photo is much further away)
 
   function el(tag, cls, html) {
@@ -229,6 +230,7 @@
       // A see-through ("stencil") video: picture on top, black-and-white stencil underneath, drawn into the room
       s.isStacked = s.kind === 'video' && !!def.stacked && !Media.youTube(def.src) && !s.drivePlayer;
       if (s.isStacked) { s.hidden = false; s.pin = null; }
+      s.ownAlpha = s.isStacked && !!def.alpha;      // or a WebM that's see-through by itself
       s.rot = Array.isArray(def.rot) ? def.rot.slice() : [0, 0, 0];
       s.isStill = s.isImage || s.isText || s.isLink || s.isModel || s.isDoc || s.drivePlayer;   // nothing to play
       s.isVideoFile = !s.yt && s.kind === 'video';
@@ -1277,8 +1279,10 @@
     // stencil underneath (white = solid, black = see-through, grey = partly). Every phone can play an MP4, and here
     // the two halves are combined as it's drawn, so the room shows through. Made with videomaker.html.
     const STACK_VERT = 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }';
-    const STACK_FRAG = 'uniform sampler2D map; uniform float opacity; varying vec2 vUv;' +
+    // A WebM with its own transparency is drawn the same way, using its own see-through-ness (alphaMode 1).
+    const STACK_FRAG = 'uniform sampler2D map; uniform float opacity, alphaMode; varying vec2 vUv;' +
       'void main() {' +
+      '  if (alphaMode > 0.5) { vec4 t = texture2D(map, vUv); gl_FragColor = t * opacity; return; }' +   // premultiplied when loaded
       '  vec3 c = texture2D(map, vec2(vUv.x, 0.5 + vUv.y * 0.5)).rgb;' +      // top half: the picture, on black
       '  float a = texture2D(map, vec2(vUv.x, vUv.y * 0.5)).g * opacity;' +    // bottom half: the stencil
       '  gl_FragColor = vec4(c * opacity, a);' +                             // already "on black", so premultiplied
@@ -1287,7 +1291,7 @@
       s.ent = document.createElement('a-entity');
       opts.sceneEl.appendChild(s.ent);
       const mat = new THREE.ShaderMaterial({
-        uniforms: { map: { value: null }, opacity: { value: 1 } },
+        uniforms: { map: { value: null }, opacity: { value: 1 }, alphaMode: { value: s.ownAlpha ? 1 : 0 } },
         vertexShader: STACK_VERT, fragmentShader: STACK_FRAG,
         transparent: true, premultipliedAlpha: true, depthWrite: false, toneMapped: false, side: THREE.DoubleSide
       });
@@ -1323,19 +1327,27 @@
       const tex = new THREE.VideoTexture(v);
       tex.colorSpace = THREE.NoColorSpace;          // use the stored colours exactly as they are
       tex.generateMipmaps = false;
+      // Premultiply as it's loaded, so smoothing between pixels doesn't pull in the hidden colour of see-through ones (dark fringes)
+      if (s.ownAlpha) tex.premultiplyAlpha = true;
       s.stkTex = tex;
       s.mesh.material.uniforms.map.value = tex;
       const ready = () => {
         if (!v.videoWidth) return;
-        s.vAspect = v.videoWidth / (v.videoHeight / 2);
+        s.vAspect = s.ownAlpha ? v.videoWidth / v.videoHeight : v.videoWidth / (v.videoHeight / 2);
         s.el.classList.add('loaded');
-        if (v.videoHeight < v.videoWidth * 0.9) {
+        if (!s.ownAlpha && v.videoHeight < v.videoWidth * 0.9) {
           opts.onError(s.index, 'This doesn’t look like a see-through video (it should be twice as tall as the picture: the picture on top and its black-and-white stencil underneath). Make one with the See-through Video Maker, or untick “See-through video”.');
         }
       };
       v.addEventListener('loadedmetadata', ready);
       v.addEventListener('loadeddata', () => { if (v.paused && v.currentTime === 0) { try { v.currentTime = 0.01; } catch (e) {} } });
-      v.addEventListener('error', () => opts.onError(s.index, 'This video couldn’t be loaded. See-through videos must be kept in your GitHub site or Dropbox (Google Drive and YouTube can’t be used).'), { once: true });
+      v.addEventListener('error', () => opts.onError(s.index, s.ownAlpha
+        ? 'This WebM couldn’t be played here. iPhones and iPads can’t play see-through WebM videos: for a tour every phone can use, open it in the See-through Video Maker and make a see-through MP4. It also needs to be kept in your GitHub site or Dropbox.'
+        : 'This video couldn’t be loaded. See-through videos must be kept in your GitHub site or Dropbox (Google Drive and YouTube can’t be used).'), { once: true });
+      // For the author: check the WebM really has transparency in it
+      if (s.ownAlpha && opts.editable) v.addEventListener('loadeddata', () => {
+        Media.videoHasAlpha(v).then(has => { if (has === false) opts.onError(s.index, 'This WebM doesn’t seem to have any transparency in it, so it will show as a rectangle. If it should be see-through, make it again with the See-through Video Maker (choose “WebM with transparency”).'); });
+      }, { once: true });
       if (v.readyState >= 1) ready();
     }
     function placeStacked(s, camera, w, h) {

@@ -214,7 +214,9 @@
       viewYaw = m.yaw; viewPitch = m.pitch || 0;
     } else if (m.type === 'spotError') {
       const sp = spots[m.index];
-      if (sp) {
+      // an error that arrives late, about a file this spot no longer uses, is ignored
+      const same = !!sp && (m.src == null || [m.src, Media.expand(m.src)].map(x => String(x).trim()).some(x => x === sp.src.trim() || x === Media.expand(sp.src).trim() || x === Media.shorten(sp.src)));
+      if (same) {
         sp.error = m.message; renderSpotStatus(m.index);
         const li = $('spot-list').children[m.index]; if (li) updateSummary(li, sp);
       }
@@ -353,7 +355,11 @@
         '<div class="sc-checks">' +
           '<label class="check sp-hide-row"><input type="checkbox" class="sp-hide"><span>Hidden <span class="help-inline sp-hide-note"></span></span></label>' +
           '<label class="check sp-loop-row"><input type="checkbox" class="sp-loop"><span>Loop <span class="help-inline">— start again when it ends</span></span></label>' +
-          '<label class="check sp-stk-row"><input type="checkbox" class="sp-stk"><span>See-through video <span class="help-inline">— made with the <a href="videomaker.html" target="_blank" rel="noopener">See-through Video Maker</a>, so the room shows around it</span></span></label>' +
+          '<label class="check sp-stk-row"><input type="checkbox" class="sp-stk"><span>See-through video <span class="help-inline">— the room shows around it (make one with the <a href="videomaker.html" target="_blank" rel="noopener">See-through Video Maker</a>)</span></span></label>' +
+          '<div class="sp-stk-kind" role="radiogroup" aria-label="Kind of see-through video" hidden>' +
+            '<label class="check"><input type="radio" class="sp-stk-mp4"><span>See-through MP4 <span class="help-inline">— from the Video Maker; plays on every phone</span></span></label>' +
+            '<label class="check"><input type="radio" class="sp-stk-webm"><span>WebM with its own transparency <span class="help-inline">— iPhones and iPads can’t play these</span></span></label>' +
+          '</div>' +
           '<label class="check sp-pin-row"><input type="checkbox" class="sp-pin"><span>Pin corners <span class="help-inline">— drag each corner onto the matching point in the photo, e.g. a picture frame or window</span></span></label>' +
         '</div>' +
         '<div class="sp-place"><span class="sp-where"></span>' +
@@ -387,6 +393,8 @@
     q('.sp-pin').checked = !!sp.pin;
     q('.sp-spin').checked = !!sp.spin;
     q('.sp-stk').checked = !!sp.stacked;
+    q('.sp-stk-mp4').name = q('.sp-stk-webm').name = 'stk-' + (++stkGroups);
+    q('.sp-stk-webm').checked = !!sp.alpha; q('.sp-stk-mp4').checked = !sp.alpha;
     q('.sp-flat').checked = !!sp.flat;
     li.dataset.index = i;
     li.addEventListener('focusin', () => selectCard(i, false));
@@ -401,11 +409,19 @@
       sp.src = e.target.value; sp.error = '';
       // A document link becomes a Document spot by itself (the author can still change it)
       if (Media.looksLikeDoc(sp.src) && !sp.type) { sp.type = 'doc'; sp.autoDoc = true; }
-      if (/(see-?through|stencil|stacked|alpha)[^\/]*\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(sp.src) && !sp.stacked) { sp.stacked = true; sp.autoStk = true; li.querySelector('.sp-stk').checked = true; }
-      else if (sp.autoStk && !/(see-?through|stencil|stacked|alpha)[^\/]*\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(sp.src)) { sp.stacked = false; sp.autoStk = false; li.querySelector('.sp-stk').checked = false; }
+      const auto = autoSeeThrough(sp.src);
+      if (auto && (!sp.stacked || sp.autoStk)) setSeeThrough(li, sp, true, auto === 'alpha', true);
+      else if (sp.autoStk && !auto) setSeeThrough(li, sp, false, false, false);
       else if (sp.autoDoc && sp.type === 'doc' && !Media.looksLikeDoc(sp.src) && !/drive\.google|1drv\.ms|onedrive|sharepoint/i.test(sp.src)) { sp.type = ''; sp.autoDoc = false; }
       syncCard(li, sp, i);
-      clearTimeout(typing); typing = setTimeout(() => spotsChanged(true), 600);
+      clearTimeout(typing); typing = setTimeout(() => {
+        spotsChanged(true);
+        // Any other WebM: look inside it for transparency, and tick "See-through video" if it has some
+        const src = sp.src;
+        if (!sp.stacked && /\.webm(\?|#|$)/i.test(src)) Media.probeAlpha(src).then(has => {
+          if (has && sp.src === src && !sp.stacked) { setSeeThrough(li, sp, true, true, true); syncCard(li, sp, i); spotsChanged(true); }
+        });
+      }, 600);
     });
     q('.sp-label').addEventListener('input', e => {
       sp.label = e.target.value;
@@ -440,7 +456,14 @@
       updatePlaceText(i); spotsChanged(true);
     }));
     q('.sp-rot-reset').addEventListener('click', () => { sp.rot = [0, 0, 0]; updatePlaceText(i); spotsChanged(true); });
-    q('.sp-stk').addEventListener('change', e => { sp.stacked = e.target.checked; sp.autoStk = false; syncCard(li, sp, i); spotsChanged(true); });
+    q('.sp-stk').addEventListener('change', e => {
+      sp.stacked = e.target.checked; sp.autoStk = false;
+      if (sp.stacked) { sp.alpha = autoSeeThrough(sp.src) === 'alpha' || (/\.webm(\?|#|$)/i.test(sp.src) && !autoSeeThrough(sp.src)); q('.sp-stk-webm').checked = sp.alpha; q('.sp-stk-mp4').checked = !sp.alpha; }
+      syncCard(li, sp, i); spotsChanged(true);
+    });
+    ['.sp-stk-mp4', '.sp-stk-webm'].forEach(c => q(c).addEventListener('change', () => {
+      sp.alpha = q('.sp-stk-webm').checked; sp.autoStk = false; syncCard(li, sp, i); spotsChanged(true);
+    }));
     q('.sp-spin').addEventListener('change', e => { sp.spin = e.target.checked; updateSummary(li, sp); spotsChanged(true); });
     q('.sp-flat').addEventListener('change', e => { sp.flat = e.target.checked; updateSummary(li, sp); spotsChanged(true); });
     q('.sp-show').addEventListener('click', () => post({ type: 'lookAt', yaw: sp.yaw, pitch: sp.pitch }));
@@ -476,7 +499,7 @@
       else if ((kind === 'image' || kind === 'model') && sp.play === 'look') bits.push('shows when looked at');
       if (kind === 'model' && sp.spin) bits.push('spins');
       if (kind === 'model' && sp.flat) bits.push('flat colours');
-      if (kind === 'video' && sp.stacked) bits.push('see-through');
+      if (kind === 'video' && sp.stacked) bits.push(sp.alpha ? 'see-through WebM' : 'see-through');
       if (sp.hidden) bits.push('hidden');
       if (sp.loop && (kind === 'video' || kind === 'audio')) bits.push('loops');
       if (sp.pin) bits.push('pinned');
@@ -509,6 +532,19 @@
   };
 
   // Keep the choices and notes in step with the link and with each other
+  // See-through videos: "alpha" = a WebM with its own transparency, "stencil" = the Video Maker's MP4 (or its WebM fallback)
+  let stkGroups = 0;
+  function autoSeeThrough(src) {
+    if (/(transparent|alpha)[^\/]*\.webm(\?|#|$)/i.test(src)) return 'alpha';
+    if (/(see-?through|stencil|stacked|alpha)[^\/]*\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(src)) return 'stencil';
+    return '';
+  }
+  function setSeeThrough(li, sp, on, alpha, auto) {
+    sp.stacked = on; sp.alpha = on && alpha; sp.autoStk = on && auto;
+    li.querySelector('.sp-stk').checked = on;
+    li.querySelector('.sp-stk-webm').checked = sp.alpha; li.querySelector('.sp-stk-mp4').checked = !sp.alpha;
+  }
+
   function syncCard(li, sp, i) {
     const q = c => li.querySelector(c);
     const yt = Media.youTube(sp.src);
@@ -558,6 +594,7 @@
     const stkOk = kind === 'video' && !yt && !drive && !!sp.src.trim();
     q('.sp-stk-row').hidden = !stkOk;
     if (!stkOk && sp.stacked) { sp.stacked = false; q('.sp-stk').checked = false; }
+    q('.sp-stk-kind').hidden = !stkOk || !sp.stacked;
     q('.sp-pin-row').hidden = !inRoomKind || !sp.src.trim() || isModel || drive || !!sp.stacked;
     if (sp.stacked) { sp.hidden = false; q('.sp-hide-row').hidden = true; }
     const checks = [...li.querySelectorAll('.sc-checks > .check')];
@@ -617,6 +654,11 @@
     if (yt && (kind === 'audio' || sp.hidden)) {
       return set('note', 'YouTube’s rules say its player must stay visible, so a sound-only or hidden YouTube spot breaks them. ' +
         'An MP3 link is the safe choice here. On iPhones, sound that starts by itself may begin muted, with a “tap for sound” button.');
+    }
+    if (kind === 'video' && sp.stacked && sp.alpha) {
+      return set('note', 'See-through WebM: the room shows around it in Chrome, Edge, Firefox and on Android phones. <b>iPhones and iPads can’t play it.</b> ' +
+        'For a tour every phone can use, open it in the <a href="videomaker.html" target="_blank" rel="noopener">See-through Video Maker</a> and make a see-through MP4 (it keeps the transparency). ' +
+        'Drag it in the preview to move it; pull a corner to resize it. Keep the file in your GitHub site or Dropbox.' + dwellNote);
     }
     if (kind === 'video' && sp.stacked) {
       return set('ok', 'See-through video: the room shows around it. Drag it in the preview to move it; pull a corner to resize it. ' +

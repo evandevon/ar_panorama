@@ -16,7 +16,7 @@
   const video = $('src');
   const view = $('view');
   const overlay = $('overlay');
-  let fileName = 'video', loaded = false, making = null;
+  let fileName = 'video', fileLabel = '', fileType = '', loaded = false, making = null;
   const key = { rgb: [0, 0.69, 0.25], picked: false };
   const extraKeys = [];                      // more background colours, for patchy screens (up to 4)
   const MAX_KEYS = 4;
@@ -115,12 +115,31 @@
     '  pm = mix(pm, rgb, m.g); a = mix(a, 1.0, m.g);',
     '  if (uOut == 1) gl_FragColor = vec4(pm, 1.0);',
     '  else if (uOut == 2) gl_FragColor = vec4(vec3(a), 1.0);',
+    // 3 = real transparency (WebM, GIF): plain colour plus alpha, not "on black", or edges go dark.
+    '  else if (uOut == 3) {',
+    '    vec3 c = pm / max(a, 0.001);',
+    // WebM keeps colour at half the resolution, so a see-through pixel's colour bleeds into the solid pixel next to it.
+    // Give see-through pixels near the edge the person's colour (from solid neighbours), so no dark or green fringe.
+    '    if (a < 0.98) {',
+    '      vec3 s = vec3(0.0); float w = 0.0;',
+    '      for (int i = 0; i < 8; i++) {',
+    '        float t = float(i) * 0.7853982; vec2 uv = vUv + vec2(cos(t), sin(t)) * 2.0 * uPx;',
+    '        vec4 n = texture2D(uVideo, uv);',
+    '        float na = (uAlpha == 1 ? n.a : keyA(uv)) * texture2D(uMask, uv).r;',
+    '        s += (uAlpha == 1 ? n.rgb : despill(n.rgb)) * na; w += na;',
+    '      }',
+    '      vec3 nb = w > 0.05 ? s / w : (uAlpha == 1 ? rgb : despill(rgb));',
+    '      c = mix(nb, c, smoothstep(0.0, 0.5, a));',
+    '    }',
+    '    gl_FragColor = vec4(clamp(c, 0.0, 1.0), a);',
+    '  }',
     '  else gl_FragColor = vec4(texture2D(uBg, vUv).rgb * (1.0 - a) + pm, 1.0);',
     '}'
   ].join('\n');
 
-  function makeGL(canvas) {
-    const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true, premultipliedAlpha: false, alpha: false });
+  function makeGL(canvas, transparent) {
+    // a transparent canvas keeps plain (not premultiplied) colour, so what's recorded is exactly what was drawn
+    const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true, premultipliedAlpha: false, alpha: !!transparent });
     if (!gl) return null;
     const sh = (type, src) => {
       const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
@@ -257,6 +276,7 @@
     if (!/^video\//.test(file.type) && !/\.(mp4|mov|webm|m4v|mkv)$/i.test(file.name)) {
       return status('file-status', 'err', 'That doesn’t look like a video file.');
     }
+    fileLabel = file.name; fileType = file.type || '';
     fileName = file.name.replace(/\.[^.]+$/, '').replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '') || 'video';
     if (video.src) URL.revokeObjectURL(video.src);
     loaded = false;
@@ -269,7 +289,20 @@
   ['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
   drop.addEventListener('drop', e => load(e.dataTransfer.files[0]));
 
-  video.addEventListener('loadedmetadata', () => {
+  // Some WebMs (made by recording in a browser) don't say how long they are: find out by jumping to the very end
+  function knownDuration() {
+    return new Promise(res => {
+      if (Number.isFinite(video.duration)) return res();
+      const t = setTimeout(done, 5000);
+      function done() { clearTimeout(t); video.removeEventListener('durationchange', check); video.currentTime = 0; res(); }
+      function check() { if (Number.isFinite(video.duration)) done(); }
+      video.addEventListener('durationchange', check);
+      video.currentTime = 1e9;
+    });
+  }
+  video.addEventListener('loadedmetadata', async () => {
+    await knownDuration();
+    if (!Number.isFinite(video.duration)) return status('file-status', 'err', 'This video doesn’t say how long it is, so it can’t be used. Try saving it again as an MP4.');
     const w = video.videoWidth, h = video.videoHeight;
     if (!w) return status('file-status', 'err', 'This video couldn’t be read. Try saving it as an MP4.');
     loaded = true;
@@ -278,17 +311,42 @@
     maskC.width = Math.min(w, 1024); maskC.height = Math.round(maskC.width * h / w);
     // a new video: start again with its shapes, extra colours and empty background
     shapes.length = 0; extraKeys.length = 0; plateOn = false; setTool(null);
+    if (params().alpha) { const r = document.querySelector('input[name=mode][value=key]'); r.checked = true; r.dispatchEvent(new Event('change')); }
     listShapes(); listKeys(); showPlate(); buildMask();
     $('stage-empty').hidden = true;
     ['play', 'make', 'auto-key', 'add-key', 'plate'].forEach(id => { $(id).disabled = false; });
     document.querySelectorAll('.tool').forEach(b => { b.disabled = false; });
     trim.start = 0; trim.end = video.duration;
-    timelineOn(true); layoutTimeline();
+    timelineOn(true); layoutTimeline(); if (typeof gifNote === 'function') gifNote();
     status('file-status', 'ok', w + ' × ' + h + ', ' + fmt(video.duration) + ' long.');
     video.currentTime = Math.min(0.5, video.duration / 2);
   });
   video.addEventListener('error', () => status('file-status', 'err', 'This video couldn’t be opened in this browser. Try Chrome or Edge, or save it as an MP4.'));
-  video.addEventListener('seeked', () => { if (!key.picked && !params().alpha) autoKey(); redraw(); tick(); });
+  // A WebM that's already see-through: notice, and use its own transparency
+  let checkAlpha = false;
+  video.addEventListener('loadedmetadata', () => { checkAlpha = /\.webm$/i.test(fileLabel) || /webm/.test(fileType); });
+  function ownAlpha() {
+    try {
+      const k = canvas(64, Math.max(8, Math.round(64 * video.videoHeight / video.videoWidth)));
+      const c = k.getContext('2d', { willReadFrequently: true });
+      c.drawImage(video, 0, 0, k.width, k.height);
+      const d = c.getImageData(0, 0, k.width, k.height).data;
+      for (let i = 3; i < d.length; i += 4) if (d[i] < 250) return true;
+    } catch (e) {}
+    return false;
+  }
+  video.addEventListener('seeked', () => {
+    if (checkAlpha) {
+      checkAlpha = false;
+      if (ownAlpha()) {
+        document.querySelector('input[name=mode][value=alpha]').checked = true;
+        document.querySelector('input[name=mode][value=alpha]').dispatchEvent(new Event('change'));
+        status('file-status', 'ok', $('file-status').textContent + ' It’s already see-through, so its own transparency is used (step 2).');
+      }
+    }
+    if (!key.picked && !params().alpha) autoKey();
+    redraw(); tick();
+  });
   video.addEventListener('loadeddata', redraw);
 
   // Average colour of a small square of the current frame (x, y in video pixels)
@@ -584,6 +642,7 @@
   // ---------------------------------------------------------------- the timeline: playhead, and trim dots at each end
   const track = $('tl-track'), head = $('seek'), tStart = $('trim-start'), tEnd = $('trim-end');
   const MIN_CLIP = 0.2;
+  let fmtReady = false;
   function timelineOn(on) {
     [head, tStart, tEnd].forEach(el => { el.tabIndex = on ? 0 : -1; el.setAttribute('aria-disabled', String(!on)); });
     $('timeline').classList.toggle('off', !on);
@@ -603,6 +662,7 @@
     $('trim-text').textContent = !loaded ? 'Drag the dots at each end of the timeline to trim.'
       : cut ? 'Keeping ' + fmt(trim.start, true) + ' to ' + fmt(trim.end, true) + ' (' + (trim.end - trim.start).toFixed(1) + ' seconds).'
       : 'Drag the dots at each end of the timeline to trim. Keeping all ' + (d).toFixed(1) + ' seconds.';
+    if (loaded && fmtReady) gifNote();
   }
   const timeAt = e => { const r = track.getBoundingClientRect(); return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * video.duration; };
   function moveTo(which, t) {
@@ -639,41 +699,111 @@
   }));
 
   // ---------------------------------------------------------------- making the file
+  // Three kinds of file:
+  //  stencil: an MP4 twice as tall (picture on black + black-and-white stencil). Plays on every phone; the tour cuts it out.
+  //  webm:    a WebM with real transparency (VP9/VP8 alpha). Chrome, Edge, Firefox, Android; not iPhones.
+  //  gif:     an animated GIF, no sound. Pixels are fully solid or fully see-through.
+  const fmtNow = () => document.querySelector('input[name=fmt]:checked').value;
+  const isChromium = !!(navigator.userAgentData && navigator.userAgentData.brands && navigator.userAgentData.brands.some(b => /Chromium/.test(b.brand)))
+    || (/Chrome\//.test(navigator.userAgent) && !/Firefox\//.test(navigator.userAgent));
   // MP4 (H.264) plays on every phone. Chrome/Edge (Windows, Mac) and Safari can record it; Firefox can't.
   function pickType(withSound) {
     const mp4 = ['avc1.640028', 'avc1.4d002a', 'avc1.42E01E', 'avc1'];
     const list = [];
     mp4.forEach(c => { if (withSound) list.push('video/mp4;codecs=' + c + ',mp4a.40.2'); list.push('video/mp4;codecs=' + c); });
     for (const t of list) if (MediaRecorder.isTypeSupported(t)) return { type: t, ext: 'mp4' };
-    for (const t of ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp9', 'video/webm']) if (MediaRecorder.isTypeSupported(t)) return { type: t, ext: 'webm' };
+    return pickWebm(withSound);
+  }
+  function pickWebm(withSound) {
+    const list = withSound ? ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus'] : [];
+    list.push('video/webm;codecs=vp9', 'video/webm;codecs=vp8');
+    for (const t of list) if (MediaRecorder.isTypeSupported(t)) return { type: t, ext: 'webm' };
     return null;
   }
-  if (typeof MediaRecorder === 'undefined' || !pickType(false)) {
-    $('browser-warn').hidden = false;
-    $('browser-warn').textContent = 'This browser can’t make videos. Please use Chrome or Edge on a Windows or Mac computer.';
-  } else if (pickType(false).ext !== 'mp4') {
-    $('browser-warn').hidden = false;
-    $('browser-warn').textContent = 'This browser can only make WebM videos, which won’t play on iPhones. For a video that works on every phone, use Chrome or Edge on a Windows or Mac computer.';
+  const canRecord = typeof MediaRecorder !== 'undefined' && !!pickType(false);
+  function formatChanged() {
+    const f = fmtNow();
+    $('gif-opts').hidden = f !== 'gif';
+    $('sound').disabled = f === 'gif'; $('sound-note').hidden = f !== 'gif';
+    $('make').textContent = { stencil: 'Make the see-through MP4', webm: 'Make the transparent WebM', gif: 'Make the GIF' }[f];
+    gifNote();
+    const warn = $('browser-warn');
+    let msg = '';
+    if (f === 'gif') msg = '';
+    else if (!canRecord) msg = 'This browser can’t make videos. Please use Chrome or Edge on a Windows or Mac computer.';
+    else if (f === 'stencil' && pickType(false).ext !== 'mp4') msg = 'This browser can only make WebM videos, which won’t play on iPhones. For a video that works on every phone, use Chrome or Edge on a Windows or Mac computer.';
+    else if (f === 'webm' && !pickWebm(false)) msg = 'This browser can’t make WebM videos. Please use Chrome or Edge.';
+    else if (f === 'webm' && !isChromium) msg = 'This browser may lose the transparency when it makes a WebM. Chrome or Edge keep it.';
+    warn.hidden = !msg; warn.textContent = msg;
+  }
+  function gifSize() {
+    const w = Math.round(Math.min(+$('size').value, 480, video.videoWidth || 480) / 2) * 2;
+    return [w, Math.round(w * (video.videoHeight || 270) / (video.videoWidth || 480) / 2) * 2];
+  }
+  function gifNote() {
+    if (fmtNow() !== 'gif') return;
+    const [w, h] = gifSize();
+    const secs = loaded ? trim.end - trim.start : 0;
+    let t = 'GIFs are made at most 480 wide' + (loaded ? ' (this one: ' + w + ' × ' + h + ')' : '') + '.';
+    if (secs > 8) t += ' This clip is ' + secs.toFixed(1) + ' seconds long: GIFs this long get very big. Try trimming it to a few seconds.';
+    $('gif-note').textContent = t;
+  }
+  document.querySelectorAll('input[name=fmt]').forEach(r => r.addEventListener('change', formatChanged));
+  $('size').addEventListener('change', gifNote);
+  formatChanged();
+  fmtReady = true;
+
+  const sizeText = n => n < 1048576 ? Math.max(1, Math.round(n / 1024)) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+  function busy(on) {
+    $('make').disabled = on; $('cancel').hidden = !on; $('progress').hidden = !on;
+    if (on) $('result').hidden = true; else $('bar').style.width = '0';
+  }
+  function deliver(blob, name, extra) {
+    const a = $('download');
+    if (a.href) URL.revokeObjectURL(a.href);
+    a.href = URL.createObjectURL(blob); a.download = name;
+    a.textContent = '⬇ Download ' + name + ' (' + sizeText(blob.size) + ')';
+    const f = fmtNow();
+    ['stencil', 'webm', 'gif'].forEach(k => { $('next-' + k).hidden = k !== f; });
+    document.querySelectorAll('#next-' + f + ' .path-eg').forEach(c => { c.textContent = (f === 'gif' ? 'images/' : 'videos/') + name; });
+    $('result').hidden = false;
+    status('make-status', extra && extra.err ? 'err' : 'ok', 'Done!' + (extra && extra.text ? ' ' + extra.text : ''));
+  }
+  // seek and wait until that picture is ready
+  function seekTo(t) {
+    return new Promise(res => {
+      if (Math.abs(video.currentTime - t) < 0.0005 && video.readyState >= 2) return res();
+      video.addEventListener('seeked', () => res(), { once: true });
+      video.currentTime = t;
+    });
   }
 
-  let audioCtx = null, audioSrc = null, audioDest = null;
   $('make').addEventListener('click', async () => {
     if (!loaded || making) return;
     if (tool) setTool(null);
     const start = Math.max(0, trim.start);
     const end = Math.min(video.duration, trim.end);
     if (end - start < MIN_CLIP) return status('make-status', 'err', 'The clip is too short: drag the trim dots further apart.');
+    const f = fmtNow();
+    if (f === 'gif') return makeGif(start, end);
+    makeVideo(f, start, end);
+  });
+
+  // ---------------------------------------------------------------- videos (played through in real time, so the sound stays in step)
+  let audioCtx = null, audioSrc = null, audioDest = null;
+  async function makeVideo(f, start, end) {
     const withSound = $('sound').checked;
-    const kind = pickType(withSound);
+    const kind = f === 'webm' ? pickWebm(withSound) : pickType(withSound);
     if (!kind) return status('make-status', 'err', 'This browser can’t make videos. Please use Chrome or Edge.');
 
-    // Size: the chosen width (never bigger than the original), even numbers, stencil underneath
+    // Size: the chosen width (never bigger than the original), even numbers; the stencil MP4 is twice as tall
+    const stencil = f === 'stencil';
     let w = Math.min(+$('size').value, video.videoWidth);
     let h = w * video.videoHeight / video.videoWidth;
-    if (h * 2 > 2160) { h = 1080; w = h * video.videoWidth / video.videoHeight; }
+    if (stencil && h * 2 > 2160) { h = 1080; w = h * video.videoWidth / video.videoHeight; }
     w = Math.round(w / 2) * 2; h = Math.round(h / 2) * 2;
-    const out = canvas(w, h * 2);
-    const og = makeGL(out);
+    const out = canvas(w, stencil ? h * 2 : h);
+    const og = makeGL(out, !stencil);
     if (plateOn) og.setPlate(plateC);
 
     const manual = typeof CanvasCaptureMediaStreamTrack !== 'undefined' && 'requestFrame' in CanvasCaptureMediaStreamTrack.prototype;
@@ -689,19 +819,16 @@
         audioDest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
       } catch (e) { /* no sound track: carry on silently */ }
     }
-    const rec = new MediaRecorder(stream, { mimeType: kind.type, videoBitsPerSecond: Math.round(Math.min(12e6, Math.max(2.5e6, w * h * 2 * 30 * 0.12))) });
+    const rec = new MediaRecorder(stream, { mimeType: kind.type, videoBitsPerSecond: Math.round(Math.min(12e6, Math.max(2.5e6, w * out.height * 30 * 0.12))) });
     const chunks = [];
-    rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    let bytes = 0;
+    rec.ondataavailable = e => { if (e.data.size) { chunks.push(e.data); bytes += e.data.size; } };
 
     making = { cancelled: false };
-    $('make').disabled = true; $('cancel').hidden = false; $('progress').hidden = false; $('result').hidden = true;
+    busy(true);
     status('make-status', '', 'Making it… this takes as long as the clip (' + fmt(end - start, true) + '). Keep this tab open.');
     video.pause(); video.loop = false;
-    if (Math.abs(video.currentTime - start) > 0.01) {
-      const seeked = new Promise(r => video.addEventListener('seeked', r, { once: true }));
-      video.currentTime = start;
-      await seeked;
-    }
+    await seekTo(start);
     video.muted = !withSound;                     // the sound goes into the file, not the speakers
     rec.start(500);
     const recStarted = performance.now();
@@ -711,8 +838,10 @@
       if (video.currentTime === lastT && !video.ended) { requestAnimationFrame(frame); return; }   // no new picture yet
       lastT = video.currentTime; drawn++;
       og.upload();
-      og.draw(1, 0, h, w, h);                      // top: the picture, on black
-      og.draw(2, 0, 0, w, h);                      // bottom: the stencil
+      if (stencil) {
+        og.draw(1, 0, h, w, h);                    // top: the picture, on black
+        og.draw(2, 0, 0, w, h);                    // bottom: the stencil
+      } else og.draw(3, 0, 0, w, h);               // the picture with real transparency
       if (manual) track.requestFrame();
       $('bar').style.width = Math.min(100, (video.currentTime - start) / (end - start) * 100) + '%';
       if (video.currentTime >= end - 0.02 || video.ended || making.cancelled) return finish();
@@ -722,35 +851,131 @@
       if (!making || making.done) return;
       making.done = true;
       video.pause();
-      // let the last frames through; a recorder that's stopped too soon after starting gives an empty file
-      setTimeout(() => rec.stop(), Math.max(300, 1500 - (performance.now() - recStarted)));
+      // Let the last frames through. The encoder can take a moment to get going (longer with transparency),
+      // and a recorder stopped before it has delivered any pictures gives an empty file, so wait for real data.
+      const stopAt = performance.now() + 8000;
+      const settle = () => {
+        if (making && making.cancelled) return rec.stop();
+        if (bytes > 1024 && performance.now() - recStarted > 600) return setTimeout(() => rec.stop(), 300);
+        if (performance.now() > stopAt) return rec.stop();
+        try { rec.requestData(); } catch (e) {}
+        setTimeout(settle, 250);
+      };
+      setTimeout(settle, 300);
     };
-    rec.onstop = () => {
+    rec.onstop = async () => {
       const cancelled = making.cancelled;
       making = null;
       if (audioSrc && audioDest) { try { audioSrc.disconnect(audioDest); } catch (e) {} }
       video.muted = true; video.loop = true;
-      $('make').disabled = false; $('cancel').hidden = true; $('progress').hidden = true; $('bar').style.width = '0';
-      if (cancelled) return status('make-status', '', 'Cancelled.');
-      const blob = new Blob(chunks, { type: kind.type.split(';')[0] });
-      const name = fileName + '.see-through.' + kind.ext;
-      const a = $('download');
-      if (a.href) URL.revokeObjectURL(a.href);
-      a.href = URL.createObjectURL(blob); a.download = name;
-      a.textContent = '⬇ Download ' + name + ' (' + (blob.size < 1048576 ? Math.max(1, Math.round(blob.size / 1024)) + ' KB' : (blob.size / 1048576).toFixed(1) + ' MB') + ')';
-      $('path-eg').textContent = 'videos/' + name;
-      $('result').hidden = false;
-      if (!blob.size) { $('result').hidden = true; return status('make-status', 'err', 'Something went wrong and the video came out empty. Please try again (a slightly longer clip can help).'); }
-      // fewer than ~10 pictures a second: this computer couldn't keep up
-      const jerky = (end - start) > 1 && drawn < (end - start) * 10;
-      status('make-status', jerky ? 'err' : 'ok', 'Done!' + (kind.ext === 'mp4' ? '' : ' (WebM: this won’t play on iPhones; use Chrome or Edge on a computer for an MP4.)')
-        + (jerky ? ' This computer couldn’t keep up, so the video may look jerky. Try the Small size, or turn down the “Tidy the edges” sliders, and make it again.' : ''));
+      busy(false);
       redraw();
+      if (cancelled) return status('make-status', '', 'Cancelled.');
+      let blob = new Blob(chunks, { type: kind.type.split(';')[0] });
+      // A recorded WebM doesn't say how long it is, which breaks seeking and some apps: write the length in
+      if (blob.size && kind.ext === 'webm' && window.ysFixWebmDuration) {
+        try { blob = await window.ysFixWebmDuration(blob, Math.round((end - start) * 1000), { logger: false }); } catch (e) {}
+      }
+      if (!blob.size) return status('make-status', 'err', 'Something went wrong and the video came out empty. Please try again (a slightly longer clip can help).');
+      const notes = [];
+      let err = false;
+      if (stencil && kind.ext !== 'mp4') notes.push('(WebM: this won’t play on iPhones; use Chrome or Edge on a computer for an MP4.)');
+      // fewer than ~10 pictures a second: this computer couldn't keep up
+      if ((end - start) > 1 && drawn < (end - start) * 10) { err = true; notes.push('This computer couldn’t keep up, so the video may look jerky. Try the Small size, or turn down the “Tidy the edges” sliders, and make it again.'); }
+      if (!stencil) {
+        status('make-status', '', 'Checking the transparency…');
+        const kept = await hasAlpha(blob);
+        if (kept === false) { err = true; notes.push('This browser didn’t keep the transparency in the file. Please make it in Chrome or Edge.'); }
+      }
+      deliver(blob, fileName + (stencil ? '.see-through.' : '.transparent.') + kind.ext, { err, text: notes.join(' ') });
     };
     making.finish = finish;
     try { await video.play(); } catch (e) { making.cancelled = true; finish(); return; }
     frame();
-  });
+  }
+
+  // Open the finished WebM and look for see-through pixels (true / false; null if this browser can't tell)
+  function hasAlpha(blob) {
+    return new Promise(res => {
+      const v = document.createElement('video');
+      v.muted = true; v.playsInline = true; v.preload = 'auto';
+      const url = URL.createObjectURL(blob);
+      const done = r => { clearTimeout(timer); URL.revokeObjectURL(url); v.removeAttribute('src'); v.load(); res(r); };
+      const timer = setTimeout(() => done(null), 8000);
+      v.addEventListener('error', () => done(null), { once: true });
+      v.addEventListener('loadeddata', () => {
+        try {
+          const k = canvas(Math.min(160, v.videoWidth || 160), Math.min(160, v.videoHeight || 90));
+          const c = k.getContext('2d', { willReadFrequently: true });
+          c.clearRect(0, 0, k.width, k.height);
+          c.drawImage(v, 0, 0, k.width, k.height);
+          const d = c.getImageData(0, 0, k.width, k.height).data;
+          let low = 0;
+          for (let i = 3; i < d.length; i += 4) if (d[i] < 250) low++;
+          done(low > 0);
+        } catch (e) { done(null); }
+      }, { once: true });
+      v.src = url;
+    });
+  }
+
+  // ---------------------------------------------------------------- GIFs (made picture by picture, so no frames are skipped)
+  let gifLib = null;
+  async function makeGif(start, end) {
+    const [w, h] = gifSize();
+    const fps = +$('gif-fps').value;
+    making = { cancelled: false };
+    busy(true);
+    status('make-status', '', 'Making the GIF… keep this tab open.');
+    try {
+      gifLib = gifLib || await import(new URL('vendor/gifenc/gifenc.esm.js', document.baseURI).href);
+    } catch (e) {
+      making = null; busy(false);
+      return status('make-status', 'err', 'The GIF maker couldn’t be loaded. Check that the vendor/gifenc folder was uploaded with this page.');
+    }
+    const { GIFEncoder, quantize, applyPalette } = gifLib;
+    const out = canvas(w, h);
+    const og = makeGL(out, true);
+    if (plateOn) og.setPlate(plateC);
+    const gl = og.gl;
+    video.pause();
+    const enc = GIFEncoder();
+    const n = Math.max(1, Math.round((end - start) * fps));
+    const px = new Uint8Array(w * h * 4), rgba = new Uint8Array(w * h * 4), row = w * 4;
+    for (let i = 0; i < n; i++) {
+      if (making.cancelled) break;
+      await seekTo(Math.min(end - 0.001, start + i / fps));
+      og.upload(); og.draw(3, 0, 0, w, h);
+      gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      // WebGL reads bottom row first: flip it. A GIF pixel is solid or see-through, nothing between, and every
+      // see-through pixel must be exactly the same colour, so the palette has only one see-through entry.
+      for (let y = 0; y < h; y++) {
+        const src = (h - 1 - y) * row, dst = y * row;
+        for (let x = 0; x < row; x += 4) {
+          const s = src + x, d = dst + x;
+          if (px[s + 3] < 128) { rgba[d] = rgba[d + 1] = rgba[d + 2] = rgba[d + 3] = 0; }
+          else { rgba[d] = px[s]; rgba[d + 1] = px[s + 1]; rgba[d + 2] = px[s + 2]; rgba[d + 3] = 255; }
+        }
+      }
+      const palette = quantize(rgba, 256, { format: 'rgba4444', oneBitAlpha: true });
+      const index = applyPalette(rgba, palette, 'rgba4444');
+      const ti = palette.findIndex(c => c[3] === 0);
+      // dispose: 2 clears each picture before the next, or see-through parts would show the previous pictures
+      enc.writeFrame(index, w, h, { palette, delay: 1000 / fps, transparent: ti >= 0, transparentIndex: Math.max(0, ti), dispose: 2 });
+      $('bar').style.width = ((i + 1) / n * 100) + '%';
+      await new Promise(r => setTimeout(r));        // let the page breathe
+    }
+    const cancelled = making.cancelled;
+    making = null;
+    video.loop = true;
+    busy(false); redraw();
+    if (cancelled) return status('make-status', '', 'Cancelled.');
+    enc.finish();
+    const blob = new Blob([enc.bytes()], { type: 'image/gif' });
+    deliver(blob, fileName + '.gif', blob.size > 15 * 1048576
+      ? { err: true, text: 'This GIF is big (' + sizeText(blob.size) + '), so it may be slow to load. Try a shorter clip, the Small size, or 10 pictures a second.' }
+      : null);
+  }
   $('cancel').addEventListener('click', () => { if (making && making.finish) { making.cancelled = true; making.finish(); } });
   setKey(key.rgb, false);
   listKeys(); hint(); layoutTimeline();

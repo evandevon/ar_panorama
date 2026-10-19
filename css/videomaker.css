@@ -100,3 +100,13 @@ h3.sub:first-of-type { margin-top: 8px; }
 .view-toggle button[aria-pressed="true"] { background: var(--slate); color: #fff; }
 .view-toggle button:focus-visible { outline: 3px solid var(--brass); outline-offset: -3px; }
 .shape.off { opacity: .45; }
+
+/* step 4: file type */
+.fmt-field { border: 0; padding: 0; margin: 0 0 6px; }
+.fmt-field legend { font-weight: 600; font-size: .92rem; margin-bottom: 6px; padding: 0; }
+.fmt { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; margin: 0 0 6px !important; border: 1px solid var(--line-strong);
+  border-radius: 8px; background: var(--field); font-weight: 400; cursor: pointer; }
+.fmt:has(input:checked) { border-color: var(--brass-dark); box-shadow: inset 0 0 0 2px var(--brass); background: #fffaf0; }
+.fmt input { margin-top: 4px; accent-color: var(--brass-dark); width: 18px; height: 18px; flex: none; }
+.tag { display: inline-block; padding: 0 7px; border-radius: 999px; background: var(--slate); font-size: .75rem; font-weight: 600; color: #fff; vertical-align: 1px; }
+#sound-row:has(input:disabled) { opacity: .6; }

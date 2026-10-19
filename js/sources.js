@@ -232,6 +232,40 @@
     }
   }
 
+  // Does this video picture have see-through parts? true / false, or null if this browser can't tell
+  // (the file's host must allow it to be read, as GitHub and Dropbox do)
+  function videoHasAlpha(v) {
+    return new Promise(res => {
+      try {
+        const k = document.createElement('canvas');
+        k.width = 64; k.height = Math.max(8, Math.round(64 * (v.videoHeight || 36) / (v.videoWidth || 64)));
+        const c = k.getContext('2d', { willReadFrequently: true });
+        c.clearRect(0, 0, k.width, k.height);
+        c.drawImage(v, 0, 0, k.width, k.height);
+        const d = c.getImageData(0, 0, k.width, k.height).data;
+        for (let i = 3; i < d.length; i += 4) if (d[i] < 250) return res(true);
+        res(false);
+      } catch (e) { res(null); }
+    });
+  }
+  // The same, from a link: opens the video quietly and looks at an early picture
+  function probeAlpha(token) {
+    return new Promise(res => {
+      if (!/\.webm(\?|#|$)/i.test(String(token).trim())) return res(false);
+      const v = document.createElement('video');
+      v.muted = true; v.playsInline = true; v.preload = 'auto'; v.crossOrigin = 'anonymous';
+      const done = r => { clearTimeout(t); v.removeAttribute('src'); v.load(); res(r); };
+      const t = setTimeout(() => done(null), 10000);
+      v.addEventListener('error', () => done(null), { once: true });
+      v.addEventListener('loadeddata', () => {
+        // the very first picture can be blank: look a little way in
+        v.addEventListener('seeked', () => videoHasAlpha(v).then(done), { once: true });
+        try { v.currentTime = Math.min(0.5, (v.duration || 1) / 2); } catch (e) { videoHasAlpha(v).then(done); }
+      }, { once: true });
+      v.src = resolveMediaUrl(token, 'video').url;
+    });
+  }
+
   global.Media = { shorten, expand, youTube, looksLikeVideo, looksLikeImage, looksLikeAudio, looksLikeModel, looksLikeDoc, docKind,
-    docViewer, fromEmbedCode, resolveMediaUrl, hostingHint };
+    docViewer, fromEmbedCode, resolveMediaUrl, hostingHint, videoHasAlpha, probeAlpha };
 })(window);

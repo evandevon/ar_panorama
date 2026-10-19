@@ -119,6 +119,13 @@ A see-through video shows a person or object standing in the room, with the room
 - **Use this moment as the empty background:** if the video has a moment with nobody in it (film a second or two before the person steps in), go to it and press this. The tool then knows exactly what the screen looks like at every spot, which handles creases and uneven light best. The camera must stay still.
 - **Tidy the edges:** *Shrink the edges* trims a leftover outline, *Remove specks* clears floating bits of background, and *Fill small holes* fills see-through spots inside the person. Choose **Stencil** under the preview to see holes and specks clearly (white = solid, black = see-through).
 
+**Other file types.** Step 4 of the Video Maker can also make:
+
+- **WebM with transparency:** a truly see-through video for other apps and websites. It's see-through in Chrome, Edge and Firefox and on Android, but iPhones and iPads can't play it. Make it in Chrome or Edge; the maker checks the finished file still has its transparency, and writes the video's length into it (browser-made WebMs otherwise leave it out, which breaks seeking in some apps).
+- **Animated GIF:** no sound, at most 480 wide, 10 or 15 pictures a second. Every pixel is either solid or see-through, so soft edges become crisp. Keep it to a few seconds, or it gets big.
+
+**Using a transparent WebM in a tour.** Paste its path into a video spot. "See-through video" ticks itself (from a name containing "transparent" or "alpha", or by looking inside the file), with **WebM with its own transparency** chosen. The tour draws it into the room like the see-through MP4. iPhones and iPads can't play WebMs like this, so for a tour every phone can use, open the WebM in the Video Maker (it notices it's already see-through) and make the see-through MP4.
+
 **How it works:** the file is an ordinary MP4, twice as tall as the picture: the picture (on black) on top, and a black-and-white "stencil" underneath (white = solid, black = see-through, grey = partly). The tour cuts the picture out with the stencil as it plays, and draws it into the room. Opened on its own, the file looks strange; that's normal. See-through videos must be kept in your GitHub site or Dropbox (Google Drive and YouTube can't be used), and can play when tapped, when looked at, or straight away, with Loop.
 
 The sample tour includes a see-through candle (`videos/sample-candle.mp4`).
@@ -226,7 +233,7 @@ Dragging, sound, video, text, links and look-to-reveal dots all work inside an e
 
 `?p=<photo>&t=<title>&y=<start direction°>&al=1&mb=<model brightness>&s=<spot>&s=<spot>…&v=2`
 
-Each spot is written as `link~yaw~pitch~flags~label~width°~corners~turn`. Text spots use `t:` followed by the text instead of a link. Corners (only for pinned spots) are eight whole-degree offsets from the centre: top-left, top-right, bottom-right, bottom-left, each as yaw,pitch. Turn (only for 3D models) is `turn,tilt,roll` in whole degrees. `mb` is only included when it isn't 1 (normal). The flags are `l` (plays/shows when looked at), `s` (plays at start), `h` (hidden), `r` (loop), `d` (appears after the dot), `o` (3D model spins), `f` (3D model in bright, flat colours), `x` (see-through video), and `a` / `v` / `i` / `k` / `m` / `p` (sound / video / picture / link / 3D model / document), used when the kind can't be told from the link.
+Each spot is written as `link~yaw~pitch~flags~label~width°~corners~turn`. Text spots use `t:` followed by the text instead of a link. Corners (only for pinned spots) are eight whole-degree offsets from the centre: top-left, top-right, bottom-right, bottom-left, each as yaw,pitch. Turn (only for 3D models) is `turn,tilt,roll` in whole degrees. `mb` is only included when it isn't 1 (normal). The flags are `l` (plays/shows when looked at), `s` (plays at start), `h` (hidden), `r` (loop), `d` (appears after the dot), `o` (3D model spins), `f` (3D model in bright, flat colours), `x` (see-through video), `w` (with `x`: a WebM with its own transparency rather than a stencil MP4), and `a` / `v` / `i` / `k` / `m` / `p` (sound / video / picture / link / 3D model / document), used when the kind can't be told from the link.
 
 **The format is safe for email and chat.** It uses only characters that email, chat and document apps keep inside a clickable link. Inside each field, `% ~ | ! * ' ( )` and line breaks are escaped. Links always end with `v=2`, so a full stop or bracket at the end of a label can't be mistaken for the end of the sentence.
 
