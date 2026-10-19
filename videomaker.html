@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>See-through Video Maker</title>
   <meta name="description" content="Turn a green-screen video into a see-through video for 360° tours. Everything happens on your computer; nothing is uploaded.">
-  <link rel="stylesheet" href="css/create.css">
-  <link rel="stylesheet" href="css/videomaker.css">
+  <link rel="stylesheet" href="css/create.css?v=20261019b">
+  <link rel="stylesheet" href="css/videomaker.css?v=20261019c">
 </head>
 <body>
 <header class="masthead">
@@ -42,7 +42,13 @@
 
   <!-- Preview -->
   <section class="panel vm-preview" aria-labelledby="h-prev">
-    <h2 id="h-prev">Preview <span class="opt" id="pick-hint">click the background in the picture to choose the colour to remove</span></h2>
+    <div class="prev-head">
+      <h2 id="h-prev">Preview <span class="opt" id="pick-hint">click the background in the picture to choose the colour to remove</span></h2>
+      <div class="view-toggle" role="group" aria-label="What the preview shows">
+        <button type="button" data-view="picture" aria-pressed="true">Picture</button>
+        <button type="button" data-view="stencil" aria-pressed="false" title="White = solid, black = see-through. Good for spotting holes and specks.">Stencil</button>
+      </div>
+    </div>
     <div class="stage" id="stage">
       <div class="view-wrap">
         <canvas id="view" width="640" height="360" aria-label="Preview of the see-through video"></canvas>
@@ -64,13 +70,12 @@
       <span class="time" id="time">0:00.0 / 0:00.0</span>
     </div>
     <p class="help trim-text" id="trim-text" aria-live="polite"></p>
-    <div class="shape" role="group" aria-label="Preview background">
+    <div class="shape" id="bg-row" role="group" aria-label="Preview background">
       <span class="help-inline">Show behind it:</span>
       <button type="button" class="bg-btn" data-bg="room" aria-pressed="true">Classroom</button>
       <button type="button" class="bg-btn" data-bg="check" aria-pressed="false">Checks</button>
       <button type="button" class="bg-btn" data-bg="black" aria-pressed="false">Black</button>
       <button type="button" class="bg-btn" data-bg="white" aria-pressed="false">White</button>
-      <button type="button" class="bg-btn" data-bg="stencil" aria-pressed="false" title="White = solid, black = see-through. Good for spotting holes and specks.">Stencil</button>
     </div>
   </section>
 
@@ -92,7 +97,8 @@
       <input type="range" id="sim" min="0" max="100" value="36" aria-describedby="sim-help">
       <p class="help" id="sim-help">Slide right until the background has gone. If parts of the person start to disappear, slide back.</p>
       <label for="soft">Soften the edges <output id="soft-out" for="soft"></output></label>
-      <input type="range" id="soft" min="0" max="100" value="40">
+      <input type="range" id="soft" min="0" max="100" value="25" aria-describedby="soft-help">
+      <p class="help" id="soft-help">Feathers the outline so it blends into the room. The inside stays solid.</p>
       <label for="spill">Clean up coloured edges <output id="spill-out" for="spill"></output></label>
       <input type="range" id="spill" min="0" max="100" value="100" aria-describedby="spill-help">
       <p class="help" id="spill-help">Removes the green (or blue) glow the screen leaves around hair and edges.</p>
@@ -155,7 +161,7 @@
       <p class="help" id="speck-help">Gets rid of little bits of background left floating around.</p>
       <label for="hole">Fill small holes <output id="hole-out" for="hole"></output></label>
       <input type="range" id="hole" min="0" max="10" value="0" aria-describedby="hole-help">
-      <p class="help" id="hole-help">Fills see-through spots inside the person. Tip: choose <b>Stencil</b> under the preview to see holes clearly.</p>
+      <p class="help" id="hole-help">Fills see-through spots inside the person. Tip: switch the preview to <b>Stencil</b> (top right) to see holes clearly.</p>
     </div>
   </section>
 
@@ -199,6 +205,6 @@
 </footer>
 
 <video id="src" playsinline muted preload="auto" hidden></video>
-<script src="js/videomaker.js"></script>
+<script src="js/videomaker.js?v=20261019c"></script>
 </body>
 </html>

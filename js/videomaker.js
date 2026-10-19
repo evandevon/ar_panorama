@@ -35,7 +35,7 @@
     '#endif',
     'uniform sampler2D uVideo, uBg, uMask, uPlate;',
     'uniform vec3 uKey; uniform vec3 uKeys[4]; uniform int uNKeys, uPlateOn;',
-    'uniform float uSim, uSoft, uSpill, uChoke, uSpeck, uHole; uniform vec2 uPx;',
+    'uniform float uSim, uSoft, uSpill, uChoke, uSpeck, uHole, uFeather; uniform vec2 uPx;',
     'uniform int uOut, uAlpha, uCh;',
     'varying vec2 vUv;',
     // "Colour difference": how much more screen-coloured (e.g. greener) a colour is than its other colours.
@@ -58,7 +58,7 @@
     '    vec3 pl = texture2D(uPlate, uv).rgb;',
     '    if (diff(pl) > 0.04) { float s = solidity(dd, pl); if (s < al) { al = s; k = pl; } }',
     '  }',
-    '  return clamp((al - uSim) / max(uSoft, 0.01), 0.0, 1.0);',
+    '  return clamp((al - uSim) / max(min(uSoft, 1.0 - uSim), 0.01), 0.0, 1.0);',
     '}',
     'float keyA(vec2 uv) { float al; vec3 k; return keyAt(uv, al, k); }',
     'vec3 despill(vec3 c) {',
@@ -92,6 +92,14 @@
     '      if (uSpeck > 0.0) a *= smoothstep(0.03, 0.2, ms / 8.0);',
     '      if (uHole > 0.0) a = max(a, smoothstep(0.7, 0.9, mh / 8.0));',
     '    }',
+    '    if (uFeather > 0.0) {',
+    '      float sum = aK;',
+    '      for (int i = 0; i < 8; i++) {',
+    '        float t = float(i) * 0.7853982 + 0.19635; vec2 d = vec2(cos(t), sin(t)) * uPx;',
+    '        sum += keyA(vUv + d * uFeather) + keyA(vUv + d * uFeather * 0.5);',
+    '      }',
+    '      a = min(a, smoothstep(0.0, 1.0, sum / 17.0) + max(a - aK, 0.0));',
+    '    }',
     // A partly see-through pixel is a mix of the subject and the screen behind it. Take the screen's share
     // back out ("unmixing"), so soft edges, glows and hair keep their own colour instead of turning grey or green.
     '    float aU = min(a, aK);',
@@ -107,7 +115,6 @@
     '  pm = mix(pm, rgb, m.g); a = mix(a, 1.0, m.g);',
     '  if (uOut == 1) gl_FragColor = vec4(pm, 1.0);',
     '  else if (uOut == 2) gl_FragColor = vec4(vec3(a), 1.0);',
-    '  else if (uOut == 3) gl_FragColor = vec4(vec3(a), 1.0);',
     '  else gl_FragColor = vec4(texture2D(uBg, vUv).rgb * (1.0 - a) + pm, 1.0);',
     '}'
   ].join('\n');
@@ -138,7 +145,7 @@
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     const u = n => gl.getUniformLocation(prog, n);
     const U = {};
-    ['uVideo', 'uBg', 'uMask', 'uPlate', 'uKey', 'uKeys', 'uNKeys', 'uPlateOn', 'uSim', 'uSoft', 'uSpill', 'uChoke', 'uSpeck', 'uHole', 'uPx', 'uOut', 'uAlpha', 'uCh']
+    ['uVideo', 'uBg', 'uMask', 'uPlate', 'uKey', 'uKeys', 'uNKeys', 'uPlateOn', 'uSim', 'uSoft', 'uSpill', 'uFeather', 'uChoke', 'uSpeck', 'uHole', 'uPx', 'uOut', 'uAlpha', 'uCh']
       .forEach(n => { U[n] = u(n); });
     gl.uniform1i(U.uVideo, 0); gl.uniform1i(U.uBg, 1); gl.uniform1i(U.uMask, 2); gl.uniform1i(U.uPlate, 3);
     const put = (unit, t, source) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source); };
@@ -159,7 +166,7 @@
         gl.uniform1f(U.uSim, p.sim); gl.uniform1f(U.uSoft, p.soft); gl.uniform1f(U.uSpill, p.spill);
         // the edge tools are set in "pixels of a 720p video", so they act the same at any size
         const s = (video.videoHeight || 720) / 720;
-        gl.uniform1f(U.uChoke, p.choke * s); gl.uniform1f(U.uSpeck, p.speck * s); gl.uniform1f(U.uHole, p.hole * s);
+        gl.uniform1f(U.uFeather, p.feather * s); gl.uniform1f(U.uChoke, p.choke * s); gl.uniform1f(U.uSpeck, p.speck * s); gl.uniform1f(U.uHole, p.hole * s);
         gl.uniform2f(U.uPx, 1 / (video.videoWidth || 1), 1 / (video.videoHeight || 1));
         gl.uniform1i(U.uOut, out); gl.uniform1i(U.uAlpha, p.alpha ? 1 : 0);
         const [r, g, b] = key.rgb;
@@ -182,7 +189,8 @@
     return {
       alpha: document.querySelector('input[name=mode]:checked').value === 'alpha',
       sim: $('sim').value / 100 * 0.5,                   // below this "solidness", it's treated as screen
-      soft: 0.15 + $('soft').value / 100 * 0.85,         // how wide the soft edge is
+      soft: 0.5,                                         // how gradually blends (hair, glows) fade
+      feather: $('soft').value / 100 * 16,               // soften the edges: blur width, in pixels of a 720p video
       spill: $('spill').value / 100,
       choke: +$('choke').value,
       speck: +$('speck').value * 4,
@@ -213,7 +221,7 @@
   // ---------------------------------------------------------------- backgrounds for the preview
   const BG = {};
   function solid(c) { const k = canvas(2, 2); const x = k.getContext('2d'); x.fillStyle = c; x.fillRect(0, 0, 2, 2); return k; }
-  BG.black = solid('#000'); BG.white = solid('#fff'); BG.stencil = BG.black;
+  BG.black = solid('#000'); BG.white = solid('#fff');
   BG.check = (() => { const k = canvas(512, 512); const x = k.getContext('2d');
     for (let i = 0; i < 16; i++) for (let j = 0; j < 16; j++) { x.fillStyle = (i + j) % 2 ? '#cfcfcf' : '#f2f2f2'; x.fillRect(i * 32, j * 32, 32, 32); } return k; })();
   BG.room = BG.check;
@@ -230,6 +238,17 @@
     bgName = b.dataset.bg;
     document.querySelectorAll('.bg-btn').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
     pv.setBackground(BG[bgName]); redraw();
+  }));
+
+  // Picture or stencil: the stencil shows only the black-and-white mask (white = solid, black = see-through)
+  let viewMode = 'picture';
+  document.querySelectorAll('.view-toggle button').forEach(b => b.addEventListener('click', () => {
+    viewMode = b.dataset.view;
+    document.querySelectorAll('.view-toggle button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    const bgRow = $('bg-row'), stencil = viewMode === 'stencil';
+    bgRow.classList.toggle('off', stencil);
+    bgRow.querySelectorAll('button').forEach(x => { x.disabled = stencil; });
+    redraw();
   }));
 
   // ---------------------------------------------------------------- loading a video
@@ -523,7 +542,7 @@
   // ---------------------------------------------------------------- preview playback
   function redraw() {
     if (!loaded || video.readyState < 2 || making) return;
-    pv.upload(); pv.draw(bgName === 'stencil' ? 3 : 0, 0, 0, view.width, view.height);
+    pv.upload(); pv.draw(viewMode === 'stencil' ? 2 : 0, 0, 0, view.width, view.height);
   }
   function loop() {
     if (!video.paused && !making) {
