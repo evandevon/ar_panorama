@@ -353,6 +353,7 @@
         '<div class="sc-checks">' +
           '<label class="check sp-hide-row"><input type="checkbox" class="sp-hide"><span>Hidden <span class="help-inline sp-hide-note"></span></span></label>' +
           '<label class="check sp-loop-row"><input type="checkbox" class="sp-loop"><span>Loop <span class="help-inline">— start again when it ends</span></span></label>' +
+          '<label class="check sp-stk-row"><input type="checkbox" class="sp-stk"><span>See-through video <span class="help-inline">— made with the <a href="videomaker.html" target="_blank" rel="noopener">See-through Video Maker</a>, so the room shows around it</span></span></label>' +
           '<label class="check sp-pin-row"><input type="checkbox" class="sp-pin"><span>Pin corners <span class="help-inline">— drag each corner onto the matching point in the photo, e.g. a picture frame or window</span></span></label>' +
         '</div>' +
         '<div class="sp-place"><span class="sp-where"></span>' +
@@ -385,6 +386,7 @@
     q('.sp-loop').checked = !!sp.loop;
     q('.sp-pin').checked = !!sp.pin;
     q('.sp-spin').checked = !!sp.spin;
+    q('.sp-stk').checked = !!sp.stacked;
     q('.sp-flat').checked = !!sp.flat;
     li.dataset.index = i;
     li.addEventListener('focusin', () => selectCard(i, false));
@@ -399,6 +401,8 @@
       sp.src = e.target.value; sp.error = '';
       // A document link becomes a Document spot by itself (the author can still change it)
       if (Media.looksLikeDoc(sp.src) && !sp.type) { sp.type = 'doc'; sp.autoDoc = true; }
+      if (/(see-?through|stencil|stacked|alpha)[^\/]*\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(sp.src) && !sp.stacked) { sp.stacked = true; sp.autoStk = true; li.querySelector('.sp-stk').checked = true; }
+      else if (sp.autoStk && !/(see-?through|stencil|stacked|alpha)[^\/]*\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(sp.src)) { sp.stacked = false; sp.autoStk = false; li.querySelector('.sp-stk').checked = false; }
       else if (sp.autoDoc && sp.type === 'doc' && !Media.looksLikeDoc(sp.src) && !/drive\.google|1drv\.ms|onedrive|sharepoint/i.test(sp.src)) { sp.type = ''; sp.autoDoc = false; }
       syncCard(li, sp, i);
       clearTimeout(typing); typing = setTimeout(() => spotsChanged(true), 600);
@@ -436,6 +440,7 @@
       updatePlaceText(i); spotsChanged(true);
     }));
     q('.sp-rot-reset').addEventListener('click', () => { sp.rot = [0, 0, 0]; updatePlaceText(i); spotsChanged(true); });
+    q('.sp-stk').addEventListener('change', e => { sp.stacked = e.target.checked; sp.autoStk = false; syncCard(li, sp, i); spotsChanged(true); });
     q('.sp-spin').addEventListener('change', e => { sp.spin = e.target.checked; updateSummary(li, sp); spotsChanged(true); });
     q('.sp-flat').addEventListener('change', e => { sp.flat = e.target.checked; updateSummary(li, sp); spotsChanged(true); });
     q('.sp-show').addEventListener('click', () => post({ type: 'lookAt', yaw: sp.yaw, pitch: sp.pitch }));
@@ -471,6 +476,7 @@
       else if ((kind === 'image' || kind === 'model') && sp.play === 'look') bits.push('shows when looked at');
       if (kind === 'model' && sp.spin) bits.push('spins');
       if (kind === 'model' && sp.flat) bits.push('flat colours');
+      if (kind === 'video' && sp.stacked) bits.push('see-through');
       if (sp.hidden) bits.push('hidden');
       if (sp.loop && (kind === 'video' || kind === 'audio')) bits.push('loops');
       if (sp.pin) bits.push('pinned');
@@ -549,7 +555,11 @@
     q('.sp-hide-row').hidden = isImage || still || drive || !!sp.dwell;
     q('.sp-loop-row').hidden = isImage || still || drive;
     const inRoomKind = isImage || still || (kind === 'video' && !sp.hidden);
-    q('.sp-pin-row').hidden = !inRoomKind || !sp.src.trim() || isModel || drive;
+    const stkOk = kind === 'video' && !yt && !drive && !!sp.src.trim();
+    q('.sp-stk-row').hidden = !stkOk;
+    if (!stkOk && sp.stacked) { sp.stacked = false; q('.sp-stk').checked = false; }
+    q('.sp-pin-row').hidden = !inRoomKind || !sp.src.trim() || isModel || drive || !!sp.stacked;
+    if (sp.stacked) { sp.hidden = false; q('.sp-hide-row').hidden = true; }
     const checks = [...li.querySelectorAll('.sc-checks > .check')];
     q('.sc-checks').hidden = checks.every(c => c.hidden);
     const hide = q('.sp-hide');
@@ -607,6 +617,10 @@
     if (yt && (kind === 'audio' || sp.hidden)) {
       return set('note', 'YouTube’s rules say its player must stay visible, so a sound-only or hidden YouTube spot breaks them. ' +
         'An MP3 link is the safe choice here. On iPhones, sound that starts by itself may begin muted, with a “tap for sound” button.');
+    }
+    if (kind === 'video' && sp.stacked) {
+      return set('ok', 'See-through video: the room shows around it. Drag it in the preview to move it; pull a corner to resize it. ' +
+        (sp.play === 'tap' ? 'Viewers tap it to play. ' : '') + 'Keep the file in your GitHub site or Dropbox.' + dwellNote);
     }
     if (isDrivePlayer(sp)) {
       return set('note', 'Google Drive only lets its own player play this, so it sits in the room as Google’s player and viewers tap play in it. ' +
@@ -777,7 +791,9 @@
         { src: 'https://en.wikipedia.org/wiki/Writing_slate', yaw: 30, pitch: -14, w: 24,
         play: 'tap', type: '', hidden: false, loop: false, dwell: false, label: 'Read about slates' },
         { src: new URL('models/sample-inkwell.glb', here).href, yaw: -4, pitch: -16, w: 12,
-        play: 'tap', type: '', hidden: false, loop: false, dwell: false, label: 'Inkwell', rot: [0, 15, 0], spin: true }];
+        play: 'tap', type: '', hidden: false, loop: false, dwell: false, label: 'Inkwell', rot: [0, 15, 0], spin: true },
+        { src: new URL('videos/sample-candle.mp4', here).href, yaw: -58, pitch: -4, w: 10,
+        play: 'look', type: 'video', hidden: false, loop: true, dwell: false, label: '', stacked: true }];
       renderSpots();
     }
     yaw = 0; updateFacing(); refresh();

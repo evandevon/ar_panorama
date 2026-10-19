@@ -103,7 +103,7 @@
     const kindFlag = kind === 'text' || kind === guess || (kind === 'video' && Media.youTube(s.src)) ? ''
       : { audio: 'a', video: 'v', image: 'i', link: 'k', model: 'm', doc: 'p' }[kind];
     const flags = (s.play === 'look' ? 'l' : s.play === 'start' ? 's' : '') + kindFlag +
-      (s.hidden ? 'h' : '') + (s.loop ? 'r' : '') + (s.dwell ? 'd' : '') + (s.spin ? 'o' : '') + (s.flat ? 'f' : '');
+      (s.hidden ? 'h' : '') + (s.loop ? 'r' : '') + (s.dwell ? 'd' : '') + (s.spin ? 'o' : '') + (s.flat ? 'f' : '') + (s.stacked && kind === 'video' ? 'x' : '');
     const label = (s.label || '').trim();
     const w = s.w && Math.round(s.w) !== DEFAULT_W ? Math.round(s.w) : '';
     const src = kind === 'text' ? 't:' + s.src.trim() : shorten ? Media.shorten(s.src) : s.src.trim();
@@ -132,6 +132,7 @@
       pin: parsePin(parts[6]),
       spin: flags.includes('o'),
       flat: flags.includes('f'),
+      stacked: flags.includes('x'),
       rot: (() => { const r = String(parts[7] || '').split(',').map(Number); return r.length === 3 && r.every(Number.isFinite) ? r : [0, 0, 0]; })()
     };
   }
@@ -144,7 +145,7 @@
     return [[n[0], n[1]], [n[2], n[3]], [n[4], n[5]], [n[6], n[7]]];
   }
   // Settings that need the player rebuilt when they change (moving, resizing and relabelling don't)
-  const rebuildKey = d => [d.src, kindOf(d), d.play, !!d.hidden, !!d.loop, !!d.dwell, kindOf(d) === 'link' ? d.label : ''].join('|');
+  const rebuildKey = d => [d.src, kindOf(d), d.play, !!d.hidden, !!d.loop, !!d.dwell, !!d.stacked, kindOf(d) === 'link' ? d.label : ''].join('|');
   const MODEL_DIST = 8;            // 3D models sit this far from the viewer (the 360 photo is much further away)
 
   function el(tag, cls, html) {
@@ -225,6 +226,9 @@
       // So those sit in the room as Google's player, which the viewer taps; nothing can start, stop or loop them.
       s.drivePlayer = (s.kind === 'audio' || s.kind === 'video') && !Media.youTube(def.src) && /drive\.google\.com|docs\.google\.com\/uc|^gd:/i.test(Media.expand(def.src).trim());
       if (s.drivePlayer) { s.hidden = false; s.loop = false; s.play = 'tap'; }
+      // A see-through ("stencil") video: picture on top, black-and-white stencil underneath, drawn into the room
+      s.isStacked = s.kind === 'video' && !!def.stacked && !Media.youTube(def.src) && !s.drivePlayer;
+      if (s.isStacked) { s.hidden = false; s.pin = null; }
       s.rot = Array.isArray(def.rot) ? def.rot.slice() : [0, 0, 0];
       s.isStill = s.isImage || s.isText || s.isLink || s.isModel || s.isDoc || s.drivePlayer;   // nothing to play
       s.isVideoFile = !s.yt && s.kind === 'video';
@@ -246,6 +250,7 @@
       else if (visible && s.isLink) buildLink(s);
       else if (visible && s.isDoc) buildDoc(s);
       else if (visible && s.drivePlayer) buildDrivePlayer(s);
+      else if (visible && s.isStacked) buildStacked(s);
       else if (visible && s.inScene) buildFrame(s);
       else if (visible) buildMarker(s);
       if (s.dwell && s.el) addDwell(s);
@@ -256,6 +261,7 @@
         opts.offscreen.appendChild(s.mediaHost);
       }
       prepare(s);
+      if (s.isStacked && s.mesh) attachStacked(s);
       return s;
     }
 
@@ -860,7 +866,7 @@
     function crosshairOn(s, x, y, w, h, angle, slack) {
       if (!s.inScene) return angle < 18;                       // a sound: near its marker
       if (s.quad) return insideQuad(s.quad, w / 2, h / 2, slack);
-      if (s.isModel) {
+      if (s.isModel || s.isStacked) {
         return Math.abs(w / 2 - x) < (s.boxW || 40) / 2 + slack && Math.abs(h / 2 - y) < (s.boxH || 40) / 2 + slack;
       }
       const fw = s.yt ? authoredWidth(s) : frameWidth(s);    // a YouTube player grows while playing: use its set size
@@ -911,6 +917,7 @@
       if (s.media) { s.media.pause(); s.media.removeAttribute('src'); s.media.load(); }
       if (s.el) s.el.remove();
       if (s.ent) s.ent.parentNode && s.ent.parentNode.removeChild(s.ent);
+      if (s.stkTex) { s.stkTex.dispose(); s.mesh.material.dispose(); s.mesh.geometry.dispose(); }
       if (s.mediaHost && s.mediaHost.parentNode === opts.offscreen) s.mediaHost.remove();
       if (s.playing) { s.playing = false; activityChanged(); }
     }
@@ -951,6 +958,7 @@
         m.loop = !!s.loop;
         m.muted = muted;
         if (m.tagName === 'VIDEO') { m.controls = true; m.playsInline = true; }
+        if (s.isStacked) { m.crossOrigin = 'anonymous'; m.preload = 'auto'; m.controls = false; }
         m.src = Media.resolveMediaUrl(s.src, s.isVideoFile ? 'video' : 'audio').url;
         m.addEventListener('play', () => setPlaying(s, true));
         m.addEventListener('pause', () => setPlaying(s, false));
@@ -1042,7 +1050,7 @@
     function frameWidth(s) {
       if (s.yt) return s.expanded ? Math.max(YT_MIN_PX, s.w * pxPerDegree()) : authoredWidth(s);
       if (s.isText || s.isLink || s.isDoc) return Math.max(60, s.w * pxPerDegree());
-      if (s.isModel) return s.boxW || 40;
+      if (s.isModel || s.isStacked) return s.boxW || 40;
       return Math.max(s.isImage ? 24 : s.drivePlayer ? 240 : 120, s.w * pxPerDegree());
     }
     // Screen point → direction in the room
@@ -1132,6 +1140,10 @@
           placeModel(s, camera, w, h, dt);
           if (s.offView) onScreen = false;       // its box would be distorted out of all proportion: don't show it
         }
+        if (s.isStacked && s.mesh) {
+          placeStacked(s, camera, w, h);
+          if (s.offView) onScreen = false;
+        }
 
         // A dot waiting to be looked at: fill its ring while the crosshair rests on it
         if (s.dwell && !s.revealed) {
@@ -1220,7 +1232,7 @@
             if (s.isLink || s.isDoc) s.frame.style.fontSize = Math.max(9, Math.min(36, fw * (s.isDoc ? 0.075 : 0.09))).toFixed(1) + 'px';
             if (s.driveFrame) s.driveFrame.style.transform = 'scale(' + (fw / s.driveSize[0]).toFixed(4) + ')';
           }
-          if (s.isModel) s.frame.style.height = Math.round(s.boxH || 40) + 'px';
+          if (s.isModel || s.isStacked) s.frame.style.height = Math.round(s.boxH || 40) + 'px';
         }
       });
     }
@@ -1257,6 +1269,100 @@
       s.offView = off;
       if (off) return;
       s.boxW = Math.max(30, x1 - x0); s.boxH = Math.max(30, y1 - y0);
+      s.aspect = s.boxW / s.boxH;
+    }
+
+    // ---------------------------------------------------------- see-through ("stencil") videos
+    // The file is an ordinary MP4 twice as tall as the picture: the picture (on black) on top, and a black-and-white
+    // stencil underneath (white = solid, black = see-through, grey = partly). Every phone can play an MP4, and here
+    // the two halves are combined as it's drawn, so the room shows through. Made with videomaker.html.
+    const STACK_VERT = 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }';
+    const STACK_FRAG = 'uniform sampler2D map; uniform float opacity; varying vec2 vUv;' +
+      'void main() {' +
+      '  vec3 c = texture2D(map, vec2(vUv.x, 0.5 + vUv.y * 0.5)).rgb;' +      // top half: the picture, on black
+      '  float a = texture2D(map, vec2(vUv.x, vUv.y * 0.5)).g * opacity;' +    // bottom half: the stencil
+      '  gl_FragColor = vec4(c * opacity, a);' +                             // already "on black", so premultiplied
+      '}';
+    function buildStacked(s) {
+      s.ent = document.createElement('a-entity');
+      opts.sceneEl.appendChild(s.ent);
+      const mat = new THREE.ShaderMaterial({
+        uniforms: { map: { value: null }, opacity: { value: 1 } },
+        vertexShader: STACK_VERT, fragmentShader: STACK_FRAG,
+        transparent: true, premultipliedAlpha: true, depthWrite: false, toneMapped: false, side: THREE.DoubleSide
+      });
+      s.mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
+      s.mesh.visible = false;
+      const add = () => s.ent.setObject3D('mesh', s.mesh);
+      if (s.ent.hasLoaded) add(); else s.ent.addEventListener('loaded', add, { once: true });
+
+      // The see-through box that follows it on screen: for tapping, a play button, and the author's handles
+      s.el = el('div', 'spot spot-stacked');
+      s.frame = el('div', 'spot-frame');
+      s.labelEl = el('div', 'spot-cap');
+      s.labelEl.textContent = s.label || '';
+      s.labelEl.hidden = !s.label;
+      const btn = el('span', 'stk-play', '<span aria-hidden="true">▶</span>');
+      s.unmute = el('button', 'spot-unmute', '🔇 Tap for sound');
+      s.unmute.hidden = true;
+      s.unmute.addEventListener('click', e => { e.stopPropagation(); unmute(s); });
+      s.frame.append(s.labelEl, btn, s.unmute);
+      if (opts.editable) addEditHandles(s);
+      else {
+        s.frame.setAttribute('role', 'button');
+        s.frame.tabIndex = 0;
+        s.frame.setAttribute('aria-label', 'Play or pause ' + (s.label || 'video'));
+        s.frame.addEventListener('click', () => toggle(s));
+        s.frame.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(s); } });
+      }
+      s.el.appendChild(s.frame);
+      opts.layer.appendChild(s.el);
+    }
+    function attachStacked(s) {
+      const v = s.media;
+      const tex = new THREE.VideoTexture(v);
+      tex.colorSpace = THREE.NoColorSpace;          // use the stored colours exactly as they are
+      tex.generateMipmaps = false;
+      s.stkTex = tex;
+      s.mesh.material.uniforms.map.value = tex;
+      const ready = () => {
+        if (!v.videoWidth) return;
+        s.vAspect = v.videoWidth / (v.videoHeight / 2);
+        s.el.classList.add('loaded');
+        if (v.videoHeight < v.videoWidth * 0.9) {
+          opts.onError(s.index, 'This doesn’t look like a see-through video (it should be twice as tall as the picture: the picture on top and its black-and-white stencil underneath). Make one with the See-through Video Maker, or untick “See-through video”.');
+        }
+      };
+      v.addEventListener('loadedmetadata', ready);
+      v.addEventListener('loadeddata', () => { if (v.paused && v.currentTime === 0) { try { v.currentTime = 0.01; } catch (e) {} } });
+      v.addEventListener('error', () => opts.onError(s.index, 'This video couldn’t be loaded. See-through videos must be kept in your GitHub site or Dropbox (Google Drive and YouTube can’t be used).'), { once: true });
+      if (v.readyState >= 1) ready();
+    }
+    function placeStacked(s, camera, w, h) {
+      const o = s.ent.object3D;
+      o.position.copy(s.dir).multiplyScalar(MODEL_DIST);
+      o.lookAt(0, 0, 0);                                   // face the viewer
+      const width = 2 * MODEL_DIST * Math.tan((s.w * Math.PI / 180) / 2);
+      const height = width / (s.vAspect || 1);
+      s.mesh.scale.set(width, height, 1);
+      s.mesh.visible = !!s.vAspect && !(s.dwell && !s.revealed && !opts.editable);
+      s.mesh.material.uniforms.opacity.value = opts.editable && s.dwell && !s.revealed ? 0.4 : 1;
+      if (!s.vAspect) { s.boxW = 0; return; }
+      o.updateMatrixWorld(true);
+      camera.updateMatrixWorld();
+      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9, off = false;
+      for (let i = 0; i < 4; i++) {
+        _c.set(i & 1 ? 0.5 : -0.5, i & 2 ? 0.5 : -0.5, 0).applyMatrix4(s.mesh.matrixWorld);
+        _d.copy(_c).applyMatrix4(camera.matrixWorldInverse);
+        if (_d.z > -0.5) off = true;
+        _c.project(camera);
+        if (Math.abs(_c.x) > 3 || Math.abs(_c.y) > 3) off = true;
+        const px = (_c.x + 1) / 2 * w, py = (1 - _c.y) / 2 * h;
+        x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py);
+      }
+      s.offView = off;
+      if (off) return;
+      s.boxW = Math.max(30, x1 - x0); s.boxH = Math.max(20, y1 - y0);
       s.aspect = s.boxW / s.boxH;
     }
 

@@ -6,6 +6,8 @@ There's no server or database. Everything about an experience lives inside the Q
 
 ## Pages
 
+- `videomaker.html`: the See-through Video Maker, which turns green-screen footage into see-through videos for tours.
+
 | Page | Who uses it |
 |---|---|
 | `make.html` | Authors. Paste links, preview with the mouse, set the starting view, then copy, print, save or embed the QR code. |
@@ -97,6 +99,18 @@ Video sizes are stored as an angle (for example, "20° wide"), so a video stays 
 
 - **YouTube's rules.** YouTube's terms say its player must stay visible: at least 200 × 200 pixels, with nothing covering it. Videos in the room follow this. Sound-only and hidden YouTube spots don't. Use an MP3 for those where you can; the author page warns you when needed.
 - **Autoplay on phones.** Phones, especially iPhones, often block sound that doesn't start from a tap. If an automatic YouTube spot is blocked, it plays muted with a **Tap for sound** button. MP3 and MP4 spots are unlocked during the viewer's first tap, so they're more reliable for automatic sound.
+
+### See-through videos
+
+A see-through video shows a person or object standing in the room, with the room visible around them (like a weather presenter in front of a map). It plays on every phone, including iPhones.
+
+1. Film the person or object in front of a plain **green or blue screen**.
+2. Open the **See-through Video Maker** (`videomaker.html` on your site). Choose the video, click the green background in the preview, and adjust the sliders until the background has gone. You can trim it, choose a size, and keep or drop the sound. Then press **Make see-through video** and download the file. It's made on your own computer; nothing is uploaded. Use Chrome or Edge on a Windows or Mac computer, so the file comes out as an MP4 that iPhones can play.
+3. Upload the file to your site's `videos` folder, add a video spot with its path (for example `videos/teacher.see-through.mp4`), and make sure **See-through video** is ticked (it ticks itself for file names containing "see-through").
+
+**How it works:** the file is an ordinary MP4, twice as tall as the picture: the picture (on black) on top, and a black-and-white "stencil" underneath (white = solid, black = see-through, grey = partly). The tour cuts the picture out with the stencil as it plays, and draws it into the room. Opened on its own, the file looks strange; that's normal. See-through videos must be kept in your GitHub site or Dropbox (Google Drive and YouTube can't be used), and can play when tapped, when looked at, or straight away, with Loop.
+
+The sample tour includes a see-through candle (`videos/sample-candle.mp4`).
 
 ### 3D models
 
@@ -201,7 +215,7 @@ Dragging, sound, video, text, links and look-to-reveal dots all work inside an e
 
 `?p=<photo>&t=<title>&y=<start direction°>&al=1&mb=<model brightness>&s=<spot>&s=<spot>…&v=2`
 
-Each spot is written as `link~yaw~pitch~flags~label~width°~corners~turn`. Text spots use `t:` followed by the text instead of a link. Corners (only for pinned spots) are eight whole-degree offsets from the centre: top-left, top-right, bottom-right, bottom-left, each as yaw,pitch. Turn (only for 3D models) is `turn,tilt,roll` in whole degrees. `mb` is only included when it isn't 1 (normal). The flags are `l` (plays/shows when looked at), `s` (plays at start), `h` (hidden), `r` (loop), `d` (appears after the dot), `o` (3D model spins), `f` (3D model in bright, flat colours), and `a` / `v` / `i` / `k` / `m` / `p` (sound / video / picture / link / 3D model / document), used when the kind can't be told from the link.
+Each spot is written as `link~yaw~pitch~flags~label~width°~corners~turn`. Text spots use `t:` followed by the text instead of a link. Corners (only for pinned spots) are eight whole-degree offsets from the centre: top-left, top-right, bottom-right, bottom-left, each as yaw,pitch. Turn (only for 3D models) is `turn,tilt,roll` in whole degrees. `mb` is only included when it isn't 1 (normal). The flags are `l` (plays/shows when looked at), `s` (plays at start), `h` (hidden), `r` (loop), `d` (appears after the dot), `o` (3D model spins), `f` (3D model in bright, flat colours), `x` (see-through video), and `a` / `v` / `i` / `k` / `m` / `p` (sound / video / picture / link / 3D model / document), used when the kind can't be told from the link.
 
 **The format is safe for email and chat.** It uses only characters that email, chat and document apps keep inside a clickable link. Inside each field, `% ~ | ! * ' ( )` and line breaks are escaped. Links always end with `v=2`, so a full stop or bracket at the end of a label can't be mistaken for the end of the sentence.
 

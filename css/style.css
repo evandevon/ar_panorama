@@ -399,3 +399,16 @@ body.aligning .mode-toggle { display: none; }
 .spot.testing .spot-edit > * { pointer-events: auto; }
 .spot-drive .spot-media { position: relative; }
 .spot-media iframe.drive-frame { position: absolute; left: 0; top: 0; width: auto; height: auto; transform-origin: 0 0; }
+
+/* See-through (stencil) videos: drawn in the room; this box only follows it, for tapping */
+.spot-stacked .spot-frame { aspect-ratio: auto; cursor: pointer; border-radius: 6px; }
+.spot-stacked .spot-frame:focus-visible { outline: 3px solid var(--brass); outline-offset: 4px; }
+.stk-play {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 52px; height: 52px; border-radius: 50%;
+  display: grid; place-items: center; background: rgba(20,27,23,.55); color: #fff; font-size: 1.3rem; pointer-events: none;
+  box-shadow: 0 0 0 2px rgba(247,244,236,.7); transition: opacity .25s;
+}
+.spot-stacked.playing .stk-play { opacity: 0; }
+.spot-stacked:not(.loaded) .spot-frame { min-height: 60px; background: rgba(20,27,23,.35); }
+.spot-stacked .spot-unmute { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); }
+.spots-layer.editing .spot-stacked .spot-frame { cursor: move; }

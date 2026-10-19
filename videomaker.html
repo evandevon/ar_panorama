@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>See-through Video Maker</title>
+  <meta name="description" content="Turn a green-screen video into a see-through video for 360° tours. Everything happens on your computer; nothing is uploaded.">
+  <link rel="stylesheet" href="css/create.css">
+  <link rel="stylesheet" href="css/videomaker.css">
+</head>
+<body>
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow">Free · No sign-in · Nothing is uploaded</p>
+    <h1>See-through Video Maker</h1>
+    <p class="lede">Turn a green-screen video into a see-through video, so a person or object appears standing in your 360° tour with the room around them. It works on every phone, including iPhones.</p>
+  </div>
+</header>
+
+<main class="wrap vm-grid">
+  <!-- 1. Choose -->
+  <section class="panel vm-step" aria-labelledby="h-1">
+    <h2 id="h-1"><span class="num" aria-hidden="true">1</span> Choose your video</h2>
+    <label class="drop" id="drop" for="file">
+      <input type="file" id="file" accept="video/*" class="vh">
+      <span class="drop-ico" aria-hidden="true">🎬</span>
+      <span><b>Choose a video</b> or drag one here</span>
+      <span class="help">Filmed in front of a plain green or blue background. It stays on this computer.</span>
+    </label>
+    <p class="status" id="file-status" role="status" aria-live="polite"></p>
+    <details class="howto">
+      <summary>Tips for filming</summary>
+      <ul>
+        <li>Use a smooth green (or blue) sheet or wall, with no creases or shadows. Light it evenly.</li>
+        <li>Keep the person a metre or two in front of it, so they don't cast shadows on it.</li>
+        <li>Avoid green clothes (or blue, with a blue screen), shiny things and very fine hair blowing about.</li>
+        <li>Keep the camera still, and keep it short: a few seconds to a minute works best on phones.</li>
+      </ul>
+    </details>
+  </section>
+
+  <!-- Preview -->
+  <section class="panel vm-preview" aria-labelledby="h-prev">
+    <h2 id="h-prev">Preview <span class="opt" id="pick-hint">click the background in the picture to choose the colour to remove</span></h2>
+    <div class="stage" id="stage">
+      <canvas id="view" width="640" height="360" aria-label="Preview of the see-through video"></canvas>
+      <p class="stage-empty" id="stage-empty">Your video will appear here.</p>
+    </div>
+    <div class="transport">
+      <button type="button" class="btn small" id="play" disabled>▶ Play</button>
+      <input type="range" id="seek" min="0" max="1000" value="0" step="1" aria-label="Position in the video" disabled>
+      <span class="time" id="time">0:00 / 0:00</span>
+    </div>
+    <div class="shape" role="group" aria-label="Preview background">
+      <span class="help-inline">Show behind it:</span>
+      <button type="button" class="bg-btn" data-bg="room" aria-pressed="true">Classroom</button>
+      <button type="button" class="bg-btn" data-bg="check" aria-pressed="false">Checks</button>
+      <button type="button" class="bg-btn" data-bg="black" aria-pressed="false">Black</button>
+      <button type="button" class="bg-btn" data-bg="white" aria-pressed="false">White</button>
+    </div>
+  </section>
+
+  <!-- 2. Remove the background -->
+  <section class="panel vm-step" aria-labelledby="h-2">
+    <h2 id="h-2"><span class="num" aria-hidden="true">2</span> Remove the background</h2>
+    <fieldset class="seg-field">
+      <legend class="vh">What kind of video is it?</legend>
+      <label class="check"><input type="radio" name="mode" value="key" checked> Green or blue screen</label>
+      <label class="check"><input type="radio" name="mode" value="alpha"> <span>Already see-through <span class="help-inline">(a WebM with transparency)</span></span></label>
+    </fieldset>
+    <div id="key-controls">
+      <div class="key-row">
+        <span class="swatch" id="swatch" aria-hidden="true"></span>
+        <span><b>Colour to remove</b><br><span class="help-inline" id="key-text">Click the background in the preview</span></span>
+        <button type="button" class="btn small ghost" id="auto-key" disabled>Pick it for me</button>
+      </div>
+      <label for="sim">Remove more or less <output id="sim-out" for="sim"></output></label>
+      <input type="range" id="sim" min="0" max="100" value="36" aria-describedby="sim-help">
+      <p class="help" id="sim-help">Slide right until the background has gone. If parts of the person start to disappear, slide back.</p>
+      <label for="soft">Soften the edges <output id="soft-out" for="soft"></output></label>
+      <input type="range" id="soft" min="0" max="100" value="40">
+      <label for="spill">Clean up coloured edges <output id="spill-out" for="spill"></output></label>
+      <input type="range" id="spill" min="0" max="100" value="100" aria-describedby="spill-help">
+      <p class="help" id="spill-help">Removes the green (or blue) glow the screen leaves around hair and edges.</p>
+    </div>
+    <p class="help" id="alpha-note" hidden>The video's own transparency is used. (This works in Chrome and Edge, which can read see-through WebM videos.)</p>
+  </section>
+
+  <!-- 3. Trim and size -->
+  <section class="panel vm-step" aria-labelledby="h-3">
+    <h2 id="h-3"><span class="num" aria-hidden="true">3</span> Trim and size <span class="opt">optional</span></h2>
+    <div class="two">
+      <div><label for="t-start">Start at (seconds)</label><input type="number" id="t-start" min="0" step="0.1" value="0" inputmode="decimal"></div>
+      <div><label for="t-end">End at (seconds)</label><input type="number" id="t-end" min="0" step="0.1" value="0" inputmode="decimal"></div>
+    </div>
+    <label for="size" style="margin-top:12px">Size</label>
+    <select id="size">
+      <option value="480">Small: quick to load (480 wide)</option>
+      <option value="720" selected>Medium: good for most spots (720 wide)</option>
+      <option value="1080">Large: for big spots (1080 wide)</option>
+    </select>
+    <label class="check" style="margin-top:12px"><input type="checkbox" id="sound" checked> Keep the sound</label>
+  </section>
+
+  <!-- 4. Make -->
+  <section class="panel vm-step" aria-labelledby="h-4">
+    <h2 id="h-4"><span class="num" aria-hidden="true">4</span> Make the see-through video</h2>
+    <p class="warn" id="browser-warn" hidden></p>
+    <button type="button" class="btn" id="make" disabled>Make see-through video</button>
+    <button type="button" class="btn ghost" id="cancel" hidden>Cancel</button>
+    <div class="progress" id="progress" hidden><div id="bar"></div></div>
+    <p class="status" id="make-status" role="status" aria-live="polite"></p>
+    <div class="result" id="result" hidden>
+      <a class="btn" id="download" download>⬇ Download the video</a>
+      <ol class="next">
+        <li>Upload it to the <b>videos</b> folder of your GitHub site (<b>Add file → Upload files</b>).</li>
+        <li>In the <a href="make.html">360° tour maker</a>, add a spot, paste the file's path (for example <code id="path-eg">videos/my-video.see-through.mp4</code>) and make sure <b>See-through video</b> is ticked.</li>
+      </ol>
+    </div>
+    <details class="howto">
+      <summary>How does it work?</summary>
+      <p>The video it makes is an ordinary MP4, twice as tall as your picture: your picture on top (on black), and a black-and-white “stencil” underneath that says which parts are solid. Every phone can play an MP4, and the tour tool uses the stencil to cut your picture out, so the room shows around it. If you open the file by itself it will look strange; that's normal.</p>
+    </details>
+  </section>
+</main>
+
+<footer class="wrap foot">
+  <p>Your video never leaves this computer. Works best in Chrome or Edge on a Windows or Mac computer.</p>
+</footer>
+
+<video id="src" playsinline muted preload="auto" hidden></video>
+<script src="js/videomaker.js"></script>
+</body>
+</html>
