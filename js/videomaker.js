@@ -6,7 +6,7 @@
  * Everything runs in this browser: the video is never uploaded.
  *
  * For rough, home-made green screens there are also:
- *  - shapes drawn on the preview: "Keep only inside" (crop around the person), "Always remove", "Always keep"
+ *  - shapes drawn on the preview: "Remove outside" (draw roughly around the person), "Remove inside", "Keep inside"
  *  - extra background colours (shadows, creases, patchy light) and an "empty background" moment (clean plate)
  *  - edge tidying: shrink the edges, remove specks, fill small holes
  */
@@ -319,9 +319,9 @@
   // Dragging a dot of a finished shape moves it, whatever tool is chosen.
   let tool = null, draft = [], hover = null, drag = null;
   const KIND = {
-    keep: { label: 'Keep only inside', line: '#ffd23f', fill: 'rgba(255,210,63,.12)' },
-    remove: { label: 'Always remove', line: '#ff5a5a', fill: 'rgba(255,90,90,.28)' },
-    solid: { label: 'Always keep', line: '#3fd7ff', fill: 'rgba(63,215,255,.28)' }
+    keep: { label: 'Remove outside', line: '#ffd23f', fill: 'rgba(255,210,63,.12)' },
+    remove: { label: 'Remove inside', line: '#ff5a5a', fill: 'rgba(255,90,90,.28)' },
+    solid: { label: 'Keep inside', line: '#3fd7ff', fill: 'rgba(63,215,255,.28)' }
   };
   function hint() {
     const h = $('pick-hint');
@@ -429,6 +429,14 @@
       x.fillStyle = colour; x.fill(); x.lineWidth = 1.5 * k; x.strokeStyle = '#000'; x.stroke();
     });
     if ($('show-shapes').checked || tool) {
+      // shade what "Remove outside" shapes take away
+      const keeps = shapes.filter(s => s.kind === 'keep');
+      if (keeps.length) {
+        x.fillStyle = 'rgba(0,0,0,.45)'; x.fillRect(0, 0, W, H);
+        x.globalCompositeOperation = 'destination-out';
+        keeps.forEach(s => { path(s.pts); x.closePath(); x.fillStyle = '#000'; x.fill(); });
+        x.globalCompositeOperation = 'source-over';
+      }
       shapes.forEach(s => {
         const K = KIND[s.kind];
         path(s.pts); x.closePath();

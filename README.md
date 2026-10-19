@@ -111,9 +111,9 @@ A see-through video shows a person or object standing in the room, with the room
 **Rough or home-made green screens.** Step 3, *Fix problem areas*, rescues footage from creased sheets, patchy lighting and screens that are too small:
 
 - **Draw a shape:** click dot by dot around an area in the preview, then click the first dot (or press Done) to close it. Drag a dot to adjust it later.
-  - *Keep only inside* makes everything outside the shape see-through. Use it for a screen that doesn't fill the picture, or for stands, edges of the room and other things around the outside.
-  - *Always remove* is for a stand, crease or shadow that won't go.
-  - *Always keep* is for parts of the person that vanish, like a green jumper or a shiny badge (it keeps their filmed colour).
+  - *Remove outside*: draw roughly around the person and everything outside the shape becomes see-through (it's shaded on the preview). Use it for a screen that doesn't fill the picture, or for stands, edges of the room and other clutter around the outside.
+  - *Remove inside* is for a stand, crease or shadow that won't go.
+  - *Keep inside* is for parts of the person that vanish, like a green jumper or a shiny badge (it keeps their filmed colour).
   - Shapes stay in one place, so they suit someone standing still. Dots clicked near the picture's edge snap onto it.
 - **Add another background colour:** click a shadow, crease or dark corner that's still showing.
 - **Use this moment as the empty background:** if the video has a moment with nobody in it (film a second or two before the person steps in), go to it and press this. The tool then knows exactly what the screen looks like at every spot, which handles creases and uneven light best. The camera must stay still.

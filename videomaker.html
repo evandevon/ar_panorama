@@ -6,7 +6,7 @@
   <title>See-through Video Maker</title>
   <meta name="description" content="Turn a green-screen video into a see-through video for 360° tours. Everything happens on your computer; nothing is uploaded.">
   <link rel="stylesheet" href="css/create.css?v=20261019b">
-  <link rel="stylesheet" href="css/videomaker.css?v=20261019c">
+  <link rel="stylesheet" href="css/videomaker.css?v=20261019d">
 </head>
 <body>
 <header class="masthead">
@@ -114,13 +114,13 @@
     <p class="help">Choose what the shape should do, then click dot by dot around the area in the preview. Click the first dot (or press <b>Done</b>) to close it.</p>
     <div class="tools" role="group" aria-label="Shape tools">
       <button type="button" class="tool" data-tool="keep" aria-pressed="false" disabled>
-        <span class="shape-mark keep" aria-hidden="true"></span><span><b>Keep only inside</b><br><span class="help-inline">Everything outside disappears. For a screen that's too small, or things around the edges.</span></span>
+        <span class="shape-mark keep" aria-hidden="true"></span><span><b>Remove outside</b><br><span class="help-inline">Draw roughly around the person: everything outside disappears. For a screen that's too small, or stands and clutter around the edges.</span></span>
       </button>
       <button type="button" class="tool" data-tool="remove" aria-pressed="false" disabled>
-        <span class="shape-mark remove" aria-hidden="true"></span><span><b>Always remove</b><br><span class="help-inline">For a stand, a crease or a shadow that won't go.</span></span>
+        <span class="shape-mark remove" aria-hidden="true"></span><span><b>Remove inside</b><br><span class="help-inline">For a crease, shadow or object that won't go.</span></span>
       </button>
       <button type="button" class="tool" data-tool="solid" aria-pressed="false" disabled>
-        <span class="shape-mark solid" aria-hidden="true"></span><span><b>Always keep</b><br><span class="help-inline">For parts of the person that vanish, like a green jumper or a shiny badge.</span></span>
+        <span class="shape-mark solid" aria-hidden="true"></span><span><b>Keep inside</b><br><span class="help-inline">For parts of the person that vanish, like a green jumper or a shiny badge.</span></span>
       </button>
     </div>
     <div class="draw-bar" id="draw-bar" hidden>
@@ -205,6 +205,6 @@
 </footer>
 
 <video id="src" playsinline muted preload="auto" hidden></video>
-<script src="js/videomaker.js?v=20261019c"></script>
+<script src="js/videomaker.js?v=20261019d"></script>
 </body>
 </html>
