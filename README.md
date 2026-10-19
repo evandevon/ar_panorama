@@ -105,8 +105,19 @@ Video sizes are stored as an angle (for example, "20° wide"), so a video stays 
 A see-through video shows a person or object standing in the room, with the room visible around them (like a weather presenter in front of a map). It plays on every phone, including iPhones.
 
 1. Film the person or object in front of a plain **green or blue screen**.
-2. Open the **See-through Video Maker** (`videomaker.html` on your site). Choose the video, click the green background in the preview, and adjust the sliders until the background has gone. You can trim it, choose a size, and keep or drop the sound. Then press **Make see-through video** and download the file. It's made on your own computer; nothing is uploaded. Use Chrome or Edge on a Windows or Mac computer, so the file comes out as an MP4 that iPhones can play.
+2. Open the **See-through Video Maker** (`videomaker.html` on your site). Choose the video, click the green background in the preview, and adjust the sliders until the background has gone. To trim it, drag the dots at each end of the timeline under the preview. You can also choose a size, and keep or drop the sound. Then press **Make see-through video** and download the file. It's made on your own computer; nothing is uploaded. Use Chrome or Edge on a Windows or Mac computer, so the file comes out as an MP4 that iPhones can play.
 3. Upload the file to your site's `videos` folder, add a video spot with its path (for example `videos/teacher.see-through.mp4`), and make sure **See-through video** is ticked (it ticks itself for file names containing "see-through").
+
+**Rough or home-made green screens.** Step 3, *Fix problem areas*, rescues footage from creased sheets, patchy lighting and screens that are too small:
+
+- **Draw a shape:** click dot by dot around an area in the preview, then click the first dot (or press Done) to close it. Drag a dot to adjust it later.
+  - *Keep only inside* makes everything outside the shape see-through. Use it for a screen that doesn't fill the picture, or for stands, edges of the room and other things around the outside.
+  - *Always remove* is for a stand, crease or shadow that won't go.
+  - *Always keep* is for parts of the person that vanish, like a green jumper or a shiny badge (it keeps their filmed colour).
+  - Shapes stay in one place, so they suit someone standing still. Dots clicked near the picture's edge snap onto it.
+- **Add another background colour:** click a shadow, crease or dark corner that's still showing.
+- **Use this moment as the empty background:** if the video has a moment with nobody in it (film a second or two before the person steps in), go to it and press this. The tool then knows exactly what the screen looks like at every spot, which handles creases and uneven light best. The camera must stay still.
+- **Tidy the edges:** *Shrink the edges* trims a leftover outline, *Remove specks* clears floating bits of background, and *Fill small holes* fills see-through spots inside the person. Choose **Stencil** under the preview to see holes and specks clearly (white = solid, black = see-through).
 
 **How it works:** the file is an ordinary MP4, twice as tall as the picture: the picture (on black) on top, and a black-and-white "stencil" underneath (white = solid, black = see-through, grey = partly). The tour cuts the picture out with the stencil as it plays, and draws it into the room. Opened on its own, the file looks strange; that's normal. See-through videos must be kept in your GitHub site or Dropbox (Google Drive and YouTube can't be used), and can play when tapped, when looked at, or straight away, with Loop.
 

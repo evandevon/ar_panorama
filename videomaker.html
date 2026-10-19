@@ -31,7 +31,8 @@
     <details class="howto">
       <summary>Tips for filming</summary>
       <ul>
-        <li>Use a smooth green (or blue) sheet or wall, with no creases or shadows. Light it evenly.</li>
+        <li>Use a smooth green (or blue) sheet or wall, with no creases or shadows. Light it evenly. (Step 3 can rescue a rough one.)</li>
+        <li>Film a second or two with nobody in front of the screen before the person steps in. That “empty background” helps step 3 fix creases and patchy light.</li>
         <li>Keep the person a metre or two in front of it, so they don't cast shadows on it.</li>
         <li>Avoid green clothes (or blue, with a blue screen), shiny things and very fine hair blowing about.</li>
         <li>Keep the camera still, and keep it short: a few seconds to a minute works best on phones.</li>
@@ -43,20 +44,33 @@
   <section class="panel vm-preview" aria-labelledby="h-prev">
     <h2 id="h-prev">Preview <span class="opt" id="pick-hint">click the background in the picture to choose the colour to remove</span></h2>
     <div class="stage" id="stage">
-      <canvas id="view" width="640" height="360" aria-label="Preview of the see-through video"></canvas>
+      <div class="view-wrap">
+        <canvas id="view" width="640" height="360" aria-label="Preview of the see-through video"></canvas>
+        <canvas id="overlay" width="640" height="360" aria-hidden="true"></canvas>
+      </div>
       <p class="stage-empty" id="stage-empty">Your video will appear here.</p>
     </div>
     <div class="transport">
-      <button type="button" class="btn small" id="play" disabled>▶ Play</button>
-      <input type="range" id="seek" min="0" max="1000" value="0" step="1" aria-label="Position in the video" disabled>
-      <span class="time" id="time">0:00 / 0:00</span>
+      <button type="button" class="btn small" id="play" aria-label="Play" disabled>▶ Play</button>
+      <div class="timeline off" id="timeline">
+        <div class="tl-track" id="tl-track">
+          <div class="tl-cut" id="tl-cut-l"></div>
+          <div class="tl-cut" id="tl-cut-r"></div>
+          <div class="tl-head" id="seek" role="slider" aria-label="Position in the video"></div>
+          <div class="tl-trim" id="trim-start" role="slider" aria-label="Start of the clip (drag in to trim)"></div>
+          <div class="tl-trim" id="trim-end" role="slider" aria-label="End of the clip (drag in to trim)"></div>
+        </div>
+      </div>
+      <span class="time" id="time">0:00.0 / 0:00.0</span>
     </div>
+    <p class="help trim-text" id="trim-text" aria-live="polite"></p>
     <div class="shape" role="group" aria-label="Preview background">
       <span class="help-inline">Show behind it:</span>
       <button type="button" class="bg-btn" data-bg="room" aria-pressed="true">Classroom</button>
       <button type="button" class="bg-btn" data-bg="check" aria-pressed="false">Checks</button>
       <button type="button" class="bg-btn" data-bg="black" aria-pressed="false">Black</button>
       <button type="button" class="bg-btn" data-bg="white" aria-pressed="false">White</button>
+      <button type="button" class="bg-btn" data-bg="stencil" aria-pressed="false" title="White = solid, black = see-through. Good for spotting holes and specks.">Stencil</button>
     </div>
   </section>
 
@@ -86,14 +100,70 @@
     <p class="help" id="alpha-note" hidden>The video's own transparency is used. (This works in Chrome and Edge, which can read see-through WebM videos.)</p>
   </section>
 
-  <!-- 3. Trim and size -->
+  <!-- 3. Fix problem areas -->
   <section class="panel vm-step" aria-labelledby="h-3">
-    <h2 id="h-3"><span class="num" aria-hidden="true">3</span> Trim and size <span class="opt">optional</span></h2>
-    <div class="two">
-      <div><label for="t-start">Start at (seconds)</label><input type="number" id="t-start" min="0" step="0.1" value="0" inputmode="decimal"></div>
-      <div><label for="t-end">End at (seconds)</label><input type="number" id="t-end" min="0" step="0.1" value="0" inputmode="decimal"></div>
+    <h2 id="h-3"><span class="num" aria-hidden="true">3</span> Fix problem areas <span class="opt">optional, for creased, patchy or small screens</span></h2>
+
+    <h3 class="sub">Draw a shape</h3>
+    <p class="help">Choose what the shape should do, then click dot by dot around the area in the preview. Click the first dot (or press <b>Done</b>) to close it.</p>
+    <div class="tools" role="group" aria-label="Shape tools">
+      <button type="button" class="tool" data-tool="keep" aria-pressed="false" disabled>
+        <span class="shape-mark keep" aria-hidden="true"></span><span><b>Keep only inside</b><br><span class="help-inline">Everything outside disappears. For a screen that's too small, or things around the edges.</span></span>
+      </button>
+      <button type="button" class="tool" data-tool="remove" aria-pressed="false" disabled>
+        <span class="shape-mark remove" aria-hidden="true"></span><span><b>Always remove</b><br><span class="help-inline">For a stand, a crease or a shadow that won't go.</span></span>
+      </button>
+      <button type="button" class="tool" data-tool="solid" aria-pressed="false" disabled>
+        <span class="shape-mark solid" aria-hidden="true"></span><span><b>Always keep</b><br><span class="help-inline">For parts of the person that vanish, like a green jumper or a shiny badge.</span></span>
+      </button>
     </div>
-    <label for="size" style="margin-top:12px">Size</label>
+    <div class="draw-bar" id="draw-bar" hidden>
+      <span><b id="draw-what"></b>: <span id="draw-count">0 dots</span></span>
+      <button type="button" class="btn small" id="draw-done" disabled>Done</button>
+      <button type="button" class="btn small ghost" id="draw-undo" disabled>Undo dot</button>
+      <button type="button" class="btn small ghost" id="draw-cancel">Cancel</button>
+    </div>
+    <ul class="shape-list" id="shape-list" aria-label="Your shapes"></ul>
+    <button type="button" class="btn small ghost" id="shapes-clear" hidden>Delete all shapes</button>
+    <p class="status" id="shape-status" role="status" aria-live="polite"></p>
+    <label for="feather">Soften the shapes' edges <output id="feather-out" for="feather"></output></label>
+    <input type="range" id="feather" min="0" max="100" value="25">
+    <label class="check"><input type="checkbox" id="show-shapes" checked> Show the shapes on the preview</label>
+    <p class="help">Shapes stay in one place, so they suit someone standing still. Drag a dot to move it.</p>
+
+    <div id="key-fix">
+      <h3 class="sub">Patchy or uneven background</h3>
+      <div class="key-row">
+        <ul class="extra-keys" id="extra-keys" aria-label="Extra background colours" hidden></ul>
+        <button type="button" class="btn small ghost" id="add-key" aria-pressed="false" disabled>＋ Add another background colour</button>
+      </div>
+      <p class="help">For shadows, creases or darker corners that are still showing: add their colour too.</p>
+      <p class="status" id="key-status" role="status" aria-live="polite"></p>
+      <div class="plate-row">
+        <button type="button" class="btn small ghost" id="plate" disabled>Use this moment as the empty background</button>
+        <button type="button" class="btn small ghost" id="plate-clear" hidden>Stop using it</button>
+      </div>
+      <p class="help">The best fix for a creased or unevenly lit screen. If your video has a moment with nobody in it (before the person walks in, say), move to that moment and press this.</p>
+      <p class="status" id="plate-status" role="status" aria-live="polite"></p>
+
+      <h3 class="sub">Tidy the edges</h3>
+      <label for="choke">Shrink the edges <output id="choke-out" for="choke"></output></label>
+      <input type="range" id="choke" min="0" max="10" value="0" aria-describedby="choke-help">
+      <p class="help" id="choke-help">Trims a thin green or dark outline from around the person.</p>
+      <label for="speck">Remove specks <output id="speck-out" for="speck"></output></label>
+      <input type="range" id="speck" min="0" max="10" value="0" aria-describedby="speck-help">
+      <p class="help" id="speck-help">Gets rid of little bits of background left floating around.</p>
+      <label for="hole">Fill small holes <output id="hole-out" for="hole"></output></label>
+      <input type="range" id="hole" min="0" max="10" value="0" aria-describedby="hole-help">
+      <p class="help" id="hole-help">Fills see-through spots inside the person. Tip: choose <b>Stencil</b> under the preview to see holes clearly.</p>
+    </div>
+  </section>
+
+  <!-- 4. Size and sound -->
+  <section class="panel vm-step" aria-labelledby="h-4">
+    <h2 id="h-4"><span class="num" aria-hidden="true">4</span> Size and sound <span class="opt">optional</span></h2>
+    <p class="help">To trim, drag the dots at each end of the timeline under the preview.</p>
+    <label for="size">Size</label>
     <select id="size">
       <option value="480">Small: quick to load (480 wide)</option>
       <option value="720" selected>Medium: good for most spots (720 wide)</option>
@@ -102,9 +172,9 @@
     <label class="check" style="margin-top:12px"><input type="checkbox" id="sound" checked> Keep the sound</label>
   </section>
 
-  <!-- 4. Make -->
-  <section class="panel vm-step" aria-labelledby="h-4">
-    <h2 id="h-4"><span class="num" aria-hidden="true">4</span> Make the see-through video</h2>
+  <!-- 5. Make -->
+  <section class="panel vm-step" aria-labelledby="h-5">
+    <h2 id="h-5"><span class="num" aria-hidden="true">5</span> Make the see-through video</h2>
     <p class="warn" id="browser-warn" hidden></p>
     <button type="button" class="btn" id="make" disabled>Make see-through video</button>
     <button type="button" class="btn ghost" id="cancel" hidden>Cancel</button>
