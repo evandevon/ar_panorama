@@ -261,6 +261,7 @@
   let lastPinch = 0, vel = { x: 0, y: 0 }, lastMoveTime = 0, spin = 0;
 
   function radiansPerPixel() {
+    if (win) return winFov * Math.PI / 180 / Math.max(1, win.h);
     const fov = (cam.getAttribute('camera').fov || 75) * Math.PI / 180;
     return fov / Math.max(1, sceneEl.canvas.clientHeight);
   }
@@ -270,9 +271,35 @@
     if (mode === 'drag') lc.pitchObject.rotation.x = clampPitch(lc.pitchObject.rotation.x + dy * k);
   }
   function zoom(factor) {
+    if (win) { winFov = Math.max(30, Math.min(100, winFov * factor)); applyWindow(); return; }
     const c = cam.getAttribute('camera');
     cam.setAttribute('camera', 'fov', Math.max(30, Math.min(100, c.fov * factor)));
   }
+
+  // ------------------------------------------------------------- the author's preview: a phone-sized window
+  // The preview can show the whole photo around a phone-shaped window. Inside the window is exactly what a
+  // phone shows (its field of view, its spot sizes); outside is dimmed, and only turns the view when dragged.
+  let win = null, winFov = 75;
+  const shades = ['t', 'b', 'l', 'r'].map(k => {
+    const d = document.createElement('div');
+    d.className = 'win-shade win-' + k; d.hidden = true; d.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(d);
+    return d;
+  });
+  function applyWindow() {
+    const W = innerWidth, H = innerHeight;
+    document.body.classList.toggle('windowed', !!win);
+    shades.forEach(d => { d.hidden = !win; });
+    if (!win) { cam.setAttribute('camera', 'fov', winFov); return; }
+    const x = (W - win.w) / 2, y = (H - win.h) / 2;
+    // a wider view all round, so the window's own height still covers the phone's view
+    const full = 2 * Math.atan(Math.tan(winFov * Math.PI / 360) * H / win.h) * 180 / Math.PI;
+    cam.setAttribute('camera', 'fov', Math.min(170, full));
+    const st = document.body.style;
+    st.setProperty('--wx', x + 'px'); st.setProperty('--wy', y + 'px');
+    st.setProperty('--ww', win.w + 'px'); st.setProperty('--wh', win.h + 'px');
+  }
+  window.addEventListener('resize', () => { if (win) applyWindow(); });
 
   function bindDrag() {
     const el = sceneEl.canvas;
@@ -284,8 +311,9 @@
     const down = e => {
       // In the author's preview, only the picture itself turns the view (spots are moved instead)
       const passThrough = '.spot-marker, .spot-model';
-      if (e.target !== el && (PREVIEW || !e.target.closest(passThrough))) return;
-      if (e.target !== el) e.target.closest(passThrough).style.touchAction = 'none';
+      const shade = e.target.classList && e.target.classList.contains('win-shade');
+      if (e.target !== el && !shade && (PREVIEW || !e.target.closest(passThrough))) return;
+      if (e.target !== el && !shade) e.target.closest(passThrough).style.touchAction = 'none';
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pointers.size === 1) travelled = 0;
       cancelAnimationFrame(spin); vel = { x: 0, y: 0 };
@@ -293,6 +321,10 @@
     };
     el.addEventListener('pointerdown', down);
     $('spots').addEventListener('pointerdown', down);
+    shades.forEach(d => {
+      d.addEventListener('pointerdown', down);
+      d.addEventListener('wheel', e => { e.preventDefault(); zoom(e.deltaY > 0 ? 1.08 : 1 / 1.08); }, { passive: false });
+    });
 
     window.addEventListener('pointermove', e => {
       const p = pointers.get(e.pointerId);
@@ -411,7 +443,8 @@
   function recentre() {
     lc.yawObject.rotation.y = mode === 'motion' ? -lc.magicWindowDeltaEuler.y : 0;
     if (mode === 'drag') lc.pitchObject.rotation.x = 0;
-    cam.setAttribute('camera', 'fov', 75);
+    winFov = 75;
+    if (win) applyWindow(); else cam.setAttribute('camera', 'fov', 75);
     reportView();
   }
 
@@ -508,6 +541,9 @@
         draft: m.draft && m.draft.pts && m.draft.pts.length ? m.draft : null
       });
       document.body.classList.toggle('layer-drawing', !!m.tool);
+    } else if (m.type === 'setWindow') {
+      win = m.win && m.win.w > 50 && m.win.h > 50 ? { w: m.win.w, h: m.win.h } : null;
+      applyWindow();
     } else if (m.type === 'setBrightness') {
       spots.setBrightness(m.value);
     } else if (m.type === 'stopAll') {
@@ -534,6 +570,7 @@
     onSelect: i => tell({ type: 'spotSelect', index: i }),
     layer: $('spots'),
     backLayer: front.backLayer,
+    pxPerDegree: () => (win ? win.h / winFov : 0),
     frontAt: (x, y) => front.hiddenAt(x, y),
     offscreen: $('spots-offscreen'),
     onActivity: n => Sound.duck(n > 0),

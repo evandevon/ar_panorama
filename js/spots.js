@@ -56,6 +56,7 @@
   function guessKind(src) {
     src = Media.expand(src);
     if (!src || /^gd:/.test(src)) return '';
+    if (/^blob:/i.test(src)) return '';                                // a file made in this browser (the video maker's "try it")
     if (Media.youTube(src) || Media.looksLikeVideo(src)) return 'video';
     if (Media.looksLikeImage(src)) return 'image';
     if (Media.looksLikeAudio(src)) return 'audio';
@@ -1059,6 +1060,8 @@
     // ---------------------------------------------------------- screen geometry
     function pxPerDegree() {
       const camera = opts.sceneEl.camera;
+      const own = opts.pxPerDegree && opts.pxPerDegree();       // the author's preview window, if it has one
+      if (own) return own;
       return opts.sceneEl.canvas.clientHeight / ((camera && camera.fov) || 75);
     }
     // The size the author chose (a YouTube spot's poster size)

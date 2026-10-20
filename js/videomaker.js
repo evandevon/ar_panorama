@@ -229,10 +229,30 @@
     const show = () => { $(id + '-out').textContent = $(id).value; redraw(); };
     $(id).addEventListener('input', show); show();
   });
+  // Every slider gets a small reset button beside its number (shown once it's been moved)
+  const SLIDERS = ['sim', 'soft', 'spill', 'choke', 'speck', 'hole', 'feather'];
+  SLIDERS.forEach(id => {
+    const input = $(id), out = $(id + '-out'), label = document.querySelector('label[for="' + id + '"]');
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'reset'; b.textContent = '↺';
+    b.title = 'Back to the usual setting';
+    b.setAttribute('aria-label', 'Reset ' + label.firstChild.textContent.trim().toLowerCase());
+    label.after(b);
+    b.addEventListener('click', () => {
+      input.value = input.defaultValue;
+      input.dispatchEvent(new Event('input')); input.dispatchEvent(new Event('change'));
+      input.focus();
+    });
+    const sync = () => { b.hidden = input.value === input.defaultValue; };
+    input.addEventListener('input', sync); sync();
+    input.addEventListener('change', () => commit());
+  });
+  function syncResets() { SLIDERS.forEach(id => { const b = $(id).parentNode.querySelector('label[for="' + id + '"] + .reset'); if (b) b.hidden = $(id).value === $(id).defaultValue; }); }
   document.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener('change', () => {
     const alpha = params().alpha;
     $('key-controls').hidden = alpha; $('alpha-note').hidden = !alpha;
-    $('key-fix').hidden = alpha;
+    $('key-fix').hidden = alpha; $('key-fix-2').hidden = alpha;
+    commit();
     if (alpha && tool === 'addkey') setTool(null);
     hint();
     redraw();
@@ -245,6 +265,66 @@
     $('key-text').textContent = (g > r && g > b ? 'Green' : b > r && b > g ? 'Blue' : 'This colour') + (picked ? ' (picked)' : ' (guessed)') + '. Click the background again to change it.';
     redraw();
   }
+
+  // ---------------------------------------------------------------- undo and redo
+  // A snapshot after every finished change: a slider let go, a colour picked, a shape drawn or moved, the trim changed…
+  let past = [], future = [], last = null, restoring = false, plateImg = null;
+  function snapshot() {
+    const v = {};
+    SLIDERS.forEach(id => { v[id] = $(id).value; });
+    return {
+      v, alpha: params().alpha, key: { rgb: key.rgb.slice(), picked: key.picked },
+      extra: extraKeys.map(k => k.slice()),
+      shapes: shapes.map(sh => ({ kind: sh.kind, pts: sh.pts.map(p => p.slice()) })),
+      plateOn, plateTime, plateImg, trim: { start: trim.start, end: trim.end }
+    };
+  }
+  const same = (a, b) => JSON.stringify(Object.assign({}, a, { plateImg: 0 })) === JSON.stringify(Object.assign({}, b, { plateImg: 0 })) && a.plateImg === b.plateImg;
+  function commit() {
+    if (!loaded || restoring) return;
+    const now = snapshot();
+    if (last && same(now, last)) return;
+    if (last) { past.push(last); if (past.length > 100) past.shift(); }
+    future = []; last = now;
+    histButtons();
+  }
+  function resetHistory() { past = []; future = []; last = null; histButtons(); }
+  function histButtons() { $('undo').disabled = !past.length; $('redo').disabled = !future.length; }
+  function undo() { if (!past.length) return; future.push(last); last = past.pop(); restore(last, 'Undone'); }
+  function redo() { if (!future.length) return; past.push(last); last = future.pop(); restore(last, 'Redone'); }
+  function restore(st, word) {
+    restoring = true;
+    SLIDERS.forEach(id => { $(id).value = st.v[id]; const o = $(id + '-out'); if (o) o.textContent = st.v[id]; });
+    syncResets();
+    const r = document.querySelector('input[name=mode][value=' + (st.alpha ? 'alpha' : 'key') + ']');
+    if (!r.checked) { r.checked = true; r.dispatchEvent(new Event('change')); }
+    setKey(st.key.rgb.slice(), st.key.picked);
+    extraKeys.length = 0; st.extra.forEach(k => extraKeys.push(k.slice())); listKeys();
+    shapes.length = 0; st.shapes.forEach(sh => shapes.push({ kind: sh.kind, pts: sh.pts.map(p => p.slice()) })); listShapes();
+    plateOn = st.plateOn; plateTime = st.plateTime;
+    if (st.plateImg && st.plateImg !== plateImg) {
+      plateC.width = st.plateImg.width; plateC.height = st.plateImg.height;
+      plateC.getContext('2d').drawImage(st.plateImg, 0, 0); pv.setPlate(plateC);
+    }
+    plateImg = st.plateImg; showPlate();
+    trim.start = st.trim.start; trim.end = st.trim.end; layoutTimeline();
+    $('feather-out').textContent = $('feather').value;
+    buildMask(); redraw();
+    restoring = false;
+    histButtons();
+    $('sr-note').textContent = word + '.';
+  }
+  $('undo').addEventListener('click', undo);
+  $('redo').addEventListener('click', redo);
+  document.addEventListener('keydown', e => {
+    if (!(e.ctrlKey || e.metaKey) || making) return;
+    const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) && e.target.type !== 'range' && e.target.type !== 'checkbox' && e.target.type !== 'radio';
+    if (typing) return;
+    const k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+    else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); redo(); }
+  });
+  { const n = document.createElement('p'); n.id = 'sr-note'; n.className = 'vh'; n.setAttribute('role', 'status'); document.body.appendChild(n); }
 
   // ---------------------------------------------------------------- backgrounds for the preview
   const BG = {};
@@ -322,6 +402,7 @@
     shapes.length = 0; extraKeys.length = 0; plateOn = false; setTool(null);
     if (params().alpha) { const r = document.querySelector('input[name=mode][value=key]'); r.checked = true; r.dispatchEvent(new Event('change')); }
     listShapes(); listKeys(); showPlate(); buildMask();
+    resetHistory(); needBaseline = true;
     $('stage-empty').hidden = true;
     ['play', 'make', 'auto-key', 'add-key', 'plate'].forEach(id => { $(id).disabled = false; });
     document.querySelectorAll('.tool').forEach(b => { b.disabled = false; });
@@ -332,7 +413,7 @@
   });
   video.addEventListener('error', () => status('file-status', 'err', 'This video couldn’t be opened in this browser. Try Chrome or Edge, or save it as an MP4.'));
   // A WebM that's already see-through: notice, and use its own transparency
-  let checkAlpha = false;
+  let checkAlpha = false, needBaseline = false;
   video.addEventListener('loadedmetadata', () => { checkAlpha = /\.webm$/i.test(fileLabel) || /webm/.test(fileType); });
   function ownAlpha() {
     try {
@@ -355,6 +436,7 @@
     }
     if (!key.picked && !params().alpha) autoKey();
     redraw(); tick();
+    if (needBaseline) { needBaseline = false; commit(); updateSummary(); }
   });
   video.addEventListener('loadeddata', redraw);
 
@@ -379,7 +461,7 @@
     spots.sort((a, b) => score(b) - score(a));
     setKey(spots[0], false);
   }
-  $('auto-key').addEventListener('click', () => { key.picked = false; autoKey(); });
+  $('auto-key').addEventListener('click', () => { key.picked = false; autoKey(); commit(); });
 
   // ---------------------------------------------------------------- clicking on the preview
   // No tool: pick the colour to remove. A shape tool: add dots. "Add colour": pick an extra colour.
@@ -423,7 +505,7 @@
     shapes.push({ kind: tool, pts: draft.slice() });
     const what = KIND[tool].label;
     setTool(null);
-    listShapes(); buildMask();
+    listShapes(); buildMask(); commit();
     status('shape-status', 'ok', '“' + what + '” shape added. Drag its dots to adjust it.');
   }
   document.addEventListener('keydown', e => {
@@ -464,7 +546,7 @@
       return;
     }
     if (tool) { draft.push(p); updateDrawBar(); hint(); drawOverlay(); return; }
-    if (!params().alpha) setKey(sample(Math.round(p[0] * video.videoWidth), Math.round(p[1] * video.videoHeight), 3), true);
+    if (!params().alpha) { setKey(sample(Math.round(p[0] * video.videoWidth), Math.round(p[1] * video.videoHeight), 3), true); commit(); }
   });
   let maskQueued = false;
   view.addEventListener('pointermove', e => {
@@ -478,7 +560,7 @@
     view.classList.toggle('over-dot', !!over && !draft.length);
     if (tool && KIND[tool]) { hover = toVideo(e); drawOverlay(); }
   });
-  const endDrag = () => { if (drag) { drag = null; buildMask(); } };
+  const endDrag = () => { if (drag) { drag = null; buildMask(); commit(); } };
   view.addEventListener('pointerup', endDrag);
   view.addEventListener('pointercancel', endDrag);
   view.addEventListener('pointerleave', () => { if (hover) { hover = null; drawOverlay(); } });
@@ -531,13 +613,13 @@
       const txt = document.createElement('span'); txt.textContent = KIND[s.kind].label + ' (' + s.pts.length + ' dots)';
       const del = document.createElement('button'); del.type = 'button'; del.className = 'btn small ghost'; del.textContent = 'Delete';
       del.setAttribute('aria-label', 'Delete shape ' + (i + 1) + ': ' + KIND[s.kind].label);
-      del.addEventListener('click', () => { shapes.splice(i, 1); listShapes(); buildMask(); status('shape-status', '', 'Shape deleted.'); });
+      del.addEventListener('click', () => { shapes.splice(i, 1); listShapes(); buildMask(); commit(); status('shape-status', '', 'Shape deleted.'); });
       li.append(mark, txt, del); ul.append(li);
     });
     $('shapes-clear').hidden = shapes.length < 2;
     drawOverlay();
   }
-  $('shapes-clear').addEventListener('click', () => { shapes.length = 0; listShapes(); buildMask(); status('shape-status', '', 'All shapes removed.'); });
+  $('shapes-clear').addEventListener('click', () => { shapes.length = 0; listShapes(); buildMask(); commit(); status('shape-status', '', 'All shapes removed.'); });
   $('feather').addEventListener('input', () => { $('feather-out').textContent = $('feather').value; buildMask(); });
   $('feather-out').textContent = $('feather').value;
 
@@ -581,7 +663,7 @@
     else status('key-status', '', '');
   });
   function addKey(rgb) {
-    extraKeys.push(rgb); listKeys(); redraw();
+    extraKeys.push(rgb); listKeys(); redraw(); commit();
     status('key-status', 'ok', 'Colour added. If part of the person vanished too, delete it and click a different spot.');
   }
   function listKeys() {
@@ -592,7 +674,7 @@
       const sw = document.createElement('span'); sw.className = 'swatch small'; sw.style.background = rgbCss(k); sw.setAttribute('aria-hidden', 'true');
       const del = document.createElement('button'); del.type = 'button'; del.className = 'chip-x';
       del.textContent = '×'; del.setAttribute('aria-label', 'Delete extra colour ' + (i + 1));
-      del.addEventListener('click', () => { extraKeys.splice(i, 1); listKeys(); redraw(); status('key-status', '', 'Colour deleted.'); });
+      del.addEventListener('click', () => { extraKeys.splice(i, 1); listKeys(); redraw(); commit(); status('key-status', '', 'Colour deleted.'); });
       li.append(sw, del); ul.append(li);
     });
     ul.hidden = !extraKeys.length;
@@ -603,10 +685,11 @@
     plateC.width = Math.min(video.videoWidth, 1280); plateC.height = Math.round(plateC.width * video.videoHeight / video.videoWidth);
     plateC.getContext('2d').drawImage(video, 0, 0, plateC.width, plateC.height);
     pv.setPlate(plateC);
+    plateImg = canvas(plateC.width, plateC.height); plateImg.getContext('2d').drawImage(plateC, 0, 0);   // kept for undo
     plateOn = true; plateTime = video.currentTime;
-    showPlate(); redraw();
+    showPlate(); redraw(); commit();
   });
-  $('plate-clear').addEventListener('click', () => { plateOn = false; showPlate(); redraw(); });
+  $('plate-clear').addEventListener('click', () => { plateOn = false; showPlate(); redraw(); commit(); });
   function showPlate() {
     $('plate-clear').hidden = !plateOn;
     $('plate').textContent = plateOn ? 'Use this moment instead' : 'Use this moment as the empty background';
@@ -671,7 +754,7 @@
     $('trim-text').textContent = !loaded ? 'Drag the dots at each end of the timeline to trim.'
       : cut ? 'Keeping ' + fmt(trim.start, true) + ' to ' + fmt(trim.end, true) + ' (' + (trim.end - trim.start).toFixed(1) + ' seconds).'
       : 'Drag the dots at each end of the timeline to trim. Keeping all ' + (d).toFixed(1) + ' seconds.';
-    if (loaded && fmtReady) gifNote();
+    if (loaded && fmtReady) { gifNote(); updateSummary(); }
   }
   const timeAt = e => { const r = track.getBoundingClientRect(); return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * video.duration; };
   function moveTo(which, t) {
@@ -693,7 +776,7 @@
     e.preventDefault();
   });
   track.addEventListener('pointermove', e => { if (tlDrag) moveTo(tlDrag, timeAt(e)); });
-  const tlEnd = () => { tlDrag = null; };
+  const tlEnd = () => { if (tlDrag && tlDrag !== head) commit(); tlDrag = null; };
   track.addEventListener('pointerup', tlEnd); track.addEventListener('pointercancel', tlEnd);
   [head, tStart, tEnd].forEach(el => el.addEventListener('keydown', e => {
     if (!loaded || making) return;
@@ -705,7 +788,9 @@
     e.preventDefault();
     if (el !== head) video.pause();
     moveTo(el, to);
+    if (el !== head) { clearTimeout(keyCommit); keyCommit = setTimeout(commit, 700); }   // a burst of key presses is one undo step
   }));
+  let keyCommit = 0;
 
   // ---------------------------------------------------------------- making the file
   // Three kinds of file:
@@ -757,8 +842,36 @@
     if (secs > 8) t += ' This clip is ' + secs.toFixed(1) + ' seconds long: GIFs this long get very big. Try trimming it to a few seconds.';
     $('gif-note').textContent = t;
   }
-  document.querySelectorAll('input[name=fmt]').forEach(r => r.addEventListener('change', formatChanged));
-  $('size').addEventListener('change', gifNote);
+  // What will be made: kind, size, length, sound and roughly how big the file will be
+  function outSize(f) {
+    if (f === 'gif') return gifSize();
+    let w = Math.min(+$('size').value, video.videoWidth), h = w * video.videoHeight / video.videoWidth;
+    if (f === 'stencil' && h * 2 > 2160) { h = 1080; w = h * video.videoWidth / video.videoHeight; }
+    return [Math.round(w / 2) * 2, Math.round(h / 2) * 2];
+  }
+  function updateSummary() {
+    $('summary').hidden = !loaded;
+    if (!loaded) return;
+    const f = fmtNow(), [w, h] = outSize(f), secs = Math.max(0, trim.end - trim.start);
+    const kind = f !== 'gif' && canRecord ? (f === 'webm' ? pickWebm(false) : pickType(false)) : null;
+    $('sum-file').textContent = f === 'gif' ? 'Animated GIF' : f === 'webm' ? 'Transparent WebM'
+      : kind && kind.ext === 'webm' ? 'See-through WebM (this browser can’t make MP4s)' : 'See-through MP4';
+    $('sum-size').textContent = f === 'stencil' ? w + ' × ' + h + ' (made ' + w + ' × ' + h * 2 + ', with its stencil)' : w + ' × ' + h;
+    $('sum-length').textContent = secs.toFixed(1) + ' seconds' + (trim.start > 0.05 || trim.end < video.duration - 0.05 ? ' (trimmed)' : '');
+    $('sum-sound').textContent = f === 'gif' ? 'None (GIFs can’t have sound)' : $('sound').checked ? 'Kept' : 'Off';
+    let bytes;
+    if (f === 'gif') bytes = w * h * Math.round(secs * +$('gif-fps').value) * 0.3;
+    else {
+      const H = f === 'stencil' ? h * 2 : h;
+      const bps = Math.min(12e6, Math.max(2.5e6, w * H * 30 * 0.12));
+      bytes = (bps * 0.6 + ($('sound').checked ? 128e3 : 0)) * secs / 8;
+    }
+    $('sum-bytes').textContent = 'up to about ' + sizeText(bytes);
+  }
+  document.querySelectorAll('input[name=fmt]').forEach(r => r.addEventListener('change', () => { formatChanged(); updateSummary(); }));
+  $('size').addEventListener('change', () => { gifNote(); updateSummary(); });
+  $('sound').addEventListener('change', updateSummary);
+  $('gif-fps').addEventListener('change', updateSummary);
   formatChanged();
   fmtReady = true;
 
@@ -777,6 +890,20 @@
     document.querySelectorAll('#next-' + f + ' .path-eg').forEach(c => { c.textContent = (f === 'gif' ? 'images/' : 'videos/') + name; });
     $('result').hidden = false;
     status('make-status', extra && extra.err ? 'err' : 'ok', 'Done!' + (extra && extra.text ? ' ' + extra.text : ''));
+    tryInRoom(a.href, f);
+  }
+  // The finished file in the sample classroom, the way a tour shows it (played at once, looping)
+  function tryInRoom(url, f) {
+    const flags = f === 'gif' ? 'i' : 'svr' + 'x' + (f === 'webm' ? 'w' : '');
+    const spot = url + '~0~-4~' + flags + '~~40';
+    const src = 'index.html?p=panoramas/sample-room.jpg&t=' + encodeURIComponent('Try it in a room') + '&s=' + encodeURIComponent(spot) + '&v=2';
+    const box = $('try-frame');
+    box.innerHTML = '';
+    const ifr = document.createElement('iframe');
+    ifr.title = 'Your file in the sample classroom';
+    ifr.allow = 'autoplay; fullscreen';
+    ifr.src = src;
+    box.appendChild(ifr);
   }
   // seek and wait until that picture is ready
   function seekTo(t) {

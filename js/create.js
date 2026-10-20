@@ -202,12 +202,14 @@
       ifr.allow = 'autoplay; fullscreen; accelerometer; gyroscope';
       ifr.src = viewerUrl(f, true);
       frame.appendChild(ifr);
+      frame.classList.add('has-pano');
     }
     renderQr(f);
   }
 
   function showEmpty(text) {
     $('frame').querySelectorAll('iframe').forEach(i => i.remove());
+    $('frame').classList.remove('has-pano');
     $('empty').hidden = !text;
     $('empty').textContent = text;
     $('set-start').disabled = true;
@@ -224,6 +226,7 @@
         sendSpots();
         renderSpots();
         sendLayers(); renderLayers();
+        sendWindow();
         if (m.video) {
           status('pano-status', m.width > 4096 ? 'note' : 'ok', '360 video loaded (' + m.width + ' × ' + m.height + ').' +
             (m.width > 4096 ? ' Many phones can’t play 360 video wider than 4096 px — 2880 × 1440 is a safe size.' : '') +
@@ -980,7 +983,18 @@
     $('frame-nav').classList.toggle('phone', phone);
     $('shape-phone').setAttribute('aria-pressed', String(phone));
     $('shape-wide').setAttribute('aria-pressed', String(!phone));
+    sendWindow();
   }
+  // Phone view: a phone-shaped window (9:16) as tall as the preview allows; the viewer shows a phone's view inside it
+  function sendWindow() {
+    const frame = $('frame'), pw = $('phone-window');
+    if (!frame.classList.contains('phone')) return post({ type: 'setWindow', win: null });
+    const W = frame.clientWidth, H = frame.clientHeight;
+    const h = Math.round(Math.min(H - 28, (W - 28) * 16 / 9)), w = Math.round(h * 9 / 16);
+    pw.style.width = w + 'px'; pw.style.height = h + 'px';
+    post({ type: 'setWindow', win: { w, h } });
+  }
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => sendWindow()).observe($('frame'));
   $('shape-phone').addEventListener('click', () => setShape(true));
   $('shape-wide').addEventListener('click', () => setShape(false));
 

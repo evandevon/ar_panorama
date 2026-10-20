@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>360° QR Experience Maker</title>
   <meta name="description" content="Paste a link to a 360° photo and some audio, and get a QR code that opens it on any phone. No sign-in.">
-  <link rel="stylesheet" href="css/create.css?v=20261021a">
+  <link rel="stylesheet" href="css/create.css?v=20261021f">
   <script src="vendor/qrcode.js"></script>
-  <script src="js/sources.js?v=20261021a"></script>
-  <script src="js/spots.js?v=20261021a"></script>
+  <script src="js/sources.js?v=20261021f"></script>
+  <script src="js/spots.js?v=20261021f"></script>
 </head>
 <body>
 <header class="masthead">
@@ -100,13 +100,14 @@
     <div class="shape" role="group" aria-label="Preview shape">
       <button type="button" id="shape-phone" aria-pressed="true">Phone</button>
       <button type="button" id="shape-wide" aria-pressed="false">Wide</button>
-      <span class="help-inline">Phones held upright see less of the room — check sizes in Phone view.</span>
+      <span class="help-inline">The outline shows what a phone held upright sees. Drag anywhere to look around; only spots inside it can be moved.</span>
     </div>
     <div class="frame-nav phone" id="frame-nav" role="group" aria-label="Turn the preview">
       <button type="button" class="nav-btn nav-up" data-dir="up" aria-label="Look up" title="Look up (hold to keep turning)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 15 6-6 6 6"/></svg></button>
       <button type="button" class="nav-btn nav-left" data-dir="left" aria-label="Look left" title="Look left (hold to keep turning)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 6-6 6 6 6"/></svg></button>
       <div class="frame phone" id="frame">
         <div class="empty" id="empty">Paste a 360° photo link to see it here.</div>
+        <div class="phone-window" id="phone-window" aria-hidden="true"></div>
       </div>
       <button type="button" class="nav-btn nav-right" data-dir="right" aria-label="Look right" title="Look right (hold to keep turning)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6"/></svg></button>
       <button type="button" class="nav-btn nav-down" data-dir="down" aria-label="Look down" title="Look down (hold to keep turning)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg></button>
@@ -165,6 +166,6 @@
   <p>Want a person or object standing in the room, with the room showing around them? Make a see-through video from green-screen footage with the <a href="videomaker.html">See-through Video Maker</a>.</p>
 </footer>
 
-<script src="js/create.js?v=20261021a"></script>
+<script src="js/create.js?v=20261021f"></script>
 </body>
 </html>

@@ -116,10 +116,10 @@ Use **Adjust the dots** to drag a mask's dots in the preview. Untick **Use the m
 A see-through video shows a person or object standing in the room, with the room visible around them (like a weather presenter in front of a map). It plays on every phone, including iPhones.
 
 1. Film the person or object in front of a plain **green or blue screen**.
-2. Open the **See-through Video Maker** (`videomaker.html` on your site). Choose the video, click the green background in the preview, and adjust the sliders until the background has gone. To trim it, drag the dots at each end of the timeline under the preview. You can also choose a size, and keep or drop the sound. Then press **Make see-through video** and download the file. It's made on your own computer; nothing is uploaded. Use Chrome or Edge on a Windows or Mac computer, so the file comes out as an MP4 that iPhones can play.
+2. Open the **See-through Video Maker** (`videomaker.html` on your site). Choose the video, click the green background in the preview, and adjust **Remove more or less** and **Soften the edges** (right under the preview) until the background has gone. To trim it, drag the dots at each end of the timeline. **Undo** and **Redo** (or Ctrl+Z and Ctrl+Shift+Z) step back through your changes, and each slider has a ↺ button to put it back. Choose the file type, size and sound, check the summary of what will be made, then press **Make** and download the file. It plays straight away in a sample classroom (**Try it in a room**), so you can check it before uploading. It's made on your own computer; nothing is uploaded. Use Chrome or Edge on a Windows or Mac computer, so the file comes out as an MP4 that iPhones can play.
 3. Upload the file to your site's `videos` folder, add a video spot with its path (for example `videos/teacher.see-through.mp4`), and make sure **See-through video** is ticked (it ticks itself for file names containing "see-through").
 
-**Rough or home-made green screens.** Step 3, *Fix problem areas*, rescues footage from creased sheets, patchy lighting and screens that are too small:
+**Rough or home-made green screens.** Step 2, *Fix problems* (press **Show the fixes**), rescues footage from creased sheets, patchy lighting and screens that are too small:
 
 - **Draw a shape:** click dot by dot around an area in the preview, then click the first dot (or press Done) to close it. Drag a dot to adjust it later.
   - *Remove outside*: draw roughly around the person and everything outside the shape becomes see-through (it's shaded on the preview). Use it for a screen that doesn't fill the picture, or for stands, edges of the room and other clutter around the outside.
@@ -130,7 +130,7 @@ A see-through video shows a person or object standing in the room, with the room
 - **Use this moment as the empty background:** if the video has a moment with nobody in it (film a second or two before the person steps in), go to it and press this. The tool then knows exactly what the screen looks like at every spot, which handles creases and uneven light best. The camera must stay still.
 - **Tidy the edges:** *Shrink the edges* trims a leftover outline, *Remove specks* clears floating bits of background, and *Fill small holes* fills see-through spots inside the person. Choose **Stencil** under the preview to see holes and specks clearly (white = solid, black = see-through).
 
-**Other file types.** Step 4 of the Video Maker can also make:
+**Other file types.** Step 3 of the Video Maker can also make:
 
 - **WebM with transparency:** a truly see-through video for other apps and websites. It's see-through in Chrome, Edge and Firefox and on Android, but iPhones and iPads can't play it. Make it in Chrome or Edge; the maker checks the finished file still has its transparency, and writes the video's length into it (browser-made WebMs otherwise leave it out, which breaks seeking in some apps).
 - **Animated GIF:** no sound, at most 480 wide, 10 or 15 pictures a second. Every pixel is either solid or see-through, so soft edges become crisp. Keep it to a few seconds, or it gets big.

@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>See-through Video Maker</title>
   <meta name="description" content="Turn a green-screen video into a see-through video for 360° tours. Everything happens on your computer; nothing is uploaded.">
-  <link rel="stylesheet" href="css/create.css?v=20261021a">
-  <link rel="stylesheet" href="css/videomaker.css?v=20261021a">
+  <link rel="stylesheet" href="css/create.css?v=20261021f">
+  <link rel="stylesheet" href="css/videomaker.css?v=20261021f">
 </head>
 <body>
 <header class="masthead">
@@ -19,7 +19,7 @@
 
 <main class="wrap vm-grid">
   <!-- 1. Choose -->
-  <section class="panel vm-step" aria-labelledby="h-1">
+  <section class="panel vm-step step-choose" aria-labelledby="h-1">
     <h2 id="h-1"><span class="num" aria-hidden="true">1</span> Choose your video</h2>
     <label class="drop" id="drop" for="file">
       <input type="file" id="file" accept="video/*" class="vh">
@@ -28,11 +28,16 @@
       <span class="help">Filmed in front of a plain green or blue background. It stays on this computer.</span>
     </label>
     <p class="status" id="file-status" role="status" aria-live="polite"></p>
+    <fieldset class="seg-field">
+      <legend class="mode-legend">This video is</legend>
+      <label class="check"><input type="radio" name="mode" value="key" checked> Filmed on a green or blue screen</label>
+      <label class="check"><input type="radio" name="mode" value="alpha"> <span>Already see-through <span class="help-inline">(a WebM with transparency)</span></span></label>
+    </fieldset>
     <details class="howto">
       <summary>Tips for filming</summary>
       <ul>
-        <li>Use a smooth green (or blue) sheet or wall, with no creases or shadows. Light it evenly. (Step 3 can rescue a rough one.)</li>
-        <li>Film a second or two with nobody in front of the screen before the person steps in. That “empty background” helps step 3 fix creases and patchy light.</li>
+        <li>Use a smooth green (or blue) sheet or wall, with no creases or shadows. Light it evenly. (<b>Fix problems</b> can rescue a rough one.)</li>
+        <li>Film a second or two with nobody in front of the screen before the person steps in. That “empty background” helps fix creases and patchy light.</li>
         <li>Keep the person a metre or two in front of it, so they don't cast shadows on it.</li>
         <li>Avoid green clothes (or blue, with a blue screen), shiny things and very fine hair blowing about.</li>
         <li>Keep the camera still, and keep it short: a few seconds to a minute works best on phones.</li>
@@ -40,13 +45,17 @@
     </details>
   </section>
 
-  <!-- Preview -->
+  <!-- Preview, with the main controls under it -->
   <section class="panel vm-preview" aria-labelledby="h-prev">
     <div class="prev-head">
       <h2 id="h-prev">Preview <span class="opt" id="pick-hint">click the background in the picture to choose the colour to remove</span></h2>
-      <div class="view-toggle" role="group" aria-label="What the preview shows">
-        <button type="button" data-view="picture" aria-pressed="true">Picture</button>
-        <button type="button" data-view="stencil" aria-pressed="false" title="White = solid, black = see-through. Good for spotting holes and specks.">Stencil</button>
+      <div class="prev-tools">
+        <button type="button" class="btn small ghost hist" id="undo" disabled title="Undo (Ctrl+Z)"><span aria-hidden="true">↶</span> Undo</button>
+        <button type="button" class="btn small ghost hist" id="redo" disabled title="Redo (Ctrl+Shift+Z)"><span aria-hidden="true">↷</span> Redo</button>
+        <div class="view-toggle" role="group" aria-label="What the preview shows">
+          <button type="button" data-view="picture" aria-pressed="true">Picture</button>
+          <button type="button" data-view="stencil" aria-pressed="false" title="White = solid, black = see-through. Good for spotting holes and specks.">Stencil</button>
+        </div>
       </div>
     </div>
     <div class="stage" id="stage">
@@ -70,6 +79,27 @@
       <span class="time" id="time">0:00.0 / 0:00.0</span>
     </div>
     <p class="help trim-text" id="trim-text" aria-live="polite"></p>
+
+    <div class="quick" id="key-controls">
+      <div class="key-row">
+        <span class="swatch" id="swatch" aria-hidden="true"></span>
+        <span><b>Colour to remove</b><br><span class="help-inline" id="key-text">Click the background in the preview</span></span>
+        <button type="button" class="btn small ghost" id="auto-key" disabled>Pick it for me</button>
+      </div>
+      <div class="quick-sliders">
+        <div>
+          <label for="sim">Remove more or less <output id="sim-out" for="sim"></output></label>
+          <input type="range" id="sim" min="0" max="100" value="36" aria-describedby="sim-help">
+          <p class="help" id="sim-help">Slide right until the background has gone. If parts of the person start to disappear, slide back.</p>
+        </div>
+        <div>
+          <label for="soft">Soften the edges <output id="soft-out" for="soft"></output></label>
+          <input type="range" id="soft" min="0" max="100" value="25" aria-describedby="soft-help">
+          <p class="help" id="soft-help">Feathers the outline so it blends into the room. The inside stays solid.</p>
+        </div>
+      </div>
+    </div>
+    <p class="help" id="alpha-note" hidden>The video's own transparency is used. (This works in Chrome and Edge, which can read see-through WebM videos.)</p>
     <div class="shape" id="bg-row" role="group" aria-label="Preview background">
       <span class="help-inline">Show behind it:</span>
       <button type="button" class="bg-btn" data-bg="room" aria-pressed="true">Classroom</button>
@@ -79,21 +109,15 @@
     </div>
   </section>
 
-  <!-- 2. Remove the background -->
+  <!-- 2. Fix problems -->
   <section class="panel vm-step" aria-labelledby="h-2">
-    <h2 id="h-2"><span class="num" aria-hidden="true">2</span> Remove the background</h2>
-    <fieldset class="seg-field">
-      <legend class="vh">What kind of video is it?</legend>
-      <label class="check"><input type="radio" name="mode" value="key" checked> Green or blue screen</label>
-      <label class="check"><input type="radio" name="mode" value="alpha"> <span>Already see-through <span class="help-inline">(a WebM with transparency)</span></span></label>
-    </fieldset>
-    <div id="key-controls">
-      <div class="key-row">
-        <span class="swatch" id="swatch" aria-hidden="true"></span>
-        <span><b>Colour to remove</b><br><span class="help-inline" id="key-text">Click the background in the preview</span></span>
-        <button type="button" class="btn small ghost" id="auto-key" disabled>Pick it for me</button>
-      </div>
-      <div class="key-more">
+    <h2 id="h-2"><span class="num" aria-hidden="true">2</span> Fix problems <span class="opt">optional</span></h2>
+    <p class="help flush">Most videos only need the colour and the two sliders under the preview. Open this if something still isn't right.</p>
+    <details class="fixes" id="fix-box">
+      <summary>Show the fixes <span class="help-inline">for patchy screens, coloured edges and things left behind</span></summary>
+
+      <div id="key-fix">
+        <h3 class="sub">Patchy or creased background</h3>
         <div class="key-row">
           <ul class="extra-keys" id="extra-keys" aria-label="Extra background colours" hidden></ul>
           <button type="button" class="btn small ghost" id="add-key" aria-pressed="false" disabled>＋ Add another background colour</button>
@@ -106,68 +130,58 @@
         </div>
         <p class="help">The best fix for a creased or unevenly lit screen. If your video has a moment with nobody in it (before the person walks in, say), move to that moment and press this.</p>
         <p class="status" id="plate-status" role="status" aria-live="polite"></p>
+
+        <h3 class="sub">Coloured edges</h3>
+        <label for="spill">Clean up coloured edges <output id="spill-out" for="spill"></output></label>
+        <input type="range" id="spill" min="0" max="100" value="100" aria-describedby="spill-help">
+        <p class="help" id="spill-help">Removes the green (or blue) tint the screen leaves on hair and edges, shifting it back towards their own colour.</p>
       </div>
-      <label for="sim">Remove more or less <output id="sim-out" for="sim"></output></label>
-      <input type="range" id="sim" min="0" max="100" value="36" aria-describedby="sim-help">
-      <p class="help" id="sim-help">Slide right until the background has gone. If parts of the person start to disappear, slide back.</p>
-      <label for="soft">Soften the edges <output id="soft-out" for="soft"></output></label>
-      <input type="range" id="soft" min="0" max="100" value="25" aria-describedby="soft-help">
-      <p class="help" id="soft-help">Feathers the outline so it blends into the room. The inside stays solid.</p>
-      <label for="spill">Clean up coloured edges <output id="spill-out" for="spill"></output></label>
-      <input type="range" id="spill" min="0" max="100" value="100" aria-describedby="spill-help">
-      <p class="help" id="spill-help">Removes the green (or blue) tint the screen leaves on hair and edges, shifting it back towards their own colour.</p>
-    </div>
-    <p class="help" id="alpha-note" hidden>The video's own transparency is used. (This works in Chrome and Edge, which can read see-through WebM videos.)</p>
+
+      <h3 class="sub">Draw a shape</h3>
+      <p class="help">Choose what the shape should do, then click dot by dot around the area in the preview. Click the first dot (or press <b>Done</b>) to close it.</p>
+      <div class="tools" role="group" aria-label="Shape tools">
+        <button type="button" class="tool" data-tool="keep" aria-pressed="false" disabled>
+          <span class="shape-mark keep" aria-hidden="true"></span><span><b>Remove outside</b><br><span class="help-inline">Draw roughly around the person: everything outside disappears. For a screen that's too small, or stands and clutter around the edges.</span></span>
+        </button>
+        <button type="button" class="tool" data-tool="remove" aria-pressed="false" disabled>
+          <span class="shape-mark remove" aria-hidden="true"></span><span><b>Remove inside</b><br><span class="help-inline">For a crease, shadow or object that won't go.</span></span>
+        </button>
+        <button type="button" class="tool" data-tool="solid" aria-pressed="false" disabled>
+          <span class="shape-mark solid" aria-hidden="true"></span><span><b>Keep inside</b><br><span class="help-inline">For parts of the person that vanish, like a green jumper or a shiny badge.</span></span>
+        </button>
+      </div>
+      <div class="draw-bar" id="draw-bar" hidden>
+        <span><b id="draw-what"></b>: <span id="draw-count">0 dots</span></span>
+        <button type="button" class="btn small" id="draw-done" disabled>Done</button>
+        <button type="button" class="btn small ghost" id="draw-undo" disabled>Undo dot</button>
+        <button type="button" class="btn small ghost" id="draw-cancel">Cancel</button>
+      </div>
+      <ul class="shape-list" id="shape-list" aria-label="Your shapes"></ul>
+      <button type="button" class="btn small ghost" id="shapes-clear" hidden>Delete all shapes</button>
+      <p class="status" id="shape-status" role="status" aria-live="polite"></p>
+      <label for="feather">Soften the shapes' edges <output id="feather-out" for="feather"></output></label>
+      <input type="range" id="feather" min="0" max="100" value="25">
+      <label class="check"><input type="checkbox" id="show-shapes" checked> Show the shapes on the preview</label>
+      <p class="help">Shapes stay in one place, so they suit someone standing still. Drag a dot to move it.</p>
+
+      <div id="key-fix-2">
+        <h3 class="sub">Tidy the edges</h3>
+        <label for="choke">Shrink the edges <output id="choke-out" for="choke"></output></label>
+        <input type="range" id="choke" min="0" max="10" value="0" aria-describedby="choke-help">
+        <p class="help" id="choke-help">Trims a thin green or dark outline from around the person.</p>
+        <label for="speck">Remove specks <output id="speck-out" for="speck"></output></label>
+        <input type="range" id="speck" min="0" max="10" value="0" aria-describedby="speck-help">
+        <p class="help" id="speck-help">Gets rid of little bits of background left floating around.</p>
+        <label for="hole">Fill small holes <output id="hole-out" for="hole"></output></label>
+        <input type="range" id="hole" min="0" max="10" value="0" aria-describedby="hole-help">
+        <p class="help" id="hole-help">Fills see-through spots inside the person. Tip: switch the preview to <b>Stencil</b> (top right) to see holes clearly.</p>
+      </div>
+    </details>
   </section>
 
-  <!-- 3. Fix problem areas -->
+  <!-- 3. File type, size and sound -->
   <section class="panel vm-step" aria-labelledby="h-3">
-    <h2 id="h-3"><span class="num" aria-hidden="true">3</span> Fix problem areas <span class="opt">optional, for creased, patchy or small screens</span></h2>
-
-    <h3 class="sub">Draw a shape</h3>
-    <p class="help">Choose what the shape should do, then click dot by dot around the area in the preview. Click the first dot (or press <b>Done</b>) to close it.</p>
-    <div class="tools" role="group" aria-label="Shape tools">
-      <button type="button" class="tool" data-tool="keep" aria-pressed="false" disabled>
-        <span class="shape-mark keep" aria-hidden="true"></span><span><b>Remove outside</b><br><span class="help-inline">Draw roughly around the person: everything outside disappears. For a screen that's too small, or stands and clutter around the edges.</span></span>
-      </button>
-      <button type="button" class="tool" data-tool="remove" aria-pressed="false" disabled>
-        <span class="shape-mark remove" aria-hidden="true"></span><span><b>Remove inside</b><br><span class="help-inline">For a crease, shadow or object that won't go.</span></span>
-      </button>
-      <button type="button" class="tool" data-tool="solid" aria-pressed="false" disabled>
-        <span class="shape-mark solid" aria-hidden="true"></span><span><b>Keep inside</b><br><span class="help-inline">For parts of the person that vanish, like a green jumper or a shiny badge.</span></span>
-      </button>
-    </div>
-    <div class="draw-bar" id="draw-bar" hidden>
-      <span><b id="draw-what"></b>: <span id="draw-count">0 dots</span></span>
-      <button type="button" class="btn small" id="draw-done" disabled>Done</button>
-      <button type="button" class="btn small ghost" id="draw-undo" disabled>Undo dot</button>
-      <button type="button" class="btn small ghost" id="draw-cancel">Cancel</button>
-    </div>
-    <ul class="shape-list" id="shape-list" aria-label="Your shapes"></ul>
-    <button type="button" class="btn small ghost" id="shapes-clear" hidden>Delete all shapes</button>
-    <p class="status" id="shape-status" role="status" aria-live="polite"></p>
-    <label for="feather">Soften the shapes' edges <output id="feather-out" for="feather"></output></label>
-    <input type="range" id="feather" min="0" max="100" value="25">
-    <label class="check"><input type="checkbox" id="show-shapes" checked> Show the shapes on the preview</label>
-    <p class="help">Shapes stay in one place, so they suit someone standing still. Drag a dot to move it.</p>
-
-    <div id="key-fix">
-      <h3 class="sub">Tidy the edges</h3>
-      <label for="choke">Shrink the edges <output id="choke-out" for="choke"></output></label>
-      <input type="range" id="choke" min="0" max="10" value="0" aria-describedby="choke-help">
-      <p class="help" id="choke-help">Trims a thin green or dark outline from around the person.</p>
-      <label for="speck">Remove specks <output id="speck-out" for="speck"></output></label>
-      <input type="range" id="speck" min="0" max="10" value="0" aria-describedby="speck-help">
-      <p class="help" id="speck-help">Gets rid of little bits of background left floating around.</p>
-      <label for="hole">Fill small holes <output id="hole-out" for="hole"></output></label>
-      <input type="range" id="hole" min="0" max="10" value="0" aria-describedby="hole-help">
-      <p class="help" id="hole-help">Fills see-through spots inside the person. Tip: switch the preview to <b>Stencil</b> (top right) to see holes clearly.</p>
-    </div>
-  </section>
-
-  <!-- 4. File type, size and sound -->
-  <section class="panel vm-step" aria-labelledby="h-4">
-    <h2 id="h-4"><span class="num" aria-hidden="true">4</span> File type, size and sound</h2>
+    <h2 id="h-3"><span class="num" aria-hidden="true">3</span> File type, size and sound</h2>
     <fieldset class="fmt-field">
       <legend>What kind of file?</legend>
       <label class="fmt"><input type="radio" name="fmt" value="stencil" checked>
@@ -180,7 +194,6 @@
         <span><b>Animated GIF</b> <span class="tag">no sound</span><br>
         <span class="help-inline">Works almost anywhere: slides, websites, the tour. Edges are crisp rather than soft, and files get big quickly, so keep it short and small.</span></span></label>
     </fieldset>
-    <p class="help">To trim, drag the dots at each end of the timeline under the preview.</p>
     <label for="size">Size</label>
     <select id="size">
       <option value="480">Small: quick to load (480 wide)</option>
@@ -196,25 +209,38 @@
       <p class="help" id="gif-note"></p>
     </div>
     <label class="check" id="sound-row" style="margin-top:12px"><input type="checkbox" id="sound" checked> <span>Keep the sound <span class="help-inline" id="sound-note" hidden>(GIFs can't have sound)</span></span></label>
+    <p class="help">To trim it, drag the dots at each end of the timeline under the preview.</p>
   </section>
 
-  <!-- 5. Make -->
-  <section class="panel vm-step" aria-labelledby="h-5">
-    <h2 id="h-5"><span class="num" aria-hidden="true">5</span> Make it</h2>
+  <!-- 4. Make -->
+  <section class="panel vm-step" aria-labelledby="h-4">
+    <h2 id="h-4"><span class="num" aria-hidden="true">4</span> Make it</h2>
     <p class="warn" id="browser-warn" hidden></p>
+    <dl class="summary" id="summary" hidden>
+      <div><dt>File</dt><dd id="sum-file"></dd></div>
+      <div><dt>Size</dt><dd id="sum-size"></dd></div>
+      <div><dt>Length</dt><dd id="sum-length"></dd></div>
+      <div><dt>Sound</dt><dd id="sum-sound"></dd></div>
+      <div><dt>File size</dt><dd id="sum-bytes"></dd></div>
+    </dl>
     <button type="button" class="btn" id="make" disabled>Make the see-through MP4</button>
     <button type="button" class="btn ghost" id="cancel" hidden>Cancel</button>
     <div class="progress" id="progress" hidden><div id="bar"></div></div>
     <p class="status" id="make-status" role="status" aria-live="polite"></p>
     <div class="result" id="result" hidden>
       <a class="btn" id="download" download>⬇ Download the video</a>
+      <div class="try" id="try">
+        <h3 class="sub">Try it in a room</h3>
+        <p class="help">Your file in the sample classroom, as a tour would show it. Tap <b>Start</b>, then drag to look around.</p>
+        <div class="try-frame" id="try-frame"></div>
+      </div>
       <ol class="next" id="next-stencil">
         <li>Upload it to the <b>videos</b> folder of your GitHub site (<b>Add file → Upload files</b>).</li>
         <li>In the <a href="make.html">360° tour maker</a>, add a spot, paste the file's path (for example <code class="path-eg">videos/my-video.see-through.mp4</code>) and make sure <b>See-through video</b> is ticked.</li>
       </ol>
       <ol class="next" id="next-webm" hidden>
         <li>Use it in any app or website that plays WebM videos. It's see-through in Chrome, Edge, Firefox and on Android.</li>
-        <li>To use it in a tour, upload it to the <b>videos</b> folder and add a spot with its path (for example <code class="path-eg">videos/my-video.transparent.webm</code>). Leave <b>See-through video</b> unticked: that box is only for the MP4. For a tour that works on iPhones too, make the MP4 instead.</li>
+        <li>To use it in a tour, upload it to the <b>videos</b> folder and add a spot with its path (for example <code class="path-eg">videos/my-video.transparent.webm</code>). Tick <b>See-through video</b> and choose <b>WebM with its own transparency</b> (the tour maker usually does this for you). For a tour that works on iPhones too, make the MP4 instead.</li>
       </ol>
       <ol class="next" id="next-gif" hidden>
         <li>Drop it into slides, a document or a website like any picture.</li>
@@ -235,6 +261,6 @@
 
 <video id="src" playsinline muted preload="auto" hidden></video>
 <script src="vendor/fix-webm-duration/fix-webm-duration.js"></script>
-<script src="js/videomaker.js?v=20261021a"></script>
+<script src="js/videomaker.js?v=20261021f"></script>
 </body>
 </html>
