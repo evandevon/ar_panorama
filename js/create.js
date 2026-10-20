@@ -84,6 +84,14 @@
     return (kind === 'audio' || kind === 'video') && !Media.youTube(sp.src) && /drive\.google\.com|docs\.google\.com\/uc|^gd:/i.test(sp.src.trim());
   }
 
+  // A visual spot in the room (masks can hide it): not a sound, a hidden player, a link, or Google's audio player
+  function isMaskable(sp) {
+    const kind = HotSpots.kindOf(sp);
+    if (!sp.src.trim() || kind === 'audio' || kind === 'link') return false;
+    if (kind === 'video' && sp.hidden && !sp.dwell && !sp.stacked && sp.play !== 'tap') return false;
+    return true;
+  }
+
   function hasModels() { return spots.some(sp => sp.src.trim() && HotSpots.kindOf(sp) === 'model'); }
 
   let brightT = 0;
@@ -310,6 +318,7 @@
   function layersChanged(resend) {
     saveToAddress(readForm());
     if (resend) sendLayers();
+    if (resend) [...$('spot-list').children].forEach((li, i) => { if (spots[i]) { syncCard(li, spots[i], i); updateSummary(li, spots[i]); } });
     renderLayers();
     renderQr(readForm());
   }
@@ -455,6 +464,7 @@
             '<label class="check"><input type="radio" class="sp-stk-mp4"><span>See-through MP4 <span class="help-inline">— from the Video Maker; plays on every phone</span></span></label>' +
             '<label class="check"><input type="radio" class="sp-stk-webm"><span>WebM with its own transparency <span class="help-inline">— iPhones and iPads can’t play these</span></span></label>' +
           '</div>' +
+          '<label class="check sp-mask-row" hidden><input type="checkbox" class="sp-mask"><span>Hidden by masks <span class="help-inline">— untick to keep it in front of every mask</span></span></label>' +
           '<label class="check sp-pin-row"><input type="checkbox" class="sp-pin"><span>Pin corners <span class="help-inline">— drag each corner onto the matching point in the photo, e.g. a picture frame or window</span></span></label>' +
         '</div>' +
         '<div class="sp-place"><span class="sp-where"></span>' +
@@ -486,6 +496,8 @@
     q('.sp-hide').checked = !!sp.hidden;
     q('.sp-loop').checked = !!sp.loop;
     q('.sp-pin').checked = !!sp.pin;
+    q('.sp-mask').checked = !sp.noMask;
+    q('.sp-mask').addEventListener('change', e => { sp.noMask = !e.target.checked; updateSummary(li, sp); spotsChanged(true); });
     q('.sp-spin').checked = !!sp.spin;
     q('.sp-stk').checked = !!sp.stacked;
     q('.sp-stk-mp4').name = q('.sp-stk-webm').name = 'stk-' + (++stkGroups);
@@ -598,6 +610,7 @@
       if (sp.hidden) bits.push('hidden');
       if (sp.loop && (kind === 'video' || kind === 'audio')) bits.push('loops');
       if (sp.pin) bits.push('pinned');
+      if (layers.length && isMaskable(sp)) bits.push(sp.noMask ? 'in front of masks' : 'hidden by masks');
     }
     bits.push(describePlace(sp.yaw, sp.pitch));
     li.querySelector('.sc-meta').innerHTML = (sp.error ? '<span class="sc-flag">Problem · </span>' : '') + escapeHtml(bits.join(' · '));
@@ -691,6 +704,7 @@
     if (!stkOk && sp.stacked) { sp.stacked = false; q('.sp-stk').checked = false; }
     q('.sp-stk-kind').hidden = !stkOk || !sp.stacked;
     q('.sp-pin-row').hidden = !inRoomKind || !sp.src.trim() || isModel || drive || !!sp.stacked;
+    q('.sp-mask-row').hidden = !layers.length || !isMaskable(sp);
 
     if (sp.stacked) { sp.hidden = false; q('.sp-hide-row').hidden = true; }
     const checks = [...li.querySelectorAll('.sc-checks > .check')];

@@ -103,7 +103,7 @@
     const kindFlag = kind === 'text' || kind === guess || (kind === 'video' && Media.youTube(s.src)) ? ''
       : { audio: 'a', video: 'v', image: 'i', link: 'k', model: 'm', doc: 'p' }[kind];
     const flags = (s.play === 'look' ? 'l' : s.play === 'start' ? 's' : '') + kindFlag +
-      (s.hidden ? 'h' : '') + (s.loop ? 'r' : '') + (s.dwell ? 'd' : '') + (s.spin ? 'o' : '') + (s.flat ? 'f' : '') + (s.stacked && kind === 'video' ? 'x' + (s.alpha ? 'w' : '') : '');
+      (s.hidden ? 'h' : '') + (s.loop ? 'r' : '') + (s.dwell ? 'd' : '') + (s.spin ? 'o' : '') + (s.flat ? 'f' : '') + (s.stacked && kind === 'video' ? 'x' + (s.alpha ? 'w' : '') : '') + (s.noMask ? 'u' : '');
     const label = (s.label || '').trim();
     const w = s.w && Math.round(s.w) !== DEFAULT_W ? Math.round(s.w) : '';
     const src = kind === 'text' ? 't:' + s.src.trim() : shorten ? Media.shorten(s.src) : s.src.trim();
@@ -133,7 +133,7 @@
       spin: flags.includes('o'),
       flat: flags.includes('f'),
       stacked: flags.includes('x'),
-      behind: flags.includes('b'),     // behind the front layer (parts of the photo drawn in front of it)
+      noMask: flags.includes('u'),     // masks don't hide this spot (it stays in front of them)
       alpha: flags.includes('x') && flags.includes('w'),       // a WebM with its own transparency (not a stencil MP4)
       rot: (() => { const r = String(parts[7] || '').split(',').map(Number); return r.length === 3 && r.every(Number.isFinite) ? r : [0, 0, 0]; })()
     };
@@ -147,7 +147,7 @@
     return [[n[0], n[1]], [n[2], n[3]], [n[4], n[5]], [n[6], n[7]]];
   }
   // Settings that need the player rebuilt when they change (moving, resizing and relabelling don't)
-  const rebuildKey = d => [d.src, kindOf(d), d.play, !!d.hidden, !!d.loop, !!d.dwell, !!d.stacked, !!d.alpha, !!d.behind, kindOf(d) === 'link' ? d.label : ''].join('|');
+  const rebuildKey = d => [d.src, kindOf(d), d.play, !!d.hidden, !!d.loop, !!d.dwell, !!d.stacked, !!d.alpha, !!d.noMask, kindOf(d) === 'link' ? d.label : ''].join('|');
   const MODEL_DIST = 8;            // 3D models sit this far from the viewer (the 360 photo is much further away)
   const BEHIND_DIST = 60;          // …or this far, when they're behind the front layer (a cut-out copy of the photo, nearer than this)
   const distOf = s => s.behind ? BEHIND_DIST : MODEL_DIST;
@@ -250,7 +250,8 @@
       s.inScene = s.showsPicture && !s.hidden;                  // something sitting in the room
       // Masks (drawn by the author) hide the visual spots behind them: pictures, videos, 3D models, text and documents.
       // Controls (sound buttons, links, the dots that reveal things) are never hidden.
-      s.behind = s.inScene && !s.isLink && !(s.drivePlayer && s.kind === 'audio');
+      // (unless the author unticked "Hidden by masks" for it)
+      s.behind = s.inScene && !s.isLink && !(s.drivePlayer && s.kind === 'audio') && !def.noMask;
       s.aspect = s.isImage ? 4 / 3 : s.drivePlayer && s.kind === 'audio' ? 3 : 16 / 9;                    // a picture's real shape arrives when it loads
 
       const visible = !s.hidden || opts.editable;               // the author still sees hidden spots, faintly
