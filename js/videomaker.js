@@ -61,11 +61,15 @@
     '  return clamp((al - uSim) / max(min(uSoft, 1.0 - uSim), 0.01), 0.0, 1.0);',
     '}',
     'float keyA(vec2 uv) { float al; vec3 k; return keyAt(uv, al, k); }',
+    // Clean up coloured edges: bring the screen's colour down to the average of the other two, then add what was
+    // taken away back as the screen's opposite colour (magenta for green, orange for blue), so edges keep their brightness
+    'uniform vec3 uComp;',
     'vec3 despill(vec3 c) {',
-    '  if (uCh == 1) c.g = min(c.g, max(c.r, c.b));',
-    '  else if (uCh == 2) c.b = min(c.b, max(c.r, c.g));',
-    '  else c.r = min(c.r, max(c.g, c.b));',
-    '  return c;',
+    '  float sp;',
+    '  if (uCh == 1) { sp = max(c.g - (c.r + c.b) * 0.5, 0.0); c.g -= sp; }',
+    '  else if (uCh == 2) { sp = max(c.b - (c.r + c.g) * 0.5, 0.0); c.b -= sp; }',
+    '  else { sp = max(c.r - (c.g + c.b) * 0.5, 0.0); c.r -= sp; }',
+    '  return clamp(c + sp * uComp, 0.0, 1.0);',
     '}',
     'void main() {',
     '  vec4 src = texture2D(uVideo, vUv);',
@@ -164,7 +168,7 @@
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     const u = n => gl.getUniformLocation(prog, n);
     const U = {};
-    ['uVideo', 'uBg', 'uMask', 'uPlate', 'uKey', 'uKeys', 'uNKeys', 'uPlateOn', 'uSim', 'uSoft', 'uSpill', 'uFeather', 'uChoke', 'uSpeck', 'uHole', 'uPx', 'uOut', 'uAlpha', 'uCh']
+    ['uVideo', 'uBg', 'uMask', 'uPlate', 'uKey', 'uKeys', 'uNKeys', 'uPlateOn', 'uSim', 'uSoft', 'uSpill', 'uFeather', 'uChoke', 'uSpeck', 'uHole', 'uPx', 'uOut', 'uAlpha', 'uCh', 'uComp']
       .forEach(n => { U[n] = u(n); });
     gl.uniform1i(U.uVideo, 0); gl.uniform1i(U.uBg, 1); gl.uniform1i(U.uMask, 2); gl.uniform1i(U.uPlate, 3);
     const put = (unit, t, source) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source); };
@@ -190,6 +194,11 @@
         gl.uniform1i(U.uOut, out); gl.uniform1i(U.uAlpha, p.alpha ? 1 : 0);
         const [r, g, b] = key.rgb;
         gl.uniform1i(U.uCh, g >= r && g >= b ? 1 : b >= r ? 2 : 0);        // which colour the screen is
+        // the screen's opposite colour, used to replace the screen-coloured light taken off the edges
+        const mx = Math.max(r, g, b, 0.01), ch = g >= r && g >= b ? 1 : b >= r ? 2 : 0;
+        const comp = [r, g, b].map((v, i) => i === ch ? 0 : 1 - v / mx);
+        const cm = Math.max(...comp, 0.01);
+        gl.uniform3fv(U.uComp, comp.map(v => v / cm * 0.5));
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
     };

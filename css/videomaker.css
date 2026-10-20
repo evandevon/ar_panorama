@@ -110,3 +110,10 @@ h3.sub:first-of-type { margin-top: 8px; }
 .fmt input { margin-top: 4px; accent-color: var(--brass-dark); width: 18px; height: 18px; flex: none; }
 .tag { display: inline-block; padding: 0 7px; border-radius: 999px; background: var(--slate); font-size: .75rem; font-weight: 600; color: #fff; vertical-align: 1px; }
 #sound-row:has(input:disabled) { opacity: .6; }
+
+/* extra background colour + empty background: tucked under the main colour */
+.key-more { margin: -6px 0 6px 52px; }
+.key-more .key-row { margin: 0 0 2px; }
+.key-more .help { margin-top: 2px; }
+.key-more .plate-row { margin-top: 8px; }
+.plate-row .btn { height: auto; min-height: 36px; padding: 6px 12px; line-height: 1.3; }

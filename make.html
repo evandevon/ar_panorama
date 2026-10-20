@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>360° QR Experience Maker</title>
   <meta name="description" content="Paste a link to a 360° photo and some audio, and get a QR code that opens it on any phone. No sign-in.">
-  <link rel="stylesheet" href="css/create.css?v=20261020b">
+  <link rel="stylesheet" href="css/create.css?v=20261020d">
   <script src="vendor/qrcode.js"></script>
-  <script src="js/sources.js?v=20261020b"></script>
-  <script src="js/spots.js?v=20261020b"></script>
+  <script src="js/sources.js?v=20261020d"></script>
+  <script src="js/spots.js?v=20261020d"></script>
 </head>
 <body>
 <header class="masthead">
@@ -60,6 +60,30 @@
         </div>
         <p class="help" id="bright-help">Lights every 3D model at once. Match them to the photo: darker for a dim room, brighter for a sunny one.</p>
       </div>
+      <details class="layers" id="layers-box">
+        <summary><b>Things in front</b> <span class="opt">tuck spots behind a desk, or show them through a window</span></summary>
+        <p class="help">Draw around parts of the photo that should be in front of spots. Then tick <b>Behind the front layer</b> on any spot to tuck it behind them.</p>
+        <div class="layer-tools" role="group" aria-label="Draw a front-layer shape">
+          <button type="button" class="ltool" data-kind="front" aria-pressed="false" disabled>
+            <span class="lmark front" aria-hidden="true"></span><span><b>Something in front</b><br><span class="help-inline">Draw around a desk, cupboard, door frame or person in the photo.</span></span>
+          </button>
+          <button type="button" class="ltool" data-kind="window" aria-pressed="false" disabled>
+            <span class="lmark window" aria-hidden="true"></span><span><b>A window or doorway</b><br><span class="help-inline">Draw around an opening. Everything else is in front, so spots behind it are only seen through it.</span></span>
+          </button>
+        </div>
+        <div class="layer-bar" id="layer-bar" hidden>
+          <span><b id="layer-what"></b>: click around it in the preview, dot by dot (dragging still turns the view). <span id="layer-count"></span></span>
+          <button type="button" class="btn small" id="layer-done" disabled>Done</button>
+          <button type="button" class="btn small ghost" id="layer-undo" disabled>Undo dot</button>
+          <button type="button" class="btn small ghost" id="layer-cancel">Cancel</button>
+        </div>
+        <ul class="layer-list" id="layer-list" aria-label="Front-layer shapes"></ul>
+        <div class="layer-opts" id="layer-opts" hidden>
+          <button type="button" class="btn small ghost" id="layer-edit" aria-pressed="false">Adjust the dots</button>
+          <label class="check"><input type="checkbox" id="layer-show" checked> Show the front layer in the preview</label>
+        </div>
+        <p class="status" id="layer-status" role="status" aria-live="polite"></p>
+      </details>
     </section>
 
     <section class="panel step-title" aria-labelledby="h-title">
@@ -146,6 +170,6 @@
   <p>Want a person or object standing in the room, with the room showing around them? Make a see-through video from green-screen footage with the <a href="videomaker.html">See-through Video Maker</a>.</p>
 </footer>
 
-<script src="js/create.js?v=20261020b"></script>
+<script src="js/create.js?v=20261020d"></script>
 </body>
 </html>

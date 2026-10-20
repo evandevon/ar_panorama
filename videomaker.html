@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>See-through Video Maker</title>
   <meta name="description" content="Turn a green-screen video into a see-through video for 360° tours. Everything happens on your computer; nothing is uploaded.">
-  <link rel="stylesheet" href="css/create.css?v=20261020b">
-  <link rel="stylesheet" href="css/videomaker.css?v=20261020b">
+  <link rel="stylesheet" href="css/create.css?v=20261020d">
+  <link rel="stylesheet" href="css/videomaker.css?v=20261020d">
 </head>
 <body>
 <header class="masthead">
@@ -93,6 +93,20 @@
         <span><b>Colour to remove</b><br><span class="help-inline" id="key-text">Click the background in the preview</span></span>
         <button type="button" class="btn small ghost" id="auto-key" disabled>Pick it for me</button>
       </div>
+      <div class="key-more">
+        <div class="key-row">
+          <ul class="extra-keys" id="extra-keys" aria-label="Extra background colours" hidden></ul>
+          <button type="button" class="btn small ghost" id="add-key" aria-pressed="false" disabled>＋ Add another background colour</button>
+        </div>
+        <p class="help">For shadows, creases or darker corners that are still showing: add their colour too.</p>
+        <p class="status" id="key-status" role="status" aria-live="polite"></p>
+        <div class="plate-row">
+          <button type="button" class="btn small ghost" id="plate" disabled>Use this moment as the empty background</button>
+          <button type="button" class="btn small ghost" id="plate-clear" hidden>Stop using it</button>
+        </div>
+        <p class="help">The best fix for a creased or unevenly lit screen. If your video has a moment with nobody in it (before the person walks in, say), move to that moment and press this.</p>
+        <p class="status" id="plate-status" role="status" aria-live="polite"></p>
+      </div>
       <label for="sim">Remove more or less <output id="sim-out" for="sim"></output></label>
       <input type="range" id="sim" min="0" max="100" value="36" aria-describedby="sim-help">
       <p class="help" id="sim-help">Slide right until the background has gone. If parts of the person start to disappear, slide back.</p>
@@ -101,7 +115,7 @@
       <p class="help" id="soft-help">Feathers the outline so it blends into the room. The inside stays solid.</p>
       <label for="spill">Clean up coloured edges <output id="spill-out" for="spill"></output></label>
       <input type="range" id="spill" min="0" max="100" value="100" aria-describedby="spill-help">
-      <p class="help" id="spill-help">Removes the green (or blue) glow the screen leaves around hair and edges.</p>
+      <p class="help" id="spill-help">Removes the green (or blue) tint the screen leaves on hair and edges, shifting it back towards their own colour.</p>
     </div>
     <p class="help" id="alpha-note" hidden>The video's own transparency is used. (This works in Chrome and Edge, which can read see-through WebM videos.)</p>
   </section>
@@ -138,20 +152,6 @@
     <p class="help">Shapes stay in one place, so they suit someone standing still. Drag a dot to move it.</p>
 
     <div id="key-fix">
-      <h3 class="sub">Patchy or uneven background</h3>
-      <div class="key-row">
-        <ul class="extra-keys" id="extra-keys" aria-label="Extra background colours" hidden></ul>
-        <button type="button" class="btn small ghost" id="add-key" aria-pressed="false" disabled>＋ Add another background colour</button>
-      </div>
-      <p class="help">For shadows, creases or darker corners that are still showing: add their colour too.</p>
-      <p class="status" id="key-status" role="status" aria-live="polite"></p>
-      <div class="plate-row">
-        <button type="button" class="btn small ghost" id="plate" disabled>Use this moment as the empty background</button>
-        <button type="button" class="btn small ghost" id="plate-clear" hidden>Stop using it</button>
-      </div>
-      <p class="help">The best fix for a creased or unevenly lit screen. If your video has a moment with nobody in it (before the person walks in, say), move to that moment and press this.</p>
-      <p class="status" id="plate-status" role="status" aria-live="polite"></p>
-
       <h3 class="sub">Tidy the edges</h3>
       <label for="choke">Shrink the edges <output id="choke-out" for="choke"></output></label>
       <input type="range" id="choke" min="0" max="10" value="0" aria-describedby="choke-help">
@@ -235,6 +235,6 @@
 
 <video id="src" playsinline muted preload="auto" hidden></video>
 <script src="vendor/fix-webm-duration/fix-webm-duration.js"></script>
-<script src="js/videomaker.js?v=20261020b"></script>
+<script src="js/videomaker.js?v=20261020d"></script>
 </body>
 </html>

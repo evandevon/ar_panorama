@@ -499,6 +499,15 @@
       lc.yawObject.rotation.y += (m.yaw || 0) * Math.PI / 180;
       lc.pitchObject.rotation.x = clampPitch(lc.pitchObject.rotation.x + (m.pitch || 0) * Math.PI / 180);
       clearTimeout(nudgeReport); nudgeReport = setTimeout(reportView, 120);
+    } else if (m.type === 'setLayers') {
+      // the author's front layer: its shapes, whether to show it, and any shape being drawn
+      layerEditing = !!m.editing;
+      front.set((m.shapes || []).map(FrontLayer.decode).filter(Boolean), {
+        show: m.show !== false,
+        tool: m.tool || null,
+        draft: m.draft && m.draft.pts && m.draft.pts.length ? m.draft : null
+      });
+      document.body.classList.toggle('layer-drawing', !!m.tool);
     } else if (m.type === 'setBrightness') {
       spots.setBrightness(m.value);
     } else if (m.type === 'stopAll') {
@@ -508,6 +517,15 @@
 
   // ------------------------------------------------------------- video spots
   let spotDefs = [];             // the spots shown, so a late error can say which file it was about
+  // The front layer: parts of the photo drawn in front of spots marked "behind" (made in the author page)
+  let layerEditing = false;
+  const front = FrontLayer({
+    sceneEl: sceneEl,
+    layer: $('spots'),
+    editable: PREVIEW,
+    isEditing: () => layerEditing,
+    tell: tell
+  });
   const spots = HotSpots({
     sceneEl: sceneEl,
     editable: PREVIEW,
@@ -515,6 +533,8 @@
     onEdit: (i, v) => tell(Object.assign({ type: 'spotEdit', index: i }, v)),
     onSelect: i => tell({ type: 'spotSelect', index: i }),
     layer: $('spots'),
+    backLayer: front.backLayer,
+    frontAt: (x, y) => front.hiddenAt(x, y),
     offscreen: $('spots-offscreen'),
     onActivity: n => Sound.duck(n > 0),
     onError: (i, msg) => { tell({ type: 'spotError', index: i, message: msg, src: spotDefs[i] ? spotDefs[i].src : null }); if (!PREVIEW) console.warn('Video spot ' + (i + 1) + ': ' + msg); },
@@ -523,7 +543,7 @@
       document.addEventListener('pointerdown', fix, { once: true, capture: true });
     }
   });
-  AFRAME.registerComponent('spot-tracker', { tock: () => spots.update() });
+  AFRAME.registerComponent('spot-tracker', { tock: () => { front.update(); spots.update(); } });
 
   // ------------------------------------------------------------- boot
   async function main() {
@@ -544,6 +564,7 @@
     rig.setAttribute('rotation', { x: 0, y: cfg.yaw, z: 0 });
     bindDrag();
     rig.setAttribute('spot-tracker', '');
+    front.set(params.getAll('f').map(FrontLayer.decode).filter(Boolean));
     spotDefs = params.getAll('s').map(HotSpots.decode);
     spots.set(spotDefs);
 

@@ -100,6 +100,20 @@ Video sizes are stored as an angle (for example, "20° wide"), so a video stays 
 - **YouTube's rules.** YouTube's terms say its player must stay visible: at least 200 × 200 pixels, with nothing covering it. Videos in the room follow this. Sound-only and hidden YouTube spots don't. Use an MP3 for those where you can; the author page warns you when needed.
 - **Autoplay on phones.** Phones, especially iPhones, often block sound that doesn't start from a tap. If an automatic YouTube spot is blocked, it plays muted with a **Tap for sound** button. MP3 and MP4 spots are unlocked during the viewer's first tap, so they're more reliable for automatic sound.
 
+### Things in front (the front layer)
+
+Spots can be tucked behind parts of the photo, like a person standing behind the teacher's desk, or seen through a window or doorway.
+
+1. In step 2, open **Things in front** and choose a shape:
+   - **Something in front:** draw around a desk, cupboard, door frame or person in the photo.
+   - **A window or doorway:** draw around an opening. Everything else is in front, so spots behind it are only seen through it.
+2. Turn the preview to it and click around it dot by dot (dragging still turns the view). Click the first dot, or press **Done**, to close the shape.
+3. On each spot that should go behind, tick **Behind the front layer**.
+
+Use **Adjust the dots** to drag the dots in the preview, and untick **Show the front layer in the preview** while you move spots that are hidden behind it. Shapes are saved in the link as compass positions, so there's no extra file to make or upload.
+
+Every kind of spot works behind the front layer. The covered parts can't be tapped, and "plays when looked at" doesn't start while the crosshair is on the front layer. 3D models and see-through videos behind it are hidden by a cut-out copy of the photo, so the edge is invisible. Shapes have straight-edged outlines, so they suit furniture, frames and openings better than hair or plants. Viewers stand at the centre of the photo, so this is layering, like paper cut-outs, rather than real depth.
+
 ### See-through videos
 
 A see-through video shows a person or object standing in the room, with the room visible around them (like a weather presenter in front of a map). It plays on every phone, including iPhones.
@@ -231,9 +245,11 @@ Dragging, sound, video, text, links and look-to-reveal dots all work inside an e
 
 ## Link format
 
-`?p=<photo>&t=<title>&y=<start direction°>&al=1&mb=<model brightness>&s=<spot>&s=<spot>…&v=2`
+`?p=<photo>&t=<title>&y=<start direction°>&al=1&mb=<model brightness>&s=<spot>&s=<spot>…&f=<shape>&f=<shape>…&v=2`
 
-Each spot is written as `link~yaw~pitch~flags~label~width°~corners~turn`. Text spots use `t:` followed by the text instead of a link. Corners (only for pinned spots) are eight whole-degree offsets from the centre: top-left, top-right, bottom-right, bottom-left, each as yaw,pitch. Turn (only for 3D models) is `turn,tilt,roll` in whole degrees. `mb` is only included when it isn't 1 (normal). The flags are `l` (plays/shows when looked at), `s` (plays at start), `h` (hidden), `r` (loop), `d` (appears after the dot), `o` (3D model spins), `f` (3D model in bright, flat colours), `x` (see-through video), `w` (with `x`: a WebM with its own transparency rather than a stencil MP4), and `a` / `v` / `i` / `k` / `m` / `p` (sound / video / picture / link / 3D model / document), used when the kind can't be told from the link.
+Each spot is written as `link~yaw~pitch~flags~label~width°~corners~turn`. Text spots use `t:` followed by the text instead of a link. Corners (only for pinned spots) are eight whole-degree offsets from the centre: top-left, top-right, bottom-right, bottom-left, each as yaw,pitch. Turn (only for 3D models) is `turn,tilt,roll` in whole degrees. `mb` is only included when it isn't 1 (normal). The flags are `l` (plays/shows when looked at), `s` (plays at start), `h` (hidden), `r` (loop), `d` (appears after the dot), `o` (3D model spins), `f` (3D model in bright, flat colours), `x` (see-through video), `w` (with `x`: a WebM with its own transparency rather than a stencil MP4), `b` (behind the front layer), and `a` / `v` / `i` / `k` / `m` / `p` (sound / video / picture / link / 3D model / document), used when the kind can't be told from the link.
+
+Each front-layer shape (`f=`) is a list of `yaw,pitch` pairs in degrees, to the nearest half degree, for example `f=0,15,-20,15,-20,-15,0,-15`. A shape starting with `w` is a window or doorway (everything except inside it is in front).
 
 **The format is safe for email and chat.** It uses only characters that email, chat and document apps keep inside a clickable link. Inside each field, `% ~ | ! * ' ( )` and line breaks are escaped. Links always end with `v=2`, so a full stop or bracket at the end of a label can't be mistaken for the end of the sentence.
 

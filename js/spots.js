@@ -103,7 +103,7 @@
     const kindFlag = kind === 'text' || kind === guess || (kind === 'video' && Media.youTube(s.src)) ? ''
       : { audio: 'a', video: 'v', image: 'i', link: 'k', model: 'm', doc: 'p' }[kind];
     const flags = (s.play === 'look' ? 'l' : s.play === 'start' ? 's' : '') + kindFlag +
-      (s.hidden ? 'h' : '') + (s.loop ? 'r' : '') + (s.dwell ? 'd' : '') + (s.spin ? 'o' : '') + (s.flat ? 'f' : '') + (s.stacked && kind === 'video' ? 'x' + (s.alpha ? 'w' : '') : '');
+      (s.hidden ? 'h' : '') + (s.loop ? 'r' : '') + (s.dwell ? 'd' : '') + (s.spin ? 'o' : '') + (s.flat ? 'f' : '') + (s.stacked && kind === 'video' ? 'x' + (s.alpha ? 'w' : '') : '') + (s.behind ? 'b' : '');
     const label = (s.label || '').trim();
     const w = s.w && Math.round(s.w) !== DEFAULT_W ? Math.round(s.w) : '';
     const src = kind === 'text' ? 't:' + s.src.trim() : shorten ? Media.shorten(s.src) : s.src.trim();
@@ -133,6 +133,7 @@
       spin: flags.includes('o'),
       flat: flags.includes('f'),
       stacked: flags.includes('x'),
+      behind: flags.includes('b'),     // behind the front layer (parts of the photo drawn in front of it)
       alpha: flags.includes('x') && flags.includes('w'),       // a WebM with its own transparency (not a stencil MP4)
       rot: (() => { const r = String(parts[7] || '').split(',').map(Number); return r.length === 3 && r.every(Number.isFinite) ? r : [0, 0, 0]; })()
     };
@@ -146,8 +147,10 @@
     return [[n[0], n[1]], [n[2], n[3]], [n[4], n[5]], [n[6], n[7]]];
   }
   // Settings that need the player rebuilt when they change (moving, resizing and relabelling don't)
-  const rebuildKey = d => [d.src, kindOf(d), d.play, !!d.hidden, !!d.loop, !!d.dwell, !!d.stacked, !!d.alpha, kindOf(d) === 'link' ? d.label : ''].join('|');
+  const rebuildKey = d => [d.src, kindOf(d), d.play, !!d.hidden, !!d.loop, !!d.dwell, !!d.stacked, !!d.alpha, !!d.behind, kindOf(d) === 'link' ? d.label : ''].join('|');
   const MODEL_DIST = 8;            // 3D models sit this far from the viewer (the 360 photo is much further away)
+  const BEHIND_DIST = 60;          // …or this far, when they're behind the front layer (a cut-out copy of the photo, nearer than this)
+  const distOf = s => s.behind ? BEHIND_DIST : MODEL_DIST;
 
   function el(tag, cls, html) {
     const e = document.createElement(tag);
@@ -171,6 +174,8 @@
     let spots = [];
     let started = false, muted = false, selected = -1, lastTick = 0;
 
+    // Spots behind the front layer go in its own layer, which hides whatever the front layer covers
+    const layerOf = s => (s.behind && opts.backLayer) || opts.layer;
     function dirFrom(yaw, pitch) {
       const y = yaw * Math.PI / 180, p = pitch * Math.PI / 180;
       return new THREE.Vector3(-Math.sin(y) * Math.cos(p), Math.sin(p), -Math.cos(y) * Math.cos(p));
@@ -231,6 +236,7 @@
       s.isStacked = s.kind === 'video' && !!def.stacked && !Media.youTube(def.src) && !s.drivePlayer;
       if (s.isStacked) { s.hidden = false; s.pin = null; }
       s.ownAlpha = s.isStacked && !!def.alpha;      // or a WebM that's see-through by itself
+      s.behind = !!def.behind;
       s.rot = Array.isArray(def.rot) ? def.rot.slice() : [0, 0, 0];
       s.isStill = s.isImage || s.isText || s.isLink || s.isModel || s.isDoc || s.drivePlayer;   // nothing to play
       s.isVideoFile = !s.yt && s.kind === 'video';
@@ -295,7 +301,7 @@
       }
       if (opts.editable) addEditHandles(s);
       s.el.appendChild(s.frame);
-      opts.layer.appendChild(s.el);
+      layerOf(s).appendChild(s.el);
     }
 
     // Google Drive's own player, in a frame in the room
@@ -340,7 +346,7 @@
         s.frame.querySelector('.spot-edit').prepend(t);
       }
       s.el.appendChild(s.frame);
-      opts.layer.appendChild(s.el);
+      layerOf(s).appendChild(s.el);
     }
 
     function expand(s, on) {
@@ -380,7 +386,7 @@
       if (opts.editable) addEditHandles(s);
       else img.addEventListener('click', () => openLightbox(s));
       s.el.appendChild(s.frame);
-      opts.layer.appendChild(s.el);
+      layerOf(s).appendChild(s.el);
     }
 
     // Tapping a picture shows it full screen, e.g. to read an old letter or poster
@@ -497,7 +503,7 @@
         s.frame.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openInspector(s); } });
       }
       s.el.appendChild(s.frame);
-      opts.layer.appendChild(s.el);
+      layerOf(s).appendChild(s.el);
     }
 
     // "Bright, flat colours (like Tinkercad)": the author's choice, made while watching the preview.
@@ -651,7 +657,7 @@
         s.frame.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
       }
       s.el.appendChild(s.frame);
-      opts.layer.appendChild(s.el);
+      layerOf(s).appendChild(s.el);
     }
 
     // ---------------------------------------------------------- documents
@@ -696,7 +702,7 @@
         card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDoc(s); } });
       }
       s.el.appendChild(s.frame);
-      opts.layer.appendChild(s.el);
+      layerOf(s).appendChild(s.el);
     }
 
     // Full screen: the host's own viewer in a frame, or the built-in PDF reader. Always with a way out to a new tab.
@@ -823,7 +829,7 @@
       s.frame.appendChild(a);
       if (opts.editable) { addEditHandles(s); a.addEventListener('click', e => e.preventDefault()); }
       s.el.appendChild(s.frame);
-      opts.layer.appendChild(s.el);
+      layerOf(s).appendChild(s.el);
     }
 
     const DOC_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 2h8l5 5v15H6z"/><path d="M14 2v5h5"/></svg>';
@@ -910,7 +916,7 @@
       s.el.append(s.marker, s.unmute);
       if (opts.editable) makeDraggable(s, s.marker, () => toggle(s));
       else s.marker.addEventListener('click', () => toggle(s));
-      opts.layer.appendChild(s.el);
+      layerOf(s).appendChild(s.el);
     }
 
     function destroy(s) {
@@ -1129,6 +1135,8 @@
       const ppd = pxPerDegree();
       const now = performance.now(), dt = Math.min(100, now - (lastTick || now));
       lastTick = now;
+      // the centre of the screen on part of the front layer: spots behind it can't be "looked at" there
+      const centreHidden = !!(opts.frontAt && opts.frontAt(w / 2, h / 2));
 
       spots.forEach(s => {
         const angle = fwd.angleTo(s.dir) * 180 / Math.PI;
@@ -1150,7 +1158,7 @@
         // A dot waiting to be looked at: fill its ring while the crosshair rests on it
         if (s.dwell && !s.revealed) {
           if (started && onScreen && !s.dragging) {
-            const near = Math.hypot(w / 2 - x, h / 2 - y) < 30;
+            const near = Math.hypot(w / 2 - x, h / 2 - y) < 30 && !(s.behind && centreHidden);
             s.dwellT = near ? s.dwellT + dt : Math.max(0, s.dwellT - dt * 2);
             if (s.dwellRing) s.dwellRing.style.strokeDashoffset = String(100 - Math.min(100, s.dwellT / DWELL_MS * 100));
             if (s.dwellT >= DWELL_MS) reveal(s, 'look');
@@ -1159,7 +1167,7 @@
         // Revealed: hide it again once the crosshair has moved off it for a moment. (Revealed by a tap and not
         // looked at yet? Then it stays until it's turned out of view.)
         else if (s.dwell && s.revealed && started && !s.dragging) {
-          const on = onScreen && crosshairOn(s, x, y, w, h, angle, 24);
+          const on = onScreen && crosshairOn(s, x, y, w, h, angle, 24) && !(s.behind && centreHidden);
           if (on) s.seen = true;
           const away = s.seen ? !on : !onScreen || x < 0 || x > w || y < 0 || y > h;
           s.awayT = away ? (s.awayT || 0) + dt : 0;
@@ -1183,6 +1191,7 @@
           } else {
             on = angle < 12; off = angle > 18;                      // sounds: about the size of their marker
           }
+          if (s.behind && centreHidden) { on = false; off = true; }
           if (s.isImage || s.isModel) {                                        // pictures fade in while looked at
             if (on) s.el && s.el.classList.add('shown');
             else if (off) s.el && s.el.classList.remove('shown');
@@ -1243,11 +1252,11 @@
     const _c = new THREE.Vector3(), _d = new THREE.Vector3(), _q = [];
     function placeModel(s, camera, w, h, dt) {
       const o = s.ent.object3D;
-      o.position.copy(s.dir).multiplyScalar(MODEL_DIST);
+      o.position.copy(s.dir).multiplyScalar(distOf(s));
       o.lookAt(0, o.position.y, 0);                                  // face the viewer, staying upright
       if (s.spin && !s.dragging) s.rot[0] = (s.rot[0] + dt * 0.02) % 360;   // about 20° a second
       s.turn.object3D.rotation.set(s.rot[1] * Math.PI / 180, s.rot[0] * Math.PI / 180, s.rot[2] * Math.PI / 180, 'YXZ');
-      const size = 2 * MODEL_DIST * Math.tan((s.w * Math.PI / 180) / 2);
+      const size = 2 * distOf(s) * Math.tan((s.w * Math.PI / 180) / 2);
       if (s.maxDim) s.fit.object3D.scale.setScalar(size / s.maxDim);
       // hidden until its dot is looked at; or only while looked at
       const show = !(s.dwell && !s.revealed && !opts.editable) && !(s.play === 'look' && !opts.editable && !s.el.classList.contains('shown'));
@@ -1320,7 +1329,7 @@
         s.frame.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(s); } });
       }
       s.el.appendChild(s.frame);
-      opts.layer.appendChild(s.el);
+      layerOf(s).appendChild(s.el);
     }
     function attachStacked(s) {
       const v = s.media;
@@ -1352,9 +1361,9 @@
     }
     function placeStacked(s, camera, w, h) {
       const o = s.ent.object3D;
-      o.position.copy(s.dir).multiplyScalar(MODEL_DIST);
+      o.position.copy(s.dir).multiplyScalar(distOf(s));
       o.lookAt(0, 0, 0);                                   // face the viewer
-      const width = 2 * MODEL_DIST * Math.tan((s.w * Math.PI / 180) / 2);
+      const width = 2 * distOf(s) * Math.tan((s.w * Math.PI / 180) / 2);
       const height = width / (s.vAspect || 1);
       s.mesh.scale.set(width, height, 1);
       s.mesh.visible = !!s.vAspect && !(s.dwell && !s.revealed && !opts.editable);

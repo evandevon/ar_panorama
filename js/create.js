@@ -11,6 +11,18 @@
   let loadedKey = '';       // what the preview iframe is showing
   let panoOk = null;        // did the preview manage to load the photo?
   let qrUrl = '';
+  // The front layer: outlines on the photo, drawn in front of spots marked "behind" ({ kind: 'front'|'window', pts: [[yaw, pitch]…] })
+  let layers = [];
+  let layerTool = null, layerDraft = [], layerEditing = false;
+  const halfDeg = n => +(Math.round(n * 2) / 2).toFixed(1);
+  const encodeLayer = l => (l.kind === 'window' ? 'w' : '') + l.pts.map(p => halfDeg(p[0]) + ',' + halfDeg(p[1])).join(',');
+  function decodeLayer(str) {
+    str = String(str || '').trim();
+    const n = str.replace(/^w/i, '').split(',').map(Number);
+    if (n.length < 6 || n.length % 2 || !n.every(Number.isFinite)) return null;
+    const pts = []; for (let i = 0; i < n.length; i += 2) pts.push([n[i], n[i + 1]]);
+    return { kind: /^w/i.test(str) ? 'window' : 'front', pts };
+  }
 
   // ------------------------------------------------------------- state ↔ page address
   function readForm() {
@@ -30,6 +42,7 @@
     if (f.align) q.set('al', '1');
     if (f.bright !== 1 && hasModels()) q.set('mb', f.bright);
     spots.filter(sp => sp.src.trim()).forEach(sp => q.append('s', HotSpots.encode(sp, false)));
+    layers.forEach(l => q.append('f', encodeLayer(l)));
     history.replaceState(null, '', q.toString() ? '?' + q : location.pathname);
   }
 
@@ -41,6 +54,7 @@
     $('in-bright').value = Number(q.get('mb')) || 1;
     yaw = Number(q.get('y')) || 0;
     spots = q.getAll('s').map(HotSpots.decode).filter(Boolean);
+    layers = q.getAll('f').map(decodeLayer).filter(Boolean);
     // Older links had a separate background sound: turn it into a hidden sound spot
     if (q.get('a')) spots.unshift({ src: q.get('a'), yaw: 0, pitch: 0, w: HotSpots.DEFAULT_W, play: 'start', type: 'audio', hidden: true, loop: q.get('l') === '1', label: 'Background sound' });
   }
@@ -57,6 +71,7 @@
     if (f.align && !preview) q.push(['al', '1']);
     if (f.bright !== 1 && hasModels()) q.push(['mb', f.bright]);
     if (!preview) spots.filter(sp => sp.src.trim()).forEach(sp => q.push(['s', HotSpots.encode(sp, true)]));
+    if (!preview) layers.forEach(l => q.push(['f', encodeLayer(l)]));
     if (preview) q.push(['preview', '1']);
     else q.push(['v', '2']);                        // format version, and a safe last character for email
     return here.href + '?' + q.map(([k, v]) => k + '=' + enc(String(v))).join('&');
@@ -199,6 +214,7 @@
         $('set-start').disabled = false;
         sendSpots();
         renderSpots();
+        sendLayers(); renderLayers();
         if (m.video) {
           status('pano-status', m.width > 4096 ? 'note' : 'ok', '360 video loaded (' + m.width + ' × ' + m.height + ').' +
             (m.width > 4096 ? ' Many phones can’t play 360 video wider than 4096 px — 2880 × 1440 is a safe size.' : '') +
@@ -220,6 +236,14 @@
         sp.error = m.message; renderSpotStatus(m.index);
         const li = $('spot-list').children[m.index]; if (li) updateSummary(li, sp);
       }
+    } else if (m.type === 'layerPoint') {
+      if (!layerTool) return;
+      layerDraft.push([m.yaw, m.pitch]); sendLayers(); renderLayerBar();
+    } else if (m.type === 'layerClose') {
+      finishLayer();
+    } else if (m.type === 'layerMove') {
+      const l = layers[m.shape];
+      if (l && l.pts[m.point]) { l.pts[m.point] = [m.yaw, m.pitch]; layersChanged(false); }
     } else if (m.type === 'spotEdit') {
       // Moved or resized by dragging in the preview: the preview already shows it, so just record it
       const sp = spots[m.index];
@@ -275,6 +299,82 @@
     post({ type: 'setSpots', spots: spots.map(sp => (sp.src.trim() ? HotSpots.encode(sp, false) : null)) });
     post({ type: 'setBrightness', value: readForm().bright });
   }
+
+  // ------------------------------------------------------------- the front layer ("Things in front")
+  const LAYER_NAMES = { front: 'Something in front', window: 'A window or doorway' };
+  function sendLayers() {
+    post({ type: 'setLayers', shapes: layers.map(encodeLayer), show: $('layer-show').checked || !!layerTool,
+      tool: layerTool, draft: layerTool ? { kind: layerTool, pts: layerDraft } : null, editing: layerEditing });
+  }
+  function layersChanged(resend) {
+    saveToAddress(readForm());
+    if (resend) sendLayers();
+    renderLayers();
+    renderQr(readForm());
+  }
+  function renderLayerBar() {
+    $('layer-bar').hidden = !layerTool;
+    if (!layerTool) return;
+    $('layer-what').textContent = LAYER_NAMES[layerTool];
+    $('layer-count').textContent = layerDraft.length === 1 ? '1 dot so far.' : layerDraft.length + ' dots so far.' + (layerDraft.length >= 3 ? ' Click the first dot or press Done to finish.' : '');
+    $('layer-done').disabled = layerDraft.length < 3;
+    $('layer-undo').disabled = !layerDraft.length;
+  }
+  function renderLayers() {
+    const ul = $('layer-list');
+    ul.innerHTML = '';
+    layers.forEach((l, i) => {
+      const li = document.createElement('li');
+      li.innerHTML = '<span class="lmark ' + l.kind + '" aria-hidden="true"></span><span>' + LAYER_NAMES[l.kind] + ' <span class="help-inline">(' + l.pts.length + ' dots)</span></span>';
+      const del = document.createElement('button');
+      del.type = 'button'; del.className = 'btn small ghost'; del.textContent = 'Delete';
+      del.setAttribute('aria-label', 'Delete shape ' + (i + 1) + ': ' + LAYER_NAMES[l.kind]);
+      del.addEventListener('click', () => { layers.splice(i, 1); layersChanged(true); refreshBehindRows(); status('layer-status', '', 'Shape deleted.'); });
+      li.appendChild(del); ul.appendChild(li);
+    });
+    $('layer-opts').hidden = !layers.length;
+    document.querySelectorAll('.ltool').forEach(b => { b.disabled = panoOk !== true; b.setAttribute('aria-pressed', String(b.dataset.kind === layerTool)); });
+    renderLayerBar();
+  }
+  function refreshBehindRows() {
+    [...$('spot-list').children].forEach((li, i) => { if (spots[i]) { syncCard(li, spots[i], i); updateSummary(li, spots[i]); } });
+    sendSpots();
+  }
+  function setLayerTool(kind) {
+    layerTool = kind; layerDraft = [];
+    renderLayers(); sendLayers();
+    if (kind) status('layer-status', '', 'Turn the preview to it, then click around it dot by dot.');
+  }
+  function finishLayer() {
+    if (!layerTool || layerDraft.length < 3) return;
+    const first = !layers.length;
+    layers.push({ kind: layerTool, pts: layerDraft.slice() });
+    const what = LAYER_NAMES[layerTool];
+    layerTool = null; layerDraft = [];
+    layersChanged(true);
+    if (first) refreshBehindRows();
+    status('layer-status', 'ok', '“' + what + '” added. Now tick <b>Behind the front layer</b> on the spots that should go behind it.' +
+      ' Use <b>Adjust the dots</b> to fine-tune it.');
+  }
+  document.querySelectorAll('.ltool').forEach(b => b.addEventListener('click', () => setLayerTool(layerTool === b.dataset.kind ? null : b.dataset.kind)));
+  $('layer-done').addEventListener('click', finishLayer);
+  $('layer-undo').addEventListener('click', () => { layerDraft.pop(); sendLayers(); renderLayerBar(); });
+  $('layer-cancel').addEventListener('click', () => { setLayerTool(null); status('layer-status', '', ''); });
+  $('layer-show').addEventListener('change', sendLayers);
+  $('layer-edit').addEventListener('click', () => {
+    layerEditing = !layerEditing;
+    $('layer-edit').setAttribute('aria-pressed', String(layerEditing));
+    $('layer-edit').textContent = layerEditing ? 'Finish adjusting' : 'Adjust the dots';
+    if (layerEditing) { $('layer-show').checked = true; status('layer-status', '', 'Drag the dots in the preview to adjust the shapes.'); }
+    sendLayers();
+  });
+  document.addEventListener('keydown', e => {
+    if (!layerTool) return;
+    const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) && e.target.type !== 'checkbox';
+    if (e.key === 'Escape') { setLayerTool(null); e.preventDefault(); }
+    else if (e.key === 'Enter' && layerDraft.length >= 3 && !typing && e.target.tagName !== 'BUTTON') { finishLayer(); e.preventDefault(); }
+    else if (e.key === 'Backspace' && layerDraft.length && !typing) { layerDraft.pop(); sendLayers(); renderLayerBar(); e.preventDefault(); }
+  });
 
   function spotsChanged(reloadPreview) {
     syncBright();
@@ -360,6 +460,7 @@
             '<label class="check"><input type="radio" class="sp-stk-mp4"><span>See-through MP4 <span class="help-inline">— from the Video Maker; plays on every phone</span></span></label>' +
             '<label class="check"><input type="radio" class="sp-stk-webm"><span>WebM with its own transparency <span class="help-inline">— iPhones and iPads can’t play these</span></span></label>' +
           '</div>' +
+          '<label class="check sp-behind-row" hidden><input type="checkbox" class="sp-behind"><span>Behind the front layer <span class="help-inline">— hidden by the shapes you drew under “Things in front”</span></span></label>' +
           '<label class="check sp-pin-row"><input type="checkbox" class="sp-pin"><span>Pin corners <span class="help-inline">— drag each corner onto the matching point in the photo, e.g. a picture frame or window</span></span></label>' +
         '</div>' +
         '<div class="sp-place"><span class="sp-where"></span>' +
@@ -391,6 +492,8 @@
     q('.sp-hide').checked = !!sp.hidden;
     q('.sp-loop').checked = !!sp.loop;
     q('.sp-pin').checked = !!sp.pin;
+    q('.sp-behind').checked = !!sp.behind;
+    q('.sp-behind').addEventListener('change', e => { sp.behind = e.target.checked; updateSummary(li, sp); spotsChanged(true); });
     q('.sp-spin').checked = !!sp.spin;
     q('.sp-stk').checked = !!sp.stacked;
     q('.sp-stk-mp4').name = q('.sp-stk-webm').name = 'stk-' + (++stkGroups);
@@ -500,6 +603,7 @@
       if (kind === 'model' && sp.spin) bits.push('spins');
       if (kind === 'model' && sp.flat) bits.push('flat colours');
       if (kind === 'video' && sp.stacked) bits.push(sp.alpha ? 'see-through WebM' : 'see-through');
+      if (sp.behind && layers.length) bits.push('behind the front layer');
       if (sp.hidden) bits.push('hidden');
       if (sp.loop && (kind === 'video' || kind === 'audio')) bits.push('loops');
       if (sp.pin) bits.push('pinned');
@@ -596,6 +700,7 @@
     if (!stkOk && sp.stacked) { sp.stacked = false; q('.sp-stk').checked = false; }
     q('.sp-stk-kind').hidden = !stkOk || !sp.stacked;
     q('.sp-pin-row').hidden = !inRoomKind || !sp.src.trim() || isModel || drive || !!sp.stacked;
+    q('.sp-behind-row').hidden = !layers.length || !sp.src.trim();
     if (sp.stacked) { sp.hidden = false; q('.sp-hide-row').hidden = true; }
     const checks = [...li.querySelectorAll('.sc-checks > .check')];
     q('.sc-checks').hidden = checks.every(c => c.hidden);
@@ -875,6 +980,8 @@
   $('shape-wide').addEventListener('click', () => setShape(false));
 
   loadFromAddress();
+  if (layers.length) $('layers-box').open = true;
+  renderLayers();
   updateFacing();
   renderSpots();
   refresh();

@@ -412,3 +412,17 @@ body.aligning .mode-toggle { display: none; }
 .spot-stacked:not(.loaded) .spot-frame { min-height: 60px; background: rgba(20,27,23,.35); }
 .spot-stacked .spot-unmute { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); }
 .spots-layer.editing .spot-stacked .spot-frame { cursor: move; }
+
+/* ===================================================================== front layer (layers.js) */
+/* Spots behind the front layer: clipped each frame to what isn't in front (clipped parts can't be tapped) */
+.spots-back, .spots-clip, .spots-back-inner { position: absolute; inset: 0; pointer-events: none; }
+/* The author's preview: outlines of the front layer, and dots to drag while editing it */
+.layer-outlines { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; overflow: visible; }
+.layer-outlines .lo { fill: none; stroke-width: 2; stroke-dasharray: 7 5; }
+.layer-outlines .lo.front { stroke: #ffc93c; fill: rgba(255, 201, 60, .10); }
+.layer-outlines .lo.window { stroke: #5ad1ff; fill: rgba(90, 209, 255, .10); }
+.layer-outlines .lo.draft { fill: none; stroke-dasharray: 4 4; }
+.layer-outlines circle { stroke: #1b1b1b; stroke-width: 1.5; pointer-events: none; }
+.layer-outlines.editing circle { pointer-events: auto; cursor: move; }
+.layer-outlines.editing circle[data-s="draft"] { cursor: pointer; }
+body.layer-drawing #scene canvas, body.layer-drawing .a-canvas { cursor: crosshair !important; }
