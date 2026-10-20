@@ -103,7 +103,7 @@
     const kindFlag = kind === 'text' || kind === guess || (kind === 'video' && Media.youTube(s.src)) ? ''
       : { audio: 'a', video: 'v', image: 'i', link: 'k', model: 'm', doc: 'p' }[kind];
     const flags = (s.play === 'look' ? 'l' : s.play === 'start' ? 's' : '') + kindFlag +
-      (s.hidden ? 'h' : '') + (s.loop ? 'r' : '') + (s.dwell ? 'd' : '') + (s.spin ? 'o' : '') + (s.flat ? 'f' : '') + (s.stacked && kind === 'video' ? 'x' + (s.alpha ? 'w' : '') : '') + (s.behind ? 'b' : '');
+      (s.hidden ? 'h' : '') + (s.loop ? 'r' : '') + (s.dwell ? 'd' : '') + (s.spin ? 'o' : '') + (s.flat ? 'f' : '') + (s.stacked && kind === 'video' ? 'x' + (s.alpha ? 'w' : '') : '');
     const label = (s.label || '').trim();
     const w = s.w && Math.round(s.w) !== DEFAULT_W ? Math.round(s.w) : '';
     const src = kind === 'text' ? 't:' + s.src.trim() : shorten ? Media.shorten(s.src) : s.src.trim();
@@ -236,7 +236,6 @@
       s.isStacked = s.kind === 'video' && !!def.stacked && !Media.youTube(def.src) && !s.drivePlayer;
       if (s.isStacked) { s.hidden = false; s.pin = null; }
       s.ownAlpha = s.isStacked && !!def.alpha;      // or a WebM that's see-through by itself
-      s.behind = !!def.behind;
       s.rot = Array.isArray(def.rot) ? def.rot.slice() : [0, 0, 0];
       s.isStill = s.isImage || s.isText || s.isLink || s.isModel || s.isDoc || s.drivePlayer;   // nothing to play
       s.isVideoFile = !s.yt && s.kind === 'video';
@@ -249,6 +248,9 @@
       if (s.hidden && s.play === 'tap') s.hidden = false;       // otherwise nothing could ever play it
       s.showsPicture = s.kind !== 'audio' || s.drivePlayer;
       s.inScene = s.showsPicture && !s.hidden;                  // something sitting in the room
+      // Masks (drawn by the author) hide the visual spots behind them: pictures, videos, 3D models, text and documents.
+      // Controls (sound buttons, links, the dots that reveal things) are never hidden.
+      s.behind = s.inScene && !s.isLink && !(s.drivePlayer && s.kind === 'audio');
       s.aspect = s.isImage ? 4 / 3 : s.drivePlayer && s.kind === 'audio' ? 3 : 16 / 9;                    // a picture's real shape arrives when it loads
 
       const visible = !s.hidden || opts.editable;               // the author still sees hidden spots, faintly
@@ -847,7 +849,12 @@
       dot.addEventListener('pointerdown', e => { if (opts.editable) e.stopPropagation(); });
       s.dwellRing = dot.querySelector('.dw-ring');
       s.dwellDot = dot;
-      s.el.appendChild(dot);
+      if (s.behind && opts.backLayer) {
+        // the spot itself can be masked, but its dot is a control: it goes in the top layer, following the spot
+        s.dotEl = el('div', 'spot dwell spot-dotonly');
+        s.dotEl.appendChild(dot);
+        opts.layer.appendChild(s.dotEl);
+      } else s.el.appendChild(dot);
     }
     function reveal(s, how) {
       if (s.revealed) return;
@@ -856,6 +863,7 @@
       s.seen = s.revealedBy === 'look';
       s.awayT = 0;
       s.el.classList.add('revealed');
+      if (s.dotEl) s.dotEl.classList.add('revealed');
       if (s.driveFrame && !s.driveFrame.dataset.on) { s.driveFrame.src = drivePlayerUrl(s); s.driveFrame.dataset.on = '1'; }
       if (!s.isStill) { s.userPaused = false; play(s); }
     }
@@ -864,6 +872,7 @@
       if (!s.revealed) return;
       s.revealed = false;
       s.el.classList.remove('revealed');
+      if (s.dotEl) s.dotEl.classList.remove('revealed');
       s.dwellT = 0; s.awayT = 0;
       if (s.dwellRing) s.dwellRing.style.strokeDashoffset = '100';
       if (s.driveFrame && !opts.editable) { s.driveFrame.src = 'about:blank'; delete s.driveFrame.dataset.on; }   // the only way to stop Google's player
@@ -924,6 +933,7 @@
       try { if (s.player && s.player.destroy) s.player.destroy(); } catch (e) {}
       if (s.media) { s.media.pause(); s.media.removeAttribute('src'); s.media.load(); }
       if (s.el) s.el.remove();
+      if (s.dotEl) s.dotEl.remove();
       if (s.ent) s.ent.parentNode && s.ent.parentNode.removeChild(s.ent);
       if (s.stkTex) { s.stkTex.dispose(); s.mesh.material.dispose(); s.mesh.geometry.dispose(); }
       if (s.mediaHost && s.mediaHost.parentNode === opts.offscreen) s.mediaHost.remove();
@@ -1203,6 +1213,10 @@
         }
 
         if (!s.el) return;
+        if (s.dotEl) {
+          s.dotEl.style.visibility = onScreen ? 'visible' : 'hidden';
+          if (onScreen) s.dotEl.style.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px)';
+        }
         if (!onScreen) { s.el.style.visibility = 'hidden'; return; }
         s.el.style.visibility = 'visible';
         s.el.style.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px)';

@@ -426,3 +426,7 @@ body.aligning .mode-toggle { display: none; }
 .layer-outlines.editing circle { pointer-events: auto; cursor: move; }
 .layer-outlines.editing circle[data-s="draft"] { cursor: pointer; }
 body.layer-drawing #scene canvas, body.layer-drawing .a-canvas { cursor: crosshair !important; }
+/* While a mask is being drawn, clicks go straight through the spots to the photo, so dots can go on top of them */
+body.layer-drawing .spots-layer, body.layer-drawing .spots-layer * { pointer-events: none !important; }
+.spot-dotonly > .spot-dwell { pointer-events: auto; }
+.spot-dotonly.revealed { display: none; }
