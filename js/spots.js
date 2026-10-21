@@ -1,25 +1,27 @@
 /*
- * Video and audio spots: YouTube videos, MP4 videos and MP3 sounds pinned to places in the 360 view.
+ * FILE GUIDE: js/spots.js  ·  the spots engine (everything placed in the 360 room)
+ * Loaded by: index.html (viewer, incl. the author's preview iframe) and make.html (encode/decode/kindOf only).
+ * Depends on: A-Frame (AFRAME.THREE), js/sources.js (window.Media). Exposes window.HotSpots(opts) plus
+ *   HotSpots.encode / decode / kindOf / guessKind / DEFAULT_W.
+ * Spot kinds: video (file, YouTube, Google Drive player, see-through "stacked" MP4, WebM with own alpha), sound,
+ *   picture, text, link, 3D model (GLB/GLTF/OBJ/STL), document (PDF via PDF.js, Office/Drive viewers).
+ * Two ways spots are drawn: (1) page elements in #spots, moved every frame to their projected position;
+ *   (2) WebGL meshes in the A-Frame scene (3D models, see-through videos) with a page-element "frame" over them
+ *   for tapping and editing. Masks (js/layers.js) hide visual spots: those go in opts.backLayer.
+ * Sections (search for "// ---- <name>"): YouTube API, loaded once · what kind of spot is this? · link format ·
+ *   the manager · building · 3D models · documents · playing · screen geometry · pinned corners ·
+ *   every frame (after A-Frame draws) · see-through ("stencil") videos · author editing (preview only) ·
+ *   starting and sound
+ * Gotchas: the link format (encodeSpot/decodeSpot) must stay backward compatible: never change what an existing
+ *   flag letter means. Flags: l s h r d o f x w u e (+ legacy b) and kind letters a v i k m p (see README).
+ *   rebuildKey() lists the settings that need a spot rebuilt when they change.
  *
- * Each spot:  { src, type, yaw, pitch, w, play, hidden, loop, label }
- *   type       'video', 'audio' (sound only) or 'image'; left empty, it's worked out from the link
+ * Each spot (decoded):  { src, type, yaw, pitch, w, play, hidden, loop, label, pin, rot, dwell, spin, flat,
+ *                         stacked, alpha, noMask, vanish }
  *   yaw/pitch  where its centre sits, in degrees (yaw: left +, right −; pitch: up +)
- *   w          how wide a video is, in degrees of the view, so it stays the same size in the room
- *   play       tap   → the viewer starts it (YouTube's own play button, or a tap on a sound marker)
- *              look  → plays while the centre of the screen is on it, pauses when it moves off
- *              start → plays as soon as the experience starts
- *   hidden     nothing shown; it just plays (needs 'look' or 'start')
- *   loop       start again when it ends
- *
- *   pin        optional: the four corners [[dyaw, dpitch] × 4] (top-left, top-right, bottom-right,
- *              bottom-left) relative to the centre, so a picture can be fitted to a wall in perspective
- *
- * In a link, a spot is written as   src~yaw~pitch~flags~label~w~pin   (pin = 8 numbers, comma-separated).
- * Inside each field, % ~ | ! * ' ( ) and line breaks are escaped (%25, %7E …) so the separators stay
- * unambiguous and the whole link survives being pasted into emails and chats.
- * Links made before October 2026 used | as the separator; those are still read.
- * flags: l = look, s = start, h = hidden, r = loop, and a / v / i for sound / video / image
- * when that can't be told from the link itself (e.g. a Google Drive link)
+ *   w          width in degrees of the view, so it stays the same size in the room
+ *   play       tap | look (plays while the crosshair is on it) | start
+ *   pin        four corner offsets (pinned onto a wall in perspective); rot = 3D model turn,tilt,roll
  */
 (function (global) {
   'use strict';
@@ -104,7 +106,7 @@
     const kindFlag = kind === 'text' || kind === guess || (kind === 'video' && Media.youTube(s.src)) ? ''
       : { audio: 'a', video: 'v', image: 'i', link: 'k', model: 'm', doc: 'p' }[kind];
     const flags = (s.play === 'look' ? 'l' : s.play === 'start' ? 's' : '') + kindFlag +
-      (s.hidden ? 'h' : '') + (s.loop ? 'r' : '') + (s.dwell ? 'd' : '') + (s.spin ? 'o' : '') + (s.flat ? 'f' : '') + (s.stacked && kind === 'video' ? 'x' + (s.alpha ? 'w' : '') : '') + (s.noMask ? 'u' : '');
+      (s.hidden ? 'h' : '') + (s.loop ? 'r' : '') + (s.dwell ? 'd' : '') + (s.spin ? 'o' : '') + (s.flat ? 'f' : '') + (s.stacked && kind === 'video' ? 'x' + (s.alpha ? 'w' : '') : '') + (s.noMask ? 'u' : '') + (s.vanish && kind === 'video' && !s.loop ? 'e' : '');
     const label = (s.label || '').trim();
     const w = s.w && Math.round(s.w) !== DEFAULT_W ? Math.round(s.w) : '';
     const src = kind === 'text' ? 't:' + s.src.trim() : shorten ? Media.shorten(s.src) : s.src.trim();
@@ -135,6 +137,7 @@
       flat: flags.includes('f'),
       stacked: flags.includes('x'),
       noMask: flags.includes('u'),     // masks don't hide this spot (it stays in front of them)
+      vanish: flags.includes('e'),     // a video that disappears when it ends (instead of staying on its last frame)
       alpha: flags.includes('x') && flags.includes('w'),       // a WebM with its own transparency (not a stencil MP4)
       rot: (() => { const r = String(parts[7] || '').split(',').map(Number); return r.length === 3 && r.every(Number.isFinite) ? r : [0, 0, 0]; })()
     };
@@ -148,7 +151,7 @@
     return [[n[0], n[1]], [n[2], n[3]], [n[4], n[5]], [n[6], n[7]]];
   }
   // Settings that need the player rebuilt when they change (moving, resizing and relabelling don't)
-  const rebuildKey = d => [d.src, kindOf(d), d.play, !!d.hidden, !!d.loop, !!d.dwell, !!d.stacked, !!d.alpha, !!d.noMask, kindOf(d) === 'link' ? d.label : ''].join('|');
+  const rebuildKey = d => [d.src, kindOf(d), d.play, !!d.hidden, !!d.loop, !!d.dwell, !!d.stacked, !!d.alpha, !!d.noMask, !!d.vanish, kindOf(d) === 'link' ? d.label : ''].join('|');
   const MODEL_DIST = 8;            // 3D models sit this far from the viewer (the 360 photo is much further away)
   const BEHIND_DIST = 60;          // …or this far, when they're behind the front layer (a cut-out copy of the photo, nearer than this)
   const distOf = s => s.behind ? BEHIND_DIST : MODEL_DIST;
@@ -240,6 +243,7 @@
       s.rot = Array.isArray(def.rot) ? def.rot.slice() : [0, 0, 0];
       s.isStill = s.isImage || s.isText || s.isLink || s.isModel || s.isDoc || s.drivePlayer;   // nothing to play
       s.isVideoFile = !s.yt && s.kind === 'video';
+      s.vanish = !!def.vanish && s.kind === 'video' && !def.loop && !s.drivePlayer;   // disappear when it ends
       if (s.isStill) { s.hidden = false; s.loop = false; if (s.play === 'start' || !(s.isImage || s.isModel)) s.play = 'tap'; }
       if (s.isModel) s.pin = null;
       if (s.dwell) {                                            // shown (and played) once the dot has been looked at
@@ -860,6 +864,7 @@
     }
     function reveal(s, how) {
       if (s.revealed) return;
+      unvanish(s);
       s.revealed = true;
       s.revealedBy = how || 'look';
       s.seen = s.revealedBy === 'look';
@@ -963,7 +968,7 @@
               },
               onStateChange: e => {
                 const on = e.data === YT.PlayerState.PLAYING || e.data === YT.PlayerState.BUFFERING;
-                if (e.data === YT.PlayerState.ENDED) s.userPaused = true;
+                if (e.data === YT.PlayerState.ENDED) { s.userPaused = true; vanishNow(s); }
                 if (on) s.userPaused = false;
                 setPlaying(s, on);
               },
@@ -982,7 +987,7 @@
         m.src = Media.resolveMediaUrl(s.src, s.isVideoFile ? 'video' : 'audio').url;
         m.addEventListener('play', () => setPlaying(s, true));
         m.addEventListener('pause', () => setPlaying(s, false));
-        m.addEventListener('ended', () => { s.userPaused = true; setPlaying(s, false); });
+        m.addEventListener('ended', () => { s.userPaused = true; setPlaying(s, false); vanishNow(s); });
         m.addEventListener('error', () => opts.onError(s.index, /drive\.google|^gd:/.test(s.src.trim())
           ? 'Google Drive won’t play this file inside other websites (Google started blocking this in 2024), even when it’s shared correctly. For now, put the sound in your GitHub site or Dropbox.'
           : 'This file couldn’t be loaded. Check the link and that it’s shared as “Anyone with the link”.'), { once: true });
@@ -993,7 +998,19 @@
     }
 
     // ---------------------------------------------------------- playing
+    // A video that disappears when it ends, and comes back when it's played again
+    function vanishNow(s) {
+      if (!s.vanish) return;
+      s.gone = true;
+      if (s.el) s.el.classList.add('gone');
+    }
+    function unvanish(s) {
+      if (!s.gone) return;
+      s.gone = false;
+      if (s.el) s.el.classList.remove('gone');
+    }
     function play(s) {
+      unvanish(s);
       expand(s, true);
       if (!s.ready) { s.wantPlay = true; return; }
       s.wantPlay = false;
@@ -1384,7 +1401,7 @@
       const width = 2 * distOf(s) * Math.tan((s.w * Math.PI / 180) / 2);
       const height = width / (s.vAspect || 1);
       s.mesh.scale.set(width, height, 1);
-      s.mesh.visible = !!s.vAspect && !(s.dwell && !s.revealed && !opts.editable);
+      s.mesh.visible = !!s.vAspect && !(s.dwell && !s.revealed && !opts.editable) && !(s.gone && !opts.editable);
       s.mesh.material.uniforms.opacity.value = opts.editable && s.dwell && !s.revealed ? 0.4 : 1;
       if (!s.vAspect) { s.boxW = 0; return; }
       o.updateMatrixWorld(true);

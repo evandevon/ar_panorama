@@ -1,14 +1,25 @@
 /*
- * See-through Video Maker
- * Turns a green/blue-screen video (or a WebM that's already see-through) into a "stencil" MP4 for the tour tool:
- * twice as tall as the picture, with the picture (on black) on top and a black-and-white stencil underneath
- * (white = solid, black = see-through). Every phone plays an MP4; the tour tool uses the stencil to cut it out.
- * Everything runs in this browser: the video is never uploaded.
- *
- * For rough, home-made green screens there are also:
- *  - shapes drawn on the preview: "Remove outside" (draw roughly around the person), "Remove inside", "Keep inside"
- *  - extra background colours (shadows, creases, patchy light) and an "empty background" moment (clean plate)
- *  - edge tidying: shrink the edges, remove specks, fill small holes
+ * FILE GUIDE: js/videomaker.js  ·  the See-through Video Maker (videomaker.html)
+ * Turns a green/blue-screen video (or a WebM that's already see-through) into:
+ *   - a "stencil" MP4 for tours: twice as tall, picture (premultiplied, on black) on top, black-and-white stencil below
+ *     (plays on every phone; the tour cuts it out with a shader; flag x)
+ *   - a WebM with real transparency (VP9/VP8 alpha; not iPhones), or an animated GIF (gifenc, no sound).
+ * Everything runs in the browser; the video is never uploaded. Loaded by: videomaker.html (also loads
+ *   vendor/fix-webm-duration; vendor/gifenc is imported only when a GIF is made).
+ * Keying (in the FRAG shader): colour-difference keying against the main colour, extra colours (added by hand),
+ *   paler "shades" of the screen found automatically (findShades), and an "empty background" frame (clean plate);
+ *   whichever says "more screen" wins. Then sliders: Remove more or less (uSim), Edge detail (uSoft window),
+ *   Keep the person solid (uSolid), Soften the edges (uFeather, inward blur), Clean up coloured edges (despill,
+ *   uSpill/uComp/uSec), Shrink/Remove specks/Fill holes (neighbour sampling). Shapes (mask canvas) apply last.
+ *   Shader outputs (uOut): 0 preview over a background · 1 picture on black · 2 stencil · 3 straight colour + alpha.
+ * Sections (search for "// ---- <name>"): WebGL: one program, three jobs · settings · undo and redo · backgrounds for
+ *   the preview · loading a video · clicking on the preview · shapes · patchy screens · preview playback ·
+ *   the timeline · making the file · videos (real time) · GIFs (frame by frame)
+ * Gotchas learned the hard way: MediaRecorder output needs time to start (stop only after real data arrives);
+ *   browser-made WebMs have no duration (fixed on export with fix-webm-duration, and handled on import);
+ *   WebM colour is half resolution, so mode 3 bleeds edge colour outward; GIF frames need dispose:2 and a single
+ *   transparent palette entry; WebGL readPixels is upside down. The hint above the preview has a fixed height so
+ *   the picture never moves under the pointer while drawing.
  */
 (function () {
   'use strict';
@@ -35,7 +46,7 @@
     '#endif',
     'uniform sampler2D uVideo, uBg, uMask, uPlate;',
     'uniform vec3 uKey; uniform vec3 uKeys[8]; uniform int uNKeys, uPlateOn;',
-    'uniform float uSim, uSoft, uSpill, uChoke, uSpeck, uHole, uFeather; uniform vec2 uPx;',
+    'uniform float uSim, uSoft, uSolid, uSpill, uChoke, uSpeck, uHole, uFeather; uniform vec2 uPx;',
     'uniform int uOut, uAlpha, uCh;',
     'varying vec2 vUv;',
     // "Colour difference": how much more screen-coloured (e.g. greener) a colour is than its other colours.
@@ -58,7 +69,8 @@
     '    vec3 pl = texture2D(uPlate, uv).rgb;',
     '    if (diff(pl) > 0.04) { float s = solidity(dd, pl); if (s < al) { al = s; k = pl; } }',
     '  }',
-    '  return clamp((al - uSim) / max(min(uSoft, 1.0 - uSim), 0.01), 0.0, 1.0);',
+    '  float a = clamp((al - uSim) / max(min(uSoft, 1.0 - uSim), 0.01), 0.0, 1.0);',
+    '  return clamp(a / max(1.0 - uSolid, 0.05), 0.0, 1.0);',                   // keep the person solid
     '}',
     'float keyA(vec2 uv) { float al; vec3 k; return keyAt(uv, al, k); }',
     // Clean up coloured edges: bring the screen's colour down to the average of the other two, and add what was taken
@@ -170,7 +182,7 @@
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     const u = n => gl.getUniformLocation(prog, n);
     const U = {};
-    ['uVideo', 'uBg', 'uMask', 'uPlate', 'uKey', 'uKeys', 'uNKeys', 'uPlateOn', 'uSim', 'uSoft', 'uSpill', 'uFeather', 'uChoke', 'uSpeck', 'uHole', 'uPx', 'uOut', 'uAlpha', 'uCh', 'uComp', 'uSec']
+    ['uVideo', 'uBg', 'uMask', 'uPlate', 'uKey', 'uKeys', 'uNKeys', 'uPlateOn', 'uSim', 'uSoft', 'uSolid', 'uSpill', 'uFeather', 'uChoke', 'uSpeck', 'uHole', 'uPx', 'uOut', 'uAlpha', 'uCh', 'uComp', 'uSec']
       .forEach(n => { U[n] = u(n); });
     gl.uniform1i(U.uVideo, 0); gl.uniform1i(U.uBg, 1); gl.uniform1i(U.uMask, 2); gl.uniform1i(U.uPlate, 3);
     const put = (unit, t, source) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source); };
@@ -190,7 +202,7 @@
         all.forEach((k, i) => ks.set(k, i * 3));
         gl.uniform3fv(U.uKeys, ks); gl.uniform1i(U.uNKeys, all.length);
         gl.uniform1i(U.uPlateOn, plateOn ? 1 : 0);
-        gl.uniform1f(U.uSim, p.sim); gl.uniform1f(U.uSoft, p.soft); gl.uniform1f(U.uSpill, p.spill);
+        gl.uniform1f(U.uSim, p.sim); gl.uniform1f(U.uSoft, p.soft); gl.uniform1f(U.uSolid, p.solid); gl.uniform1f(U.uSpill, p.spill);
         // the edge tools are set in "pixels of a 720p video", so they act the same at any size
         const s = (video.videoHeight || 720) / 720;
         gl.uniform1f(U.uFeather, p.feather * s); gl.uniform1f(U.uChoke, p.choke * s); gl.uniform1f(U.uSpeck, p.speck * s); gl.uniform1f(U.uHole, p.hole * s);
@@ -224,7 +236,8 @@
     return {
       alpha: document.querySelector('input[name=mode]:checked').value === 'alpha',
       sim: $('sim').value / 100 * 0.5,                   // below this "solidness", it's treated as screen
-      soft: 0.5,                                         // how gradually blends (hair, glows) fade
+      soft: 0.1 + $('detail').value / 100 * 0.8,         // edge detail: how gradually blends (hair, glows) fade
+      solid: $('solid').value / 100 * 0.8,               // keep the person solid: partly see-through parts count as more solid
       feather: $('soft').value / 100 * 16,               // soften the edges: blur width, in pixels of a 720p video
       spill: $('spill').value / 100,
       choke: +$('choke').value,
@@ -232,12 +245,12 @@
       hole: +$('hole').value * 4
     };
   }
-  ['sim', 'soft', 'spill', 'choke', 'speck', 'hole'].forEach(id => {
+  ['sim', 'solid', 'detail', 'soft', 'spill', 'choke', 'speck', 'hole'].forEach(id => {
     const show = () => { $(id + '-out').textContent = $(id).value; redraw(); };
     $(id).addEventListener('input', show); show();
   });
   // Every slider gets a small reset button beside its number (shown once it's been moved)
-  const SLIDERS = ['sim', 'soft', 'spill', 'choke', 'speck', 'hole', 'feather'];
+  const SLIDERS = ['sim', 'solid', 'detail', 'soft', 'spill', 'choke', 'speck', 'hole', 'feather'];
   SLIDERS.forEach(id => {
     const input = $(id), out = $(id + '-out'), label = document.querySelector('label[for="' + id + '"]');
     const b = document.createElement('button');
@@ -260,7 +273,7 @@
     $('key-controls').hidden = alpha; $('alpha-note').hidden = !alpha;
     $('key-fix').hidden = alpha; $('key-fix-2').hidden = alpha;
     commit();
-    if (alpha && tool === 'addkey') setTool(null);
+    if (alpha && (tool === 'addkey' || tool === 'pick')) setTool(null);
     hint();
     redraw();
   }));
@@ -272,7 +285,7 @@
     const [r, g, b] = rgb;
     const n = key.shades.length;
     $('key-text').textContent = (g > r && g > b ? 'Green' : b > r && b > g ? 'Blue' : 'This colour') + (picked ? ' (picked)' : ' (guessed)') +
-      (n ? ', plus ' + (n === 1 ? 'a lighter shade' : n + ' lighter shades') + ' of it found in the picture' : '') + '. Click the background again to change it.';
+      (n ? ', plus ' + (n === 1 ? 'a lighter shade' : n + ' lighter shades') + ' of it found in the picture' : '') + '. To change it, press the colour box and click the screen.';
     redraw();
   }
   // Screens are rarely one even colour: light from a window, creases and the camera make some parts paler (or bluer)
@@ -451,7 +464,7 @@
     listShapes(); listKeys(); showPlate(); buildMask();
     resetHistory(); needBaseline = true;
     $('stage-empty').hidden = true;
-    ['play', 'make', 'auto-key', 'add-key', 'plate'].forEach(id => { $(id).disabled = false; });
+    ['play', 'make', 'auto-key', 'add-key', 'plate', 'swatch-btn'].forEach(id => { $(id).disabled = false; });
     document.querySelectorAll('.tool').forEach(b => { b.disabled = false; });
     trim.start = 0; trim.end = video.duration;
     timelineOn(true); layoutTimeline(); if (typeof gifNote === 'function') gifNote();
@@ -525,7 +538,9 @@
     const group = cand.filter(c2 => near(best, c2));
     setKey([0, 1, 2].map(i => group.reduce((t, g2) => t + g2[i], 0) / group.length), false);
   }
-  $('auto-key').addEventListener('click', () => { key.picked = false; autoKey(); commit(); });
+  $('auto-key').addEventListener('click', () => { if (tool === 'pick') setTool(null); key.picked = false; autoKey(); commit(); });
+  // The colour box: press it, and the next click on the preview (with the eyedropper) chooses the screen colour
+  $('swatch-btn').addEventListener('click', () => setTool(tool === 'pick' ? null : 'pick'));
 
   // ---------------------------------------------------------------- clicking on the preview
   // No tool: pick the colour to remove. A shape tool: add dots. "Add colour": pick an extra colour.
@@ -540,16 +555,19 @@
     const h = $('pick-hint');
     const alpha = params().alpha;
     h.hidden = false;
-    if (tool === 'addkey') h.textContent = 'click a patch of background that is still showing';
+    if (tool === 'pick') h.textContent = 'click the screen in the picture to choose its colour (Esc to cancel)';
+    else if (tool === 'addkey') h.textContent = 'click a patch of background that is still showing';
     else if (tool) h.textContent = draft.length >= 3 ? 'keep clicking around the area, then click the first dot to finish' : 'click around the area, dot by dot';
     else if (alpha) h.hidden = true;
     else h.textContent = 'click the background in the picture to choose the colour to remove';
-    $('stage').classList.toggle('drawing', !!tool);
+    $('stage').classList.toggle('drawing', !!tool && !!KIND[tool]);
+    $('stage').classList.toggle('picking', tool === 'pick' || tool === 'addkey');
   }
   function setTool(t) {
     tool = t; draft = []; hover = null;
     document.querySelectorAll('.tool').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tool === t)));
     $('add-key').setAttribute('aria-pressed', String(t === 'addkey'));
+    $('swatch-btn').setAttribute('aria-pressed', String(t === 'pick'));
     const drawing = !!(t && KIND[t]);
     $('draw-bar').hidden = !drawing;
     if (drawing) $('draw-what').textContent = KIND[t].label;
@@ -604,6 +622,11 @@
     }
     const hit = (!tool || KIND[tool]) && !draft.length ? hitDot(e, shapes.map(s => s.pts)) : null;
     if (hit) { drag = hit; view.setPointerCapture(e.pointerId); e.preventDefault(); return; }
+    if (tool === 'pick') {
+      setKey(sample(Math.round(p[0] * video.videoWidth), Math.round(p[1] * video.videoHeight), 3), true); commit();
+      setTool(null);
+      return;
+    }
     if (tool === 'addkey') {
       addKey(sample(Math.round(p[0] * video.videoWidth), Math.round(p[1] * video.videoHeight), 3));
       setTool(null);

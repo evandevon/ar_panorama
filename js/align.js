@@ -1,6 +1,11 @@
 /*
- * "Line up with the room": the 360 photo is shown faded over the phone's live camera so the viewer
- * can turn it until it matches the real room. Used when the author ticks "Line up with the real room".
+ * FILE GUIDE: js/align.js  ·  "Line up with the room": the live camera with the 360 photo faded over it, so viewers
+ *   can turn until the photo matches the real room (the author ticks "Line up with the real room").
+ * Loaded by: index.html. Depends on: A-Frame. Exposes window.Aligner(opts). Uses a fixed camera field of view
+ *   estimate (CAMERA_FOV). Camera problems (busy, blocked, missing…) show a help panel with ways out.
+ * Sections (search for "// ---- <name>"): camera · automatic check
+ * Possible future: a "camera view" mode (spots over the live camera, re-anchored by spotting the QR code in the
+ *   feed). Discussed, not built: see DEVELOPER-NOTES.md.
  *
  * How the automatic check works:
  *   The phone's motion sensors already know which way is up and how the phone is tilted, so only the

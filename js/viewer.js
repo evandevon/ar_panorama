@@ -1,9 +1,19 @@
 /*
- * 360° viewer. Everything it shows comes from the page address (made by the author page):
- *   p  panorama: image link (or .mp4 for 360 video), or a short token like gd:<id>
- *   a  audio: MP3 link, Drive/OneDrive/Dropbox link, or YouTube (yt:<id>)
- *   t  title        y  starting direction in degrees        l=1  loop the audio
- *   preview=1       embedded in the author page: mouse-drag only, no start card
+ * FILE GUIDE: js/viewer.js  ·  the 360 viewer page (index.html): what students see, and the author's live preview
+ * Loaded by: index.html. Depends on: A-Frame, js/sources.js, js/spots.js (HotSpots), js/align.js (Aligner),
+ *   js/layers.js (FrontLayer = masks).
+ * Page address: p (photo or 360 video), t (title), y (start direction), al=1 (offer "line up with the room"),
+ *   mb (3D model brightness), s (one per spot, see spots.js), f (one per mask, see layers.js), v=2 (format version),
+ *   preview=1 (inside the tour maker: no start card, editable spots).
+ * In preview mode it talks to make.html with postMessage: tell({type:...}) out; window 'message' handler in.
+ *   In: setYaw setSpots lookAt pinSpot selectSpot nudge setLayers setWindow setBrightness stopAll.
+ *   Out: status view spotEdit spotSelect spotError layerPoint layerClose layerMove audio.
+ * Sections (search for "// ---- <name>"): talking to the author page · start card · loading the panorama · sound ·
+ *   looking around: drag · the author's preview: a phone-sized window · looking around: phone motion · entering ·
+ *   lining up with the real room · video spots · boot
+ * Gotchas: phones only allow motion sensors and sound after a tap (enter() runs inside the tap).
+ *   "Phone window" mode: the preview iframe is bigger than the phone; win/winFov make spot sizes and drag speed
+ *   match a real phone, and .win-shade panels outside the window only turn the view.
  */
 (function () {
   'use strict';

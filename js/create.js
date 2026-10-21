@@ -1,4 +1,16 @@
-/* Author page: links in → live preview → QR code out. Nothing is stored anywhere but the link. */
+/*
+ * FILE GUIDE: js/create.js  ·  the tour maker page (make.html): links in → live preview → QR code out.
+ *   Nothing is stored anywhere but the link (and the page's own address, for reloading).
+ * Loaded by: make.html. Depends on: js/sources.js (Media), js/spots.js (HotSpots.encode/decode/kindOf only),
+ *   vendor/qrcode.js. The live preview is index.html?preview=1 in an iframe, driven by postMessage
+ *   (see the list in viewer.js).
+ * Sections (search for "// ---- <name>"): state ↔ page address · status lines · problems with a link (⚠ beside the
+ *   field) · preview · starting direction · video spots · the front layer (= "Masking" in the page) · spot cards ·
+ *   QR code · wiring
+ * Spot card options live in the card markup string (search "sc-checks") and syncCard() decides which show.
+ * Gotchas: wide screens use an "editor" layout (css/create.css, min-width 900px): body scrolls as the left
+ *   column, the preview panel is position:fixed on the right. sendWindow() tells the preview the phone-window size.
+ */
 (function () {
   'use strict';
   const $ = id => document.getElementById(id);
@@ -462,6 +474,7 @@
         '<div class="sc-checks">' +
           '<label class="check sp-hide-row"><input type="checkbox" class="sp-hide"><span>Hidden <span class="help-inline sp-hide-note"></span></span></label>' +
           '<label class="check sp-loop-row"><input type="checkbox" class="sp-loop"><span>Loop <span class="help-inline">— start again when it ends</span></span></label>' +
+          '<label class="check sp-vanish-row"><input type="checkbox" class="sp-vanish"><span>Disappear when it ends <span class="help-inline">— instead of staying on its last frame</span></span></label>' +
           '<label class="check sp-stk-row"><input type="checkbox" class="sp-stk"><span>See-through video <span class="help-inline">— the room shows around it (make one with the <a href="videomaker.html" target="_blank" rel="noopener">See-through Video Maker</a>)</span></span></label>' +
           '<div class="sp-stk-kind" role="radiogroup" aria-label="Kind of see-through video" hidden>' +
             '<label class="check"><input type="radio" class="sp-stk-mp4"><span>See-through MP4 <span class="help-inline">— from the Video Maker; plays on every phone</span></span></label>' +
@@ -498,6 +511,8 @@
     q('.sp-label').value = sp.label || '';
     q('.sp-hide').checked = !!sp.hidden;
     q('.sp-loop').checked = !!sp.loop;
+    q('.sp-vanish').checked = !!sp.vanish;
+    q('.sp-vanish').addEventListener('change', e => { sp.vanish = e.target.checked; updateSummary(li, sp); spotsChanged(true); });
     q('.sp-pin').checked = !!sp.pin;
     q('.sp-mask').checked = !sp.noMask;
     q('.sp-mask').addEventListener('change', e => { sp.noMask = !e.target.checked; updateSummary(li, sp); spotsChanged(true); });
@@ -542,7 +557,7 @@
     q('.sp-dwell').addEventListener('change', e => { sp.dwell = e.target.value === '1'; if (sp.dwell) sp.hidden = false; syncCard(li, sp, i); spotsChanged(true); });
     q('.sp-play').addEventListener('change', e => { sp.play = e.target.value; if (sp.play === 'tap') sp.hidden = false; syncCard(li, sp, i); spotsChanged(true); });
     q('.sp-hide').addEventListener('change', e => { sp.hidden = e.target.checked; syncCard(li, sp, i); spotsChanged(true); });
-    q('.sp-loop').addEventListener('change', e => { sp.loop = e.target.checked; updateSummary(li, sp); spotsChanged(true); });
+    q('.sp-loop').addEventListener('change', e => { sp.loop = e.target.checked; syncCard(li, sp, i); updateSummary(li, sp); spotsChanged(true); });
     q('.sp-pin').addEventListener('change', e => {
       // The preview works out the starting corners from the spot's current shape and reports them back
       if (!e.target.checked) sp.pin = null;
@@ -612,6 +627,7 @@
       if (kind === 'video' && sp.stacked) bits.push(sp.alpha ? 'see-through WebM' : 'see-through');
       if (sp.hidden) bits.push('hidden');
       if (sp.loop && (kind === 'video' || kind === 'audio')) bits.push('loops');
+      else if (sp.vanish && kind === 'video' && !isDrivePlayer(sp)) bits.push('disappears at the end');
       if (sp.pin) bits.push('pinned');
       if (layers.length && isMaskable(sp)) bits.push(sp.noMask ? 'in front of masks' : 'hidden by masks');
     }
@@ -701,6 +717,8 @@
     q('.sp-turn').hidden = !isModel || !sp.src.trim();
     q('.sp-hide-row').hidden = isImage || still || drive || !!sp.dwell;
     q('.sp-loop-row').hidden = isImage || still || drive;
+    // only for videos that end: not looping, not sound-only, not Google Drive's own player
+    q('.sp-vanish-row').hidden = kind !== 'video' || !sp.src.trim() || drive || !!sp.loop || (!!sp.hidden && !sp.stacked);
     const inRoomKind = isImage || still || (kind === 'video' && !sp.hidden);
     const stkOk = kind === 'video' && !yt && !drive && !!sp.src.trim();
     q('.sp-stk-row').hidden = !stkOk;

@@ -1,9 +1,13 @@
 /*
- * Link handling shared by the author page and the viewer.
- *
- * 1. Shortening: well-known links are stored in the QR code as short tokens
- *    (gd:<id> for Google Drive, yt:<id> for YouTube) so codes stay easy to scan.
- * 2. Resolving: share links from cloud drives are turned into direct file links.
+ * FILE GUIDE: js/sources.js  ·  link handling shared by the tour maker and the viewer (window.Media)
+ * Loaded by: index.html and make.html (before spots.js).
+ * Does: short tokens (wp: db: od: gx: gr: w: h: yt: gd:, plus own-site relative paths), turning share links into
+ *   direct file links (Google Drive, Dropbox, OneDrive, SharePoint, GitHub blob → raw), guessing file kinds from
+ *   links, document viewers (docViewer), embed-code extraction, hosting hints for errors, and checking whether a
+ *   WebM has its own transparency (videoHasAlpha / probeAlpha).
+ * Gotchas: short codes are stored in printed QR codes, so their meaning must never change.
+ *   Hosting reality (2026): Google blocks Drive sound/video playback on other sites (only its /preview iframe
+ *   works; images work via lh3); personal OneDrive direct links fail (401). GitHub Pages and Dropbox work.
  *
  * Background: a 360 image is drawn with WebGL, which browsers only allow when the
  * hosting server permits it (CORS). Files on this GitHub Pages site always work;

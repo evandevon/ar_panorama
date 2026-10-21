@@ -6,13 +6,14 @@ There's no server or database. Everything about an experience lives inside the Q
 
 ## Pages
 
-- `videomaker.html`: the See-through Video Maker, which turns green-screen footage into see-through videos for tours.
-
 | Page | Who uses it |
 |---|---|
 | `make.html` | Authors. Paste links, preview with the mouse, set the starting view, then copy, print, save or embed the QR code. |
 | `index.html` | Viewers. This is what QR codes open: the site's main address. Visiting it without a code shows a pointer to the maker. |
+| `videomaker.html` | Authors. The See-through Video Maker turns green-screen footage into see-through videos for tours (also transparent WebM and GIF). |
 | `view.html` | Only forwards older links to the main address. Keep it so earlier QR codes keep working. |
+
+Working on the code? Start with `DEVELOPER-NOTES.md`.
 
 ## Put it online
 
@@ -82,6 +83,7 @@ Use **📱 Phone** view when sizing videos. A phone held upright sees much less 
 | **Sound only** | No picture, just a speaker marker. MP3 links are always sound only. |
 | **Hidden** | Nothing shows; it just plays. Only available with one of the automatic options. In the preview, hidden spots appear faintly so you can still move them. |
 | **Loop** | Starts again when it ends. |
+| **Disappear when it ends** | Videos only (not when looping): the video fades away at the end instead of staying on its last frame. It comes back if it's played again (for example, a video that plays when looked at plays again when the viewer looks away and back). |
 | **Appears: straight away** | The spot is in the room from the start. |
 | **Appears: after the viewer rests the crosshair on a dot** | Only a small pulsing dot shows. While the crosshair stays on it, a ring fills over 1.5 seconds; when it's full, the spot appears, and videos and sounds start playing. Tapping the dot works too. When the viewer looks away from it again, it goes back behind its dot after a moment (videos and sounds stop), ready to be revealed again. A spot revealed by tapping stays until it's been looked at and then looked away from, or turned out of view. This works for every kind of spot. |
 | **Pictures: Shows all the time** | The picture sits in the room. Viewers can tap it to see it full screen, which is handy for old letters, posters or maps. |
@@ -116,7 +118,7 @@ Use **Adjust the dots** to drag a mask's dots in the preview. Untick **Use the m
 A see-through video shows a person or object standing in the room, with the room visible around them (like a weather presenter in front of a map). It plays on every phone, including iPhones.
 
 1. Film the person or object in front of a plain **green or blue screen**.
-2. Open the **See-through Video Maker** (`videomaker.html` on your site). Choose the video, click the green background in the preview, and adjust **Remove more or less** and **Soften the edges** (right under the preview) until the background has gone. To trim it, drag the dots at each end of the timeline. **Undo** and **Redo** (or Ctrl+Z and Ctrl+Shift+Z) step back through your changes, and each slider has a ↺ button to put it back. Choose the file type, size and sound, check the summary of what will be made, then press **Make** and download the file. It plays straight away in a sample classroom (**Try it in a room**), so you can check it before uploading. It's made on your own computer; nothing is uploaded. Use Chrome or Edge on a Windows or Mac computer, so the file comes out as an MP4 that iPhones can play.
+2. Open the **See-through Video Maker** (`videomaker.html` on your site). Choose the video, press the colour box (it has an eyedropper) and click the green background in the preview, or press **Pick it for me**. It also finds paler shades of the same screen, so patchy lighting is handled. Then adjust the sliders right under the preview until the background has gone: **Remove more or less**, **Keep the person solid** (if the person looks a little see-through), **Edge detail** (crisp edges, or softer ones that keep wisps of hair and glows) and **Soften the edges**. To trim it, drag the dots at each end of the timeline. **Undo** and **Redo** (or Ctrl+Z and Ctrl+Shift+Z) step back through your changes, and each slider has a ↺ button to put it back. Choose the file type, size and sound, check the summary of what will be made, then press **Make** and download the file. It plays straight away in a sample classroom (**Try it in a room**), so you can check it before uploading. It's made on your own computer; nothing is uploaded. Use Chrome or Edge on a Windows or Mac computer, so the file comes out as an MP4 that iPhones can play.
 3. Upload the file to your site's `videos` folder, add a video spot with its path (for example `videos/teacher.see-through.mp4`), and make sure **See-through video** is ticked (it ticks itself for file names containing "see-through").
 
 **Rough or home-made green screens.** Step 2, *Fix problems* (press **Show the fixes**), rescues footage from creased sheets, patchy lighting and screens that are too small:
@@ -244,7 +246,7 @@ Dragging, sound, video, text, links and look-to-reveal dots all work inside an e
 
 `?p=<photo>&t=<title>&y=<start direction°>&al=1&mb=<model brightness>&s=<spot>&s=<spot>…&f=<shape>&f=<shape>…&v=2`
 
-Each spot is written as `link~yaw~pitch~flags~label~width°~corners~turn`. Text spots use `t:` followed by the text instead of a link. Corners (only for pinned spots) are eight whole-degree offsets from the centre: top-left, top-right, bottom-right, bottom-left, each as yaw,pitch. Turn (only for 3D models) is `turn,tilt,roll` in whole degrees. `mb` is only included when it isn't 1 (normal). The flags are `l` (plays/shows when looked at), `s` (plays at start), `h` (hidden), `r` (loop), `d` (appears after the dot), `o` (3D model spins), `f` (3D model in bright, flat colours), `x` (see-through video), `w` (with `x`: a WebM with its own transparency rather than a stencil MP4), `u` (masks don't hide this spot), and `a` / `v` / `i` / `k` / `m` / `p` (sound / video / picture / link / 3D model / document), used when the kind can't be told from the link.
+Each spot is written as `link~yaw~pitch~flags~label~width°~corners~turn`. Text spots use `t:` followed by the text instead of a link. Corners (only for pinned spots) are eight whole-degree offsets from the centre: top-left, top-right, bottom-right, bottom-left, each as yaw,pitch. Turn (only for 3D models) is `turn,tilt,roll` in whole degrees. `mb` is only included when it isn't 1 (normal). The flags are `l` (plays/shows when looked at), `s` (plays at start), `h` (hidden), `r` (loop), `d` (appears after the dot), `o` (3D model spins), `f` (3D model in bright, flat colours), `x` (see-through video), `w` (with `x`: a WebM with its own transparency rather than a stencil MP4), `u` (masks don't hide this spot), `e` (a video disappears when it ends), and `a` / `v` / `i` / `k` / `m` / `p` (sound / video / picture / link / 3D model / document), used when the kind can't be told from the link.
 
 Each mask (`f=`) is a list of `yaw,pitch` pairs in degrees, to the nearest half degree, for example `f=0,15,-20,15,-20,-15,0,-15`. (The viewer also understands a mask starting with `w`, which works the other way round, like a window: everything except inside it hides spots. The maker doesn't offer it.)
 

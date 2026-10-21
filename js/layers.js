@@ -1,17 +1,16 @@
 /*
- * The front layer: parts of the 360 photo that are drawn again in front of spots marked "behind",
- * so a person can stand behind the teacher's desk, or be seen through a window or doorway.
- *
- * Shapes are outlines drawn on the photo, kept in the link as compass positions (no extra file):
- *   f=12,4,30,4,31,-20,11,-21         "in front": the parts inside the outline are in front
- *   f=w-40,10,-20,10,-20,-15,-40,-15  "window": everything EXCEPT inside the outline is in front
- * (yaw,pitch pairs in degrees, to the nearest half degree; yaw left +, pitch up +, as for spots)
- *
- * How it hides things:
- *  - spots that are page elements (pictures, text, videos, YouTube…) sit in a "behind" layer whose visible
- *    area is clipped to what isn't in front, every frame. Clipped parts can't be tapped either.
- *  - 3D models and see-through videos marked behind are placed further away, past a cut-out copy of the
- *    photo (the same picture, so the colours match exactly) that covers them where the front layer is.
+ * FILE GUIDE: js/layers.js  ·  masks ("Masking" in the tour maker): outlines on the 360 photo that hide the visual
+ *   spots behind them, so a person can stand behind the teacher's desk.
+ * Loaded by: index.html (after spots.js). Depends on: A-Frame. Exposes window.FrontLayer(opts) plus
+ *   FrontLayer.encode / decode. make.html keeps its own tiny copy of encode/decode (create.js) so it needn't load A-Frame.
+ * Link format: one f= per mask, yaw,pitch pairs in degrees to the nearest half degree, e.g. f=0,15,-20,15,-20,-15,0,-15.
+ *   A leading "w" means a "window" (everything EXCEPT inside hides spots): still supported here, not offered in the maker.
+ * How it hides things: page-element spots that masks apply to (spots.js sets s.behind: visual spots unless the author
+ *   unticked "Hidden by masks") sit in a "behind" layer clipped every frame with CSS clip-path (clipped parts can't be
+ *   tapped). 3D models / see-through videos sit further away (BEHIND_DIST in spots.js) behind a cut-out copy of the
+ *   photo sphere (radius FRONT_R) whose alpha comes from a mask canvas in the photo's own texture coordinates.
+ * Sections (search for "// ---- <name>"): link format · the behind layer's clipping · the cut-out copy of the photo ·
+ *   every frame · the author's preview: outlines and drawing
  */
 (function (global) {
   'use strict';

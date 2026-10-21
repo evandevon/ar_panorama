@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>See-through Video Maker</title>
   <meta name="description" content="Turn a green-screen video into a see-through video for 360° tours. Everything happens on your computer; nothing is uploaded.">
-  <link rel="stylesheet" href="css/create.css?v=20261021m">
-  <link rel="stylesheet" href="css/videomaker.css?v=20261021m">
+  <link rel="stylesheet" href="css/create.css?v=20261021q">
+  <link rel="stylesheet" href="css/videomaker.css?v=20261021q">
 </head>
 <body>
 <header class="masthead">
@@ -82,8 +82,13 @@
 
     <div class="quick" id="key-controls">
       <div class="key-row">
-        <span class="swatch" id="swatch" aria-hidden="true"></span>
-        <span><b>Colour to remove</b><br><span class="help-inline" id="key-text">Click the background in the preview</span></span>
+        <button type="button" class="swatch-btn" id="swatch-btn" aria-pressed="false" aria-describedby="key-text" disabled
+                title="Choose the screen colour: press this, then click the screen in the preview">
+          <span class="swatch" id="swatch" aria-hidden="true"></span>
+          <svg class="dropper" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"/></svg>
+          <span class="vh">Choose the screen colour</span>
+        </button>
+        <span><b>Colour to remove</b><br><span class="help-inline" id="key-text">Press the colour box, then click the screen in the preview</span></span>
         <button type="button" class="btn small ghost" id="auto-key" disabled>Pick it for me</button>
       </div>
       <div class="quick-sliders">
@@ -91,6 +96,16 @@
           <label for="sim">Remove more or less <output id="sim-out" for="sim"></output></label>
           <input type="range" id="sim" min="0" max="100" value="36" aria-describedby="sim-help">
           <p class="help" id="sim-help">Slide right until the background has gone. If parts of the person start to disappear, slide back.</p>
+        </div>
+        <div>
+          <label for="solid">Keep the person solid <output id="solid-out" for="solid"></output></label>
+          <input type="range" id="solid" min="0" max="100" value="0" aria-describedby="solid-help">
+          <p class="help" id="solid-help">If the person looks a little see-through (dark or shiny clothes, a dim screen), slide right. Switch the preview to <b>Stencil</b>: the person should be pure white.</p>
+        </div>
+        <div>
+          <label for="detail">Edge detail <output id="detail-out" for="detail"></output></label>
+          <input type="range" id="detail" min="0" max="100" value="50" aria-describedby="detail-help">
+          <p class="help" id="detail-help">Left: crisp, clean edges. Right: keeps wisps of hair, motion blur and glows, but may leave a faint haze.</p>
         </div>
         <div>
           <label for="soft">Soften the edges <output id="soft-out" for="soft"></output></label>
@@ -261,6 +276,6 @@
 
 <video id="src" playsinline muted preload="auto" hidden></video>
 <script src="vendor/fix-webm-duration/fix-webm-duration.js"></script>
-<script src="js/videomaker.js?v=20261021m"></script>
+<script src="js/videomaker.js?v=20261021q"></script>
 </body>
 </html>
