@@ -254,3 +254,23 @@ textarea + .field-err { top: 8px; transform: none; }
 .layer-list li { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: .92rem; }
 .layer-list li > span:nth-child(2) { flex: 1; }
 .layer-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 8px; }
+
+/* ---------------------------------------------------------------- wide screens: an editor layout
+   The steps scroll on their own down the left; the preview fills the rest of the window and never scrolls away. */
+@media (min-width: 900px) {
+  :root { --side: clamp(380px, 32vw, 470px); }
+  html { height: 100%; overflow: hidden; }
+  body { height: 100%; width: var(--side); overflow-y: auto; overscroll-behavior: contain; }
+  .masthead { padding: 18px 0 20px; }
+  .masthead .wrap, .grid, .foot { max-width: none; }
+  .masthead h1 { font-size: 1.75rem; }
+  .grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "photo" "spots" "title" "share"; padding-top: 16px; }
+  .preview-panel { position: fixed; top: 0; bottom: 0; left: var(--side); right: 0; z-index: 5;
+    display: flex; flex-direction: column; margin: 0; padding: 14px 18px 12px; border: 0; border-left: 1px solid var(--line); border-radius: 0; }
+  .preview-panel > h2 { margin-bottom: 8px; }
+  .preview-panel .shape { margin-bottom: 8px; }
+  .frame-nav, .frame-nav.phone { flex: 1 1 auto; min-height: 0; grid-template-rows: 40px minmax(0, 1fr) 40px; }
+  .frame-nav > .frame, .frame-nav.phone > .frame, .frame.phone { width: 100%; height: 100%; aspect-ratio: auto; }
+  .facing { margin-top: 8px; }
+}
+.frame-nav { cursor: grab; } .frame-nav:active { cursor: grabbing; } .frame-nav > * { cursor: auto; }

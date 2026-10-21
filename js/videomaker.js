@@ -34,7 +34,7 @@
     'precision mediump float;',
     '#endif',
     'uniform sampler2D uVideo, uBg, uMask, uPlate;',
-    'uniform vec3 uKey; uniform vec3 uKeys[4]; uniform int uNKeys, uPlateOn;',
+    'uniform vec3 uKey; uniform vec3 uKeys[8]; uniform int uNKeys, uPlateOn;',
     'uniform float uSim, uSoft, uSpill, uChoke, uSpeck, uHole, uFeather; uniform vec2 uPx;',
     'uniform int uOut, uAlpha, uCh;',
     'varying vec2 vUv;',
@@ -51,7 +51,7 @@
     'float keyAt(vec2 uv, out float al, out vec3 k) {',
     '  float dd = diff(texture2D(uVideo, uv).rgb);',
     '  k = uKey; al = solidity(dd, uKey);',
-    '  for (int i = 0; i < 4; i++) {',
+    '  for (int i = 0; i < 8; i++) {',
     '    if (i < uNKeys) { float s = solidity(dd, uKeys[i]); if (s < al) { al = s; k = uKeys[i]; } }',
     '  }',
     '  if (uPlateOn == 1) {',
@@ -61,13 +61,15 @@
     '  return clamp((al - uSim) / max(min(uSoft, 1.0 - uSim), 0.01), 0.0, 1.0);',
     '}',
     'float keyA(vec2 uv) { float al; vec3 k; return keyAt(uv, al, k); }',
-    // Clean up coloured edges: bring the screen's colour down to the average of the other two, then add what was
-    // taken away back as the screen's opposite colour (magenta for green, orange for blue), so edges keep their brightness
-    'uniform vec3 uComp;',
+    // Clean up coloured edges: bring the screen's colour down to the average of the other two, and add what was taken
+    // away back as the screen's opposite colour (magenta-ish for green), so edges keep their brightness without a cast.
+    // Screens are rarely pure: a teal-ish green also carries blue, so take a matching share of that too (uSec),
+    // or leftover screen turns blue. Colours with no screen colour in them (a navy shirt, skin) aren't touched.
+    'uniform vec3 uComp; uniform float uSec;',
     'vec3 despill(vec3 c) {',
     '  float sp;',
-    '  if (uCh == 1) { sp = max(c.g - (c.r + c.b) * 0.5, 0.0); c.g -= sp; }',
-    '  else if (uCh == 2) { sp = max(c.b - (c.r + c.g) * 0.5, 0.0); c.b -= sp; }',
+    '  if (uCh == 1) { sp = max(c.g - (c.r + c.b) * 0.5, 0.0); c.g -= sp; c.b -= sp * uSec; }',
+    '  else if (uCh == 2) { sp = max(c.b - (c.r + c.g) * 0.5, 0.0); c.b -= sp; c.g -= sp * uSec; }',
     '  else { sp = max(c.r - (c.g + c.b) * 0.5, 0.0); c.r -= sp; }',
     '  return clamp(c + sp * uComp, 0.0, 1.0);',
     '}',
@@ -168,7 +170,7 @@
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     const u = n => gl.getUniformLocation(prog, n);
     const U = {};
-    ['uVideo', 'uBg', 'uMask', 'uPlate', 'uKey', 'uKeys', 'uNKeys', 'uPlateOn', 'uSim', 'uSoft', 'uSpill', 'uFeather', 'uChoke', 'uSpeck', 'uHole', 'uPx', 'uOut', 'uAlpha', 'uCh', 'uComp']
+    ['uVideo', 'uBg', 'uMask', 'uPlate', 'uKey', 'uKeys', 'uNKeys', 'uPlateOn', 'uSim', 'uSoft', 'uSpill', 'uFeather', 'uChoke', 'uSpeck', 'uHole', 'uPx', 'uOut', 'uAlpha', 'uCh', 'uComp', 'uSec']
       .forEach(n => { U[n] = u(n); });
     gl.uniform1i(U.uVideo, 0); gl.uniform1i(U.uBg, 1); gl.uniform1i(U.uMask, 2); gl.uniform1i(U.uPlate, 3);
     const put = (unit, t, source) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source); };
@@ -182,9 +184,11 @@
         const p = params();
         gl.viewport(x, y, w, h);
         gl.uniform3fv(U.uKey, key.rgb);
-        const ks = new Float32Array(12);
-        extraKeys.forEach((k, i) => ks.set(k, i * 3));
-        gl.uniform3fv(U.uKeys, ks); gl.uniform1i(U.uNKeys, extraKeys.length);
+        // the extra colours: the ones added by hand, and the paler shades of the screen found automatically
+        const all = extraKeys.concat(params().alpha ? [] : key.shades || []).slice(0, 8);
+        const ks = new Float32Array(24);
+        all.forEach((k, i) => ks.set(k, i * 3));
+        gl.uniform3fv(U.uKeys, ks); gl.uniform1i(U.uNKeys, all.length);
         gl.uniform1i(U.uPlateOn, plateOn ? 1 : 0);
         gl.uniform1f(U.uSim, p.sim); gl.uniform1f(U.uSoft, p.soft); gl.uniform1f(U.uSpill, p.spill);
         // the edge tools are set in "pixels of a 720p video", so they act the same at any size
@@ -199,6 +203,9 @@
         const comp = [r, g, b].map((v, i) => i === ch ? 0 : 1 - v / mx);
         const cm = Math.max(...comp, 0.01);
         gl.uniform3fv(U.uComp, comp.map(v => v / cm * 0.5));
+        // how much of the screen's second colour comes with its main one (blue in a teal-ish green screen)
+        const sec = ch === 1 ? (b - r) / Math.max(g - (r + b) / 2, 0.05) : ch === 2 ? (g - r) / Math.max(b - (r + g) / 2, 0.05) : 0;
+        gl.uniform1f(U.uSec, Math.max(0, Math.min(1.2, sec)));
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
     };
@@ -258,12 +265,51 @@
     redraw();
   }));
   const rgbCss = rgb => 'rgb(' + rgb.map(v => Math.round(v * 255)).join(',') + ')';
-  function setKey(rgb, picked) {
+  function setKey(rgb, picked, shades) {
     key.rgb = rgb; key.picked = picked;
+    key.shades = shades || findShades(rgb);
     $('swatch').style.background = rgbCss(rgb);
     const [r, g, b] = rgb;
-    $('key-text').textContent = (g > r && g > b ? 'Green' : b > r && b > g ? 'Blue' : 'This colour') + (picked ? ' (picked)' : ' (guessed)') + '. Click the background again to change it.';
+    const n = key.shades.length;
+    $('key-text').textContent = (g > r && g > b ? 'Green' : b > r && b > g ? 'Blue' : 'This colour') + (picked ? ' (picked)' : ' (guessed)') +
+      (n ? ', plus ' + (n === 1 ? 'a lighter shade' : n + ' lighter shades') + ' of it found in the picture' : '') + '. Click the background again to change it.';
     redraw();
+  }
+  // Screens are rarely one even colour: light from a window, creases and the camera make some parts paler (or bluer)
+  // than others. Find the paler shades of the same screen that the chosen colour wouldn't fully remove, so clicking
+  // the deepest green still clears the pale parts.
+  function findShades(rgb) {
+    if (!loaded || video.readyState < 2 || params().alpha) return [];
+    const k = findShades.k || (findShades.k = document.createElement('canvas'));
+    const cols = 32, rows = 18;
+    k.width = cols; k.height = rows;
+    const c = k.getContext('2d', { willReadFrequently: true });
+    c.drawImage(video, 0, 0, cols, rows);
+    const d = c.getImageData(0, 0, cols, rows).data;
+    const [r0, g0, b0] = rgb, ch = g0 >= r0 && g0 >= b0 ? 1 : b0 >= r0 ? 2 : 0;
+    const diff = ([r, g, b]) => ch === 1 ? g - Math.max(r, b) : ch === 2 ? b - Math.max(r, g) : r - Math.max(g, b);
+    const chroma = ([r, g, b]) => { const m = (r + g + b) / 3; return [r - m, g - m, b - m]; };
+    const kc = chroma(rgb), kl = Math.hypot(...kc), kd = diff(rgb);
+    if (kl < 0.05 || kd < 0.03) return [];
+    const risky = [];
+    for (let i = 0; i < d.length; i += 4) {
+      const p = [d[i] / 255, d[i + 1] / 255, d[i + 2] / 255], pc = chroma(p), pl = Math.hypot(...pc);
+      if (pl < 0.06) continue;
+      const cos = (pc[0] * kc[0] + pc[1] * kc[1] + pc[2] * kc[2]) / (pl * kl);
+      const q = diff(p) / kd;
+      // the same kind of colour as the screen, still screen-coloured, but not different enough to be fully removed
+      if (cos > 0.97 && diff(p) > 0.02 && q < 0.92) risky.push({ p, q });
+    }
+    if (risky.length < Math.max(4, cols * rows * 0.02)) return [];
+    risky.sort((a, b) => a.q - b.q);
+    const pick = f => {                                  // a typical colour around this point (averaged, so noise doesn't count)
+      const i = Math.min(risky.length - 1, Math.floor(f * risky.length)), lo = Math.max(0, i - 2), hi = Math.min(risky.length, i + 3);
+      const g = risky.slice(lo, hi);
+      return [0, 1, 2].map(j => g.reduce((t, x) => t + x.p[j], 0) / g.length);
+    };
+    const out = [pick(0.1), pick(0.5)];
+    if (risky.length > 40) out.push(pick(0.3));
+    return out;
   }
 
   // ---------------------------------------------------------------- undo and redo
@@ -273,7 +319,7 @@
     const v = {};
     SLIDERS.forEach(id => { v[id] = $(id).value; });
     return {
-      v, alpha: params().alpha, key: { rgb: key.rgb.slice(), picked: key.picked },
+      v, alpha: params().alpha, key: { rgb: key.rgb.slice(), picked: key.picked, shades: (key.shades || []).map(x => x.slice()) },
       extra: extraKeys.map(k => k.slice()),
       shapes: shapes.map(sh => ({ kind: sh.kind, pts: sh.pts.map(p => p.slice()) })),
       plateOn, plateTime, plateImg, trim: { start: trim.start, end: trim.end }
@@ -298,7 +344,7 @@
     syncResets();
     const r = document.querySelector('input[name=mode][value=' + (st.alpha ? 'alpha' : 'key') + ']');
     if (!r.checked) { r.checked = true; r.dispatchEvent(new Event('change')); }
-    setKey(st.key.rgb.slice(), st.key.picked);
+    setKey(st.key.rgb.slice(), st.key.picked, st.key.shades.map(x => x.slice()));
     extraKeys.length = 0; st.extra.forEach(k => extraKeys.push(k.slice())); listKeys();
     shapes.length = 0; st.shapes.forEach(sh => shapes.push({ kind: sh.kind, pts: sh.pts.map(p => p.slice()) })); listShapes();
     plateOn = st.plateOn; plateTime = st.plateTime;
@@ -397,6 +443,7 @@
     loaded = true;
     view.width = Math.min(w, 1280); view.height = Math.round(view.width * h / w);
     overlay.width = view.width; overlay.height = view.height;
+    fitView();
     maskC.width = Math.min(w, 1024); maskC.height = Math.round(maskC.width * h / w);
     // a new video: start again with its shapes, extra colours and empty background
     shapes.length = 0; extraKeys.length = 0; plateOn = false; setTool(null);
@@ -451,15 +498,32 @@
     for (let i = 0; i < d.length; i += 4) { s[0] += d[i]; s[1] += d[i + 1]; s[2] += d[i + 2]; n++; }
     return s.map(v => v / n / 255);
   }
-  // Guess the screen colour from the edges of the picture
+  // Guess the screen colour: look at a grid of patches across the whole picture, group similar colours, and pick
+  // the strongly green (or blue) colour that covers the most of it. (A white wall lit blue by a window can look
+  // "bluer" than a slightly teal green screen, but it covers far less of the picture.)
   function autoKey() {
     if (!loaded) return;
-    const w = video.videoWidth, h = video.videoHeight, r = Math.max(4, Math.round(Math.min(w, h) * 0.02));
-    const spots = [[r, r], [w - r, r], [r, h * 0.5], [w - r, h * 0.5], [w * 0.5, r]].map(([x, y]) => sample(Math.round(x), Math.round(y), r));
-    // the most "screen-like" (saturated green or blue) of the samples
-    const score = c => Math.max(c[1] - Math.max(c[0], c[2]), c[2] - Math.max(c[0], c[1]));
-    spots.sort((a, b) => score(b) - score(a));
-    setKey(spots[0], false);
+    const k = autoKey.k || (autoKey.k = document.createElement('canvas'));
+    const cols = 16, rows = 9;
+    k.width = cols * 4; k.height = rows * 4;
+    const c = k.getContext('2d', { willReadFrequently: true });
+    c.drawImage(video, 0, 0, k.width, k.height);
+    const d = c.getImageData(0, 0, k.width, k.height).data;
+    const cand = [];
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+      let s3 = [0, 0, 0];
+      for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) { const o = ((j * 4 + y) * k.width + i * 4 + x) * 4; s3[0] += d[o]; s3[1] += d[o + 1]; s3[2] += d[o + 2]; }
+      const rgb = s3.map(v => v / 16 / 255), [r, g, b] = rgb;
+      const chroma = Math.max(r, g, b) - Math.min(r, g, b);
+      // a screen: clearly coloured, with green (or blue) the strongest and red the weakest
+      if (chroma > 0.15 && Math.max(g, b) > r + 0.1 && (g >= b || b - g > 0.12)) cand.push(rgb);
+    }
+    if (!cand.length) return setKey(key.rgb, false);
+    const near = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 0.14;
+    let best = null, bestN = 0;
+    cand.forEach(c1 => { const n = cand.filter(c2 => near(c1, c2)).length; if (n > bestN) { bestN = n; best = c1; } });
+    const group = cand.filter(c2 => near(best, c2));
+    setKey([0, 1, 2].map(i => group.reduce((t, g2) => t + g2[i], 0) / group.length), false);
   }
   $('auto-key').addEventListener('click', () => { key.picked = false; autoKey(); commit(); });
 
@@ -603,6 +667,17 @@
     }
   }
   window.addEventListener('resize', drawOverlay);
+  // Wide screens: the picture fills the space it has (keeping its shape), however small the video is
+  const wide = matchMedia('(min-width: 900px)');
+  function fitView() {
+    if (!wide.matches) { view.style.width = ''; return; }
+    const st = $('stage'), W = st.clientWidth, H = st.clientHeight;
+    if (!W || !H || !view.width) return;
+    view.style.width = Math.floor(Math.min(W, H * view.width / view.height)) + 'px';
+    drawOverlay();
+  }
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fitView).observe($('stage'));
+  wide.addEventListener('change', fitView);
 
   function listShapes() {
     const ul = $('shape-list');

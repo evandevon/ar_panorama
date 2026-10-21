@@ -995,6 +995,25 @@
     post({ type: 'setWindow', win: { w, h } });
   }
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => sendWindow()).observe($('frame'));
+  // A drag that starts anywhere around the preview (not just on the picture) turns the view too
+  {
+    const nav = $('frame-nav');
+    let from = null;
+    nav.addEventListener('pointerdown', e => {
+      if (e.target !== nav || panoOk !== true) return;                // only the empty space around the picture
+      from = { x: e.clientX, y: e.clientY }; nav.setPointerCapture(e.pointerId); e.preventDefault();
+    });
+    nav.addEventListener('pointermove', e => {
+      if (!from) return;
+      const h = $('frame').classList.contains('phone') ? $('phone-window').offsetHeight : $('frame').clientHeight;
+      const k = 75 / Math.max(1, h);                                      // degrees per pixel, as on the picture itself
+      post({ type: 'nudge', yaw: (e.clientX - from.x) * k, pitch: (e.clientY - from.y) * k });
+      from = { x: e.clientX, y: e.clientY };
+    });
+    const end = () => { from = null; };
+    nav.addEventListener('pointerup', end); nav.addEventListener('pointercancel', end);
+    nav.style.touchAction = 'none';
+  }
   $('shape-phone').addEventListener('click', () => setShape(true));
   $('shape-wide').addEventListener('click', () => setShape(false));
 

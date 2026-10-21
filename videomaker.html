@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>See-through Video Maker</title>
   <meta name="description" content="Turn a green-screen video into a see-through video for 360° tours. Everything happens on your computer; nothing is uploaded.">
-  <link rel="stylesheet" href="css/create.css?v=20261021f">
-  <link rel="stylesheet" href="css/videomaker.css?v=20261021f">
+  <link rel="stylesheet" href="css/create.css?v=20261021m">
+  <link rel="stylesheet" href="css/videomaker.css?v=20261021m">
 </head>
 <body>
 <header class="masthead">
@@ -137,6 +137,19 @@
         <p class="help" id="spill-help">Removes the green (or blue) tint the screen leaves on hair and edges, shifting it back towards their own colour.</p>
       </div>
 
+      <div id="key-fix-2">
+        <h3 class="sub">Tidy the edges</h3>
+        <label for="choke">Shrink the edges <output id="choke-out" for="choke"></output></label>
+        <input type="range" id="choke" min="0" max="10" value="0" aria-describedby="choke-help">
+        <p class="help" id="choke-help">Trims a thin green or dark outline from around the person.</p>
+        <label for="speck">Remove specks <output id="speck-out" for="speck"></output></label>
+        <input type="range" id="speck" min="0" max="10" value="0" aria-describedby="speck-help">
+        <p class="help" id="speck-help">Gets rid of little bits of background left floating around.</p>
+        <label for="hole">Fill small holes <output id="hole-out" for="hole"></output></label>
+        <input type="range" id="hole" min="0" max="10" value="0" aria-describedby="hole-help">
+        <p class="help" id="hole-help">Fills see-through spots inside the person. Tip: switch the preview to <b>Stencil</b> (top right) to see holes clearly.</p>
+      </div>
+
       <h3 class="sub">Draw a shape</h3>
       <p class="help">Choose what the shape should do, then click dot by dot around the area in the preview. Click the first dot (or press <b>Done</b>) to close it.</p>
       <div class="tools" role="group" aria-label="Shape tools">
@@ -163,19 +176,6 @@
       <input type="range" id="feather" min="0" max="100" value="25">
       <label class="check"><input type="checkbox" id="show-shapes" checked> Show the shapes on the preview</label>
       <p class="help">Shapes stay in one place, so they suit someone standing still. Drag a dot to move it.</p>
-
-      <div id="key-fix-2">
-        <h3 class="sub">Tidy the edges</h3>
-        <label for="choke">Shrink the edges <output id="choke-out" for="choke"></output></label>
-        <input type="range" id="choke" min="0" max="10" value="0" aria-describedby="choke-help">
-        <p class="help" id="choke-help">Trims a thin green or dark outline from around the person.</p>
-        <label for="speck">Remove specks <output id="speck-out" for="speck"></output></label>
-        <input type="range" id="speck" min="0" max="10" value="0" aria-describedby="speck-help">
-        <p class="help" id="speck-help">Gets rid of little bits of background left floating around.</p>
-        <label for="hole">Fill small holes <output id="hole-out" for="hole"></output></label>
-        <input type="range" id="hole" min="0" max="10" value="0" aria-describedby="hole-help">
-        <p class="help" id="hole-help">Fills see-through spots inside the person. Tip: switch the preview to <b>Stencil</b> (top right) to see holes clearly.</p>
-      </div>
     </details>
   </section>
 
@@ -261,6 +261,6 @@
 
 <video id="src" playsinline muted preload="auto" hidden></video>
 <script src="vendor/fix-webm-duration/fix-webm-duration.js"></script>
-<script src="js/videomaker.js?v=20261021f"></script>
+<script src="js/videomaker.js?v=20261021m"></script>
 </body>
 </html>
