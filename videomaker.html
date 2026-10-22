@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>See-through Video Maker</title>
   <meta name="description" content="Turn a green-screen video into a see-through video for 360° tours. Everything happens on your computer; nothing is uploaded.">
-  <link rel="stylesheet" href="css/create.css?v=20261021q">
-  <link rel="stylesheet" href="css/videomaker.css?v=20261021q">
+  <link rel="stylesheet" href="css/create.css?v=20261022a">
+  <link rel="stylesheet" href="css/videomaker.css?v=20261022a">
 </head>
 <body>
 <header class="masthead">
@@ -78,7 +78,16 @@
       </div>
       <span class="time" id="time">0:00.0 / 0:00.0</span>
     </div>
-    <p class="help trim-text" id="trim-text" aria-live="polite"></p>
+    <div class="under-time">
+      <p class="help trim-text" id="trim-text" aria-live="polite"></p>
+      <div class="shape" id="bg-row" role="group" aria-label="Preview background">
+        <span class="help-inline">Show behind it:</span>
+        <button type="button" class="bg-btn" data-bg="room" aria-pressed="true">Classroom</button>
+        <button type="button" class="bg-btn" data-bg="check" aria-pressed="false">Checks</button>
+        <button type="button" class="bg-btn" data-bg="black" aria-pressed="false">Black</button>
+        <button type="button" class="bg-btn" data-bg="white" aria-pressed="false">White</button>
+      </div>
+    </div>
 
     <div class="quick" id="key-controls">
       <div class="key-row">
@@ -91,54 +100,55 @@
         <span><b>Colour to remove</b><br><span class="help-inline" id="key-text">Press the colour box, then click the screen in the preview</span></span>
         <button type="button" class="btn small ghost" id="auto-key" disabled>Pick it for me</button>
       </div>
+      <div class="key-more">
+        <div class="key-row">
+          <ul class="extra-keys" id="extra-keys" aria-label="Extra background colours" hidden></ul>
+          <button type="button" class="btn small ghost" id="add-key" aria-pressed="false" disabled aria-describedby="add-key-help">＋ Add another colour</button>
+          <span class="help-inline" id="add-key-help">For shadows, creases or darker corners that are still showing.</span>
+        </div>
+        <p class="status" id="key-status" role="status" aria-live="polite"></p>
+      </div>
       <div class="quick-sliders">
+        <div>
+          <label for="tol">Tolerance <output id="tol-out" for="tol"></output></label>
+          <input type="range" id="tol" min="0" max="100" value="0" aria-describedby="tol-help">
+          <p class="help" id="tol-help">Also removes colours close to the one you picked: creases, shadows, uneven light.</p>
+        </div>
         <div>
           <label for="sim">Remove more or less <output id="sim-out" for="sim"></output></label>
           <input type="range" id="sim" min="0" max="100" value="36" aria-describedby="sim-help">
-          <p class="help" id="sim-help">Slide right until the background has gone. If parts of the person start to disappear, slide back.</p>
+          <p class="help" id="sim-help">Slide right until the background goes. Slide back if the person starts to vanish.</p>
         </div>
         <div>
           <label for="solid">Keep the person solid <output id="solid-out" for="solid"></output></label>
           <input type="range" id="solid" min="0" max="100" value="0" aria-describedby="solid-help">
-          <p class="help" id="solid-help">If the person looks a little see-through (dark or shiny clothes, a dim screen), slide right. Switch the preview to <b>Stencil</b>: the person should be pure white.</p>
+          <p class="help" id="solid-help">If the person looks see-through, slide right. In <b>Stencil</b> view they should be pure white.</p>
         </div>
         <div>
           <label for="detail">Edge detail <output id="detail-out" for="detail"></output></label>
           <input type="range" id="detail" min="0" max="100" value="50" aria-describedby="detail-help">
-          <p class="help" id="detail-help">Left: crisp, clean edges. Right: keeps wisps of hair, motion blur and glows, but may leave a faint haze.</p>
+          <p class="help" id="detail-help">Left: crisp edges. Right: keeps wisps of hair and glows, but may leave a haze.</p>
         </div>
         <div>
           <label for="soft">Soften the edges <output id="soft-out" for="soft"></output></label>
           <input type="range" id="soft" min="0" max="100" value="25" aria-describedby="soft-help">
-          <p class="help" id="soft-help">Feathers the outline so it blends into the room. The inside stays solid.</p>
+          <p class="help" id="soft-help">Feathers the outline so it blends into the room.</p>
         </div>
       </div>
     </div>
     <p class="help" id="alpha-note" hidden>The video's own transparency is used. (This works in Chrome and Edge, which can read see-through WebM videos.)</p>
-    <div class="shape" id="bg-row" role="group" aria-label="Preview background">
-      <span class="help-inline">Show behind it:</span>
-      <button type="button" class="bg-btn" data-bg="room" aria-pressed="true">Classroom</button>
-      <button type="button" class="bg-btn" data-bg="check" aria-pressed="false">Checks</button>
-      <button type="button" class="bg-btn" data-bg="black" aria-pressed="false">Black</button>
-      <button type="button" class="bg-btn" data-bg="white" aria-pressed="false">White</button>
-    </div>
   </section>
 
   <!-- 2. Fix problems -->
   <section class="panel vm-step" aria-labelledby="h-2">
     <h2 id="h-2"><span class="num" aria-hidden="true">2</span> Fix problems <span class="opt">optional</span></h2>
-    <p class="help flush">Most videos only need the colour and the two sliders under the preview. Open this if something still isn't right.</p>
+    <p class="help flush">Most videos only need the colour and the sliders under the preview. Open this if something still isn't right.</p>
     <details class="fixes" id="fix-box">
       <summary>Show the fixes <span class="help-inline">for patchy screens, coloured edges and things left behind</span></summary>
 
       <div id="key-fix">
         <h3 class="sub">Patchy or creased background</h3>
-        <div class="key-row">
-          <ul class="extra-keys" id="extra-keys" aria-label="Extra background colours" hidden></ul>
-          <button type="button" class="btn small ghost" id="add-key" aria-pressed="false" disabled>＋ Add another background colour</button>
-        </div>
-        <p class="help">For shadows, creases or darker corners that are still showing: add their colour too.</p>
-        <p class="status" id="key-status" role="status" aria-live="polite"></p>
+        <p class="help flush">First try <b>Tolerance</b> and <b>＋ Add another colour</b> under the preview.</p>
         <div class="plate-row">
           <button type="button" class="btn small ghost" id="plate" disabled>Use this moment as the empty background</button>
           <button type="button" class="btn small ghost" id="plate-clear" hidden>Stop using it</button>
@@ -276,6 +286,6 @@
 
 <video id="src" playsinline muted preload="auto" hidden></video>
 <script src="vendor/fix-webm-duration/fix-webm-duration.js"></script>
-<script src="js/videomaker.js?v=20261021q"></script>
+<script src="js/videomaker.js?v=20261022a"></script>
 </body>
 </html>

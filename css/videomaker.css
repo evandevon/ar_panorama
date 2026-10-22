@@ -180,3 +180,39 @@ h3.sub:first-of-type { margin-top: 8px; }
 /* the eyedropper cursor, while choosing a colour (its tip is the point that's picked) */
 .stage.picking #view { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='%23f3ede9' stroke='%23161312' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m2 22 1-1h3l9-9'/%3E%3Cpath d='M3 21v-3l9-9'/%3E%3Cpath d='m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z'/%3E%3C/svg%3E") 2 26, crosshair; }
 .stage.picking { box-shadow: 0 0 0 3px var(--select); }
+
+/* ---------------------------------------------------------------- a bigger preview, with smaller controls under it */
+.quick { margin-top: 8px; padding-top: 8px; }
+.quick .key-row { gap: 10px; }
+.quick .key-more { margin: 0 0 4px 62px; }
+.quick .key-more .key-row { flex-wrap: wrap; gap: 6px 10px; margin: 0; }
+.quick .key-more .help-inline { flex: 1 1 200px; font-size: .8rem; }
+.quick .key-more .btn { min-height: 36px; }
+.quick .key-more .status:empty { display: none; }
+.quick-sliders { gap: 0 18px; }
+.quick-sliders label { margin-top: 4px; margin-bottom: 0; font-size: .85rem; }
+.quick-sliders .help { font-size: .78rem; line-height: 1.35; margin-top: -2px; }
+#key-controls input[type=range] { min-height: 30px; }
+#key-controls label { margin-top: 4px; }
+.quick .key-row > span:nth-child(2) { font-size: .9rem; }
+.quick .key-row .help-inline { font-size: .8rem; }
+@media (min-width: 900px) {
+  :root { --side: clamp(340px, 28vw, 420px); }
+  .transport { margin-top: 6px; }
+  .trim-text { font-size: .8rem; }
+  #bg-row { margin-top: 6px; }
+}
+@media (min-width: 1280px) { .quick-sliders { grid-template-columns: repeat(3, 1fr); } }
+/* each slider: label, number and reset on one line */
+.quick-sliders > div { display: flex; flex-wrap: wrap; align-items: center; column-gap: 4px; }
+.quick-sliders > div > label { flex: 1 1 auto; }
+.quick-sliders > div > .reset { margin-left: 0; min-height: 24px; min-width: 24px; }
+.quick-sliders > div > input, .quick-sliders > div > .help { flex: 1 1 100%; }
+/* the trim note and "Show behind it" share a row */
+.under-time { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; }
+.under-time .trim-text { flex: 1 1 220px; margin: 0; }
+.under-time #bg-row { margin-top: 0; }
+.under-time .bg-btn { min-height: 32px; padding: 0 10px; font-size: .8rem; }
+.under-time #bg-row { flex: 0 1 auto; gap: 4px; }
+.under-time #bg-row .help-inline { flex: none; font-size: .8rem; margin-right: 2px; }
+.quick-sliders > div { margin-bottom: 2px; }

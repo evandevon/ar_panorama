@@ -8,6 +8,7 @@
  *   vendor/fix-webm-duration; vendor/gifenc is imported only when a GIF is made).
  * Keying (in the FRAG shader): colour-difference keying against the main colour, extra colours (added by hand),
  *   paler "shades" of the screen found automatically (findShades), and an "empty background" frame (clean plate);
+ *   each also checked for closeness of hue (near(), widened by the Tolerance slider, uTol: needed for teal screens);
  *   whichever says "more screen" wins. Then sliders: Remove more or less (uSim), Edge detail (uSoft window),
  *   Keep the person solid (uSolid), Soften the edges (uFeather, inward blur), Clean up coloured edges (despill,
  *   uSpill/uComp/uSec), Shrink/Remove specks/Fill holes (neighbour sampling). Shapes (mask canvas) apply last.
@@ -46,7 +47,7 @@
     '#endif',
     'uniform sampler2D uVideo, uBg, uMask, uPlate;',
     'uniform vec3 uKey; uniform vec3 uKeys[8]; uniform int uNKeys, uPlateOn;',
-    'uniform float uSim, uSoft, uSolid, uSpill, uChoke, uSpeck, uHole, uFeather; uniform vec2 uPx;',
+    'uniform float uSim, uSoft, uSolid, uSpill, uChoke, uSpeck, uHole, uFeather, uTol; uniform vec2 uPx;',
     'uniform int uOut, uAlpha, uCh;',
     'varying vec2 vUv;',
     // "Colour difference": how much more screen-coloured (e.g. greener) a colour is than its other colours.
@@ -57,13 +58,24 @@
     '}',
     // How solid a pixel is against one background colour (0 = all screen, 1 = all subject). Measures blends well.
     'float solidity(float dd, vec3 k) { return clamp(1.0 - dd / max(diff(k), 0.05), 0.0, 1.0); }',
+    // Tolerance: how close a colour's hue is to a background colour, whatever its brightness. Catches screens the
+    // colour difference can't (teal screens, where green and blue are almost equal) and darker creases and shadows.
+    // q = how much "other" colour there is for each bit of the screen's own colour (0 = exactly the screen's hue).
+    'float near(vec3 c, vec3 k) {',
+    '  vec3 cc = c - vec3((c.r + c.g + c.b) / 3.0), kc = k - vec3((k.r + k.g + k.b) / 3.0);',
+    '  float kl = length(kc); if (kl < 0.04) return 1.0;',
+    '  vec3 kn = kc / kl; float along = dot(cc, kn); if (along <= 0.004) return 1.0;',
+    '  float q = length(cc - along * kn) / along, hi = 0.12 + 0.5 * uTol;',
+    '  float s = clamp(along / (kl * (0.85 - 0.4 * uTol)), 0.0, 1.0) * (1.0 - smoothstep(hi * 0.5, hi, q));',
+    '  return 1.0 - s;',
+    '}',
     // Against every background colour we know (the main one, the extras, and the empty background at this
     // very spot): whichever says "more screen" wins. al = the true solidity; the return value has the sliders applied.
     'float keyAt(vec2 uv, out float al, out vec3 k) {',
-    '  float dd = diff(texture2D(uVideo, uv).rgb);',
-    '  k = uKey; al = solidity(dd, uKey);',
+    '  vec3 c = texture2D(uVideo, uv).rgb; float dd = diff(c);',
+    '  k = uKey; al = min(solidity(dd, uKey), near(c, uKey));',
     '  for (int i = 0; i < 8; i++) {',
-    '    if (i < uNKeys) { float s = solidity(dd, uKeys[i]); if (s < al) { al = s; k = uKeys[i]; } }',
+    '    if (i < uNKeys) { float s = min(solidity(dd, uKeys[i]), near(c, uKeys[i])); if (s < al) { al = s; k = uKeys[i]; } }',
     '  }',
     '  if (uPlateOn == 1) {',
     '    vec3 pl = texture2D(uPlate, uv).rgb;',
@@ -182,7 +194,7 @@
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     const u = n => gl.getUniformLocation(prog, n);
     const U = {};
-    ['uVideo', 'uBg', 'uMask', 'uPlate', 'uKey', 'uKeys', 'uNKeys', 'uPlateOn', 'uSim', 'uSoft', 'uSolid', 'uSpill', 'uFeather', 'uChoke', 'uSpeck', 'uHole', 'uPx', 'uOut', 'uAlpha', 'uCh', 'uComp', 'uSec']
+    ['uVideo', 'uBg', 'uMask', 'uPlate', 'uKey', 'uKeys', 'uNKeys', 'uPlateOn', 'uSim', 'uSoft', 'uSolid', 'uSpill', 'uTol', 'uFeather', 'uChoke', 'uSpeck', 'uHole', 'uPx', 'uOut', 'uAlpha', 'uCh', 'uComp', 'uSec']
       .forEach(n => { U[n] = u(n); });
     gl.uniform1i(U.uVideo, 0); gl.uniform1i(U.uBg, 1); gl.uniform1i(U.uMask, 2); gl.uniform1i(U.uPlate, 3);
     const put = (unit, t, source) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source); };
@@ -202,7 +214,7 @@
         all.forEach((k, i) => ks.set(k, i * 3));
         gl.uniform3fv(U.uKeys, ks); gl.uniform1i(U.uNKeys, all.length);
         gl.uniform1i(U.uPlateOn, plateOn ? 1 : 0);
-        gl.uniform1f(U.uSim, p.sim); gl.uniform1f(U.uSoft, p.soft); gl.uniform1f(U.uSolid, p.solid); gl.uniform1f(U.uSpill, p.spill);
+        gl.uniform1f(U.uSim, p.sim); gl.uniform1f(U.uSoft, p.soft); gl.uniform1f(U.uSolid, p.solid); gl.uniform1f(U.uSpill, p.spill); gl.uniform1f(U.uTol, p.tol);
         // the edge tools are set in "pixels of a 720p video", so they act the same at any size
         const s = (video.videoHeight || 720) / 720;
         gl.uniform1f(U.uFeather, p.feather * s); gl.uniform1f(U.uChoke, p.choke * s); gl.uniform1f(U.uSpeck, p.speck * s); gl.uniform1f(U.uHole, p.hole * s);
@@ -239,18 +251,19 @@
       soft: 0.1 + $('detail').value / 100 * 0.8,         // edge detail: how gradually blends (hair, glows) fade
       solid: $('solid').value / 100 * 0.8,               // keep the person solid: partly see-through parts count as more solid
       feather: $('soft').value / 100 * 16,               // soften the edges: blur width, in pixels of a 720p video
+      tol: $('tol').value / 100,                         // tolerance: how far from the picked colour still counts as screen
       spill: $('spill').value / 100,
       choke: +$('choke').value,
       speck: +$('speck').value * 4,
       hole: +$('hole').value * 4
     };
   }
-  ['sim', 'solid', 'detail', 'soft', 'spill', 'choke', 'speck', 'hole'].forEach(id => {
+  ['tol', 'sim', 'solid', 'detail', 'soft', 'spill', 'choke', 'speck', 'hole'].forEach(id => {
     const show = () => { $(id + '-out').textContent = $(id).value; redraw(); };
     $(id).addEventListener('input', show); show();
   });
   // Every slider gets a small reset button beside its number (shown once it's been moved)
-  const SLIDERS = ['sim', 'solid', 'detail', 'soft', 'spill', 'choke', 'speck', 'hole', 'feather'];
+  const SLIDERS = ['tol', 'sim', 'solid', 'detail', 'soft', 'spill', 'choke', 'speck', 'hole', 'feather'];
   SLIDERS.forEach(id => {
     const input = $(id), out = $(id + '-out'), label = document.querySelector('label[for="' + id + '"]');
     const b = document.createElement('button');
@@ -284,7 +297,7 @@
     $('swatch').style.background = rgbCss(rgb);
     const [r, g, b] = rgb;
     const n = key.shades.length;
-    $('key-text').textContent = (g > r && g > b ? 'Green' : b > r && b > g ? 'Blue' : 'This colour') + (picked ? ' (picked)' : ' (guessed)') +
+    $('key-text').textContent = (g > r && b > r && Math.abs(g - b) < 0.12 * Math.max(g, b) ? 'Teal' : g > r && g > b ? 'Green' : b > r && b > g ? 'Blue' : 'This colour') + (picked ? ' (picked)' : ' (guessed)') +
       (n ? ', plus ' + (n === 1 ? 'a lighter shade' : n + ' lighter shades') + ' of it found in the picture' : '') + '. To change it, press the colour box and click the screen.';
     redraw();
   }

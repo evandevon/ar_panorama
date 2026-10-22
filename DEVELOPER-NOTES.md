@@ -58,10 +58,12 @@ A-Frame 1.8.0 (THREE is `AFRAME.THREE`), qrcode.js, PDF.js, gifenc (ESM, lazy-im
 The keying runs in a WebGL fragment shader (`FRAG` in videomaker.js):
 
 - **Colour difference.** `diff = keyChannel − max(other channels)`. Solidity is `1 − d/diff(key)`, and the minimum is taken over the main key, up to 8 extras (the user's extra colours + automatic `key.shades`) and the clean plate.
+- **Tolerance / hue closeness** (`near()`, added 22 Oct). Colour difference fails on teal screens (G ≈ B, so `diff ≈ 0`) and that also made extra colours useless. `near()` compares each pixel's chroma direction with each key's (q = off-axis chroma ÷ on-axis chroma) and how much of the key's chroma it has; it is min'd with the colour-difference solidity for the main key and every extra (not the clean plate). It's always on: at Tolerance 0 it removes near-exact hue matches; uTol widens the hue window (q up to 0.62) and lowers the saturation needed (to 45% of the key). On the green candle test it changes nothing.
 - **Sliders** (`params()`). The user-facing names map to these uniforms:
 
   | Slider | Uniform |
   |---|---|
+  | Tolerance | uTol |
   | Remove more/less | uSim |
   | Edge detail | uSoft |
   | Keep the person solid | uSolid |
@@ -82,7 +84,7 @@ The keying runs in a WebGL fragment shader (`FRAG` in videomaker.js):
 - **Teacher-facing words:** plain English, no jargon. Say "see-through" not "alpha" and "stencil" not "matte". Australian spelling: colour, centre.
 - **Accessibility:** labels on everything, keyboard paths, focus styles, and the WCAG AA contrast ratios we checked. The timeline trim dots are role=slider. axe-core showed no violations on all pages; keep it that way.
 - **Privacy:** nothing is uploaded and nothing stored except in the link. Never put student media in the repo or deliverables.
-- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261021q**.
+- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261022a**.
 - **Colours: "Ember and slate" (dark).** Use the tokens, never raw hex:
 
   | Token | Value |
@@ -113,6 +115,7 @@ The keying runs in a WebGL fragment shader (`FRAG` in videomaker.js):
 - **The colour pick is an eyedropper button** (the cursor changes; click on the preview). There are 2 newer sliders: Edge detail and Keep the person solid.
 - **"Disappear when it ends"** (flag `e`): the spot fades out; looking at it or tapping it again brings it back and replays it. The option is hidden for looping, sound-only and Drive videos.
 - **Ember and slate** was chosen over light schemes.
+- **22 Oct: video maker preview bigger, controls smaller.** Side column narrower on wide screens (`--side` override in videomaker.css), sliders in 3 columns from 1280px, shorter help lines, the trim note and "Show behind it" share a row, and "＋ Add another colour" moved from Fix problems to just under the main colour (the empty-background button stays in Fix problems).
 
 ## Work in progress / not yet verified on real devices
 
