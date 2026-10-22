@@ -216,3 +216,14 @@ h3.sub:first-of-type { margin-top: 8px; }
 .under-time #bg-row { flex: 0 1 auto; gap: 4px; }
 .under-time #bg-row .help-inline { flex: none; font-size: .8rem; margin-right: 2px; }
 .quick-sliders > div { margin-bottom: 2px; }
+
+/* ---------------------------------------------------------------- crop: a dot on each corner of the preview */
+.crop-dot { position: absolute; z-index: 2; width: 18px; height: 18px; margin: 0; padding: 0; border-radius: 50%;
+  border: 2px solid var(--ink); background: var(--brass); box-shadow: 0 0 0 1px var(--slate), 0 1px 4px rgba(0,0,0,.5); cursor: nwse-resize; touch-action: none; }
+.crop-dot[data-c="tr"], .crop-dot[data-c="bl"] { cursor: nesw-resize; }
+/* each dot sits just inside its corner of the box, so it never hangs off the edge of the preview */
+.crop-dot[data-c="tr"] { margin-left: -18px; } .crop-dot[data-c="bl"] { margin-top: -18px; } .crop-dot[data-c="br"] { margin: -18px 0 0 -18px; }
+.crop-dot::before { content: ""; position: absolute; inset: -12px; border-radius: 50%; }   /* a bigger target to grab */
+.crop-dot:hover, .crop-dot.dragging { background: var(--ink); }
+.crop-dot:focus-visible { outline: 3px solid var(--select); outline-offset: 2px; }
+.crop-dot[hidden] { display: none; }

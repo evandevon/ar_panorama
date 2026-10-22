@@ -12,9 +12,13 @@
  *   whichever says "more screen" wins. Then sliders: Remove more or less (uSim), Edge detail (uSoft window),
  *   Keep the person solid (uSolid), Soften the edges (uFeather, inward blur), Clean up coloured edges (despill,
  *   uSpill/uComp/uSec), Shrink/Remove specks/Fill holes (neighbour sampling). Shapes (mask canvas) apply last.
+ *   Crop: the preview always shows the whole picture (outside the box darkened on the overlay); files are drawn
+ *   with uCrop (a uv rectangle in the VERTEX shader), and srcW()/srcH() give the cropped size for every export.
+ *   The preview plays with sound (speakers(); after a video with sound is made, the element's audio runs through
+ *   the Web Audio graph, so it is routed to audioCtx.destination too).
  *   Shader outputs (uOut): 0 preview over a background · 1 picture on black · 2 stencil · 3 straight colour + alpha.
  * Sections (search for "// ---- <name>"): WebGL: one program, three jobs · settings · undo and redo · backgrounds for
- *   the preview · loading a video · clicking on the preview · shapes · patchy screens · preview playback ·
+ *   the preview · loading a video · clicking on the preview · crop: a dot on each corner · shapes · patchy screens · preview playback ·
  *   the timeline · making the file · videos (real time) · GIFs (frame by frame)
  * Gotchas learned the hard way: MediaRecorder output needs time to start (stop only after real data arrives);
  *   browser-made WebMs have no duration (fixed on export with fix-webm-duration, and handled on import);
@@ -34,11 +38,15 @@
   const MAX_KEYS = 4;
   const shapes = [];                         // { kind: 'keep'|'remove'|'solid', pts: [[x,y] 0..1 in the video] }
   const trim = { start: 0, end: 0 };
+  const crop = { x: 0, y: 0, w: 1, h: 1 };     // the part of the picture that's kept (0..1 of the video, from the top left)
+  const MIN_CROP = 0.05;
+  const cropped = () => crop.x > 0.001 || crop.y > 0.001 || crop.w < 0.999 || crop.h < 0.999;
+  const srcW = () => (video.videoWidth || 0) * crop.w, srcH = () => (video.videoHeight || 0) * crop.h;
   let plateOn = false, plateTime = 0;
 
   // ---------------------------------------------------------------- WebGL: one program, three jobs
   // uOut 0 = preview (over a background), 1 = the picture (premultiplied, on black), 2 = the stencil
-  const VERT = 'attribute vec2 p; varying vec2 vUv; void main(){ vUv = p * 0.5 + 0.5; gl_Position = vec4(p, 0.0, 1.0); }';
+  const VERT = 'attribute vec2 p; uniform vec4 uCrop; varying vec2 vUv; void main(){ vUv = uCrop.xy + (p * 0.5 + 0.5) * uCrop.zw; gl_Position = vec4(p, 0.0, 1.0); }';
   const FRAG = [
     '#ifdef GL_FRAGMENT_PRECISION_HIGH',
     'precision highp float;',
@@ -194,7 +202,7 @@
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     const u = n => gl.getUniformLocation(prog, n);
     const U = {};
-    ['uVideo', 'uBg', 'uMask', 'uPlate', 'uKey', 'uKeys', 'uNKeys', 'uPlateOn', 'uSim', 'uSoft', 'uSolid', 'uSpill', 'uTol', 'uFeather', 'uChoke', 'uSpeck', 'uHole', 'uPx', 'uOut', 'uAlpha', 'uCh', 'uComp', 'uSec']
+    ['uVideo', 'uBg', 'uMask', 'uPlate', 'uKey', 'uKeys', 'uNKeys', 'uPlateOn', 'uSim', 'uSoft', 'uSolid', 'uSpill', 'uTol', 'uFeather', 'uChoke', 'uSpeck', 'uHole', 'uPx', 'uOut', 'uAlpha', 'uCh', 'uComp', 'uSec', 'uCrop']
       .forEach(n => { U[n] = u(n); });
     gl.uniform1i(U.uVideo, 0); gl.uniform1i(U.uBg, 1); gl.uniform1i(U.uMask, 2); gl.uniform1i(U.uPlate, 3);
     const put = (unit, t, source) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source); };
@@ -204,9 +212,11 @@
       setMask(source) { put(2, mTex, source); },
       setPlate(source) { put(3, pTex, source); },
       upload() { put(0, vTex, video); },
-      draw(out, x, y, w, h) {
+      draw(out, x, y, w, h, useCrop) {
         const p = params();
         gl.viewport(x, y, w, h);
+        // the files are cut to the crop; the preview shows the whole picture (with the crop drawn on top)
+        if (useCrop) gl.uniform4f(U.uCrop, crop.x, 1 - crop.y - crop.h, crop.w, crop.h); else gl.uniform4f(U.uCrop, 0, 0, 1, 1);
         gl.uniform3fv(U.uKey, key.rgb);
         // the extra colours: the ones added by hand, and the paler shades of the screen found automatically
         const all = extraKeys.concat(params().alpha ? [] : key.shades || []).slice(0, 8);
@@ -348,7 +358,7 @@
       v, alpha: params().alpha, key: { rgb: key.rgb.slice(), picked: key.picked, shades: (key.shades || []).map(x => x.slice()) },
       extra: extraKeys.map(k => k.slice()),
       shapes: shapes.map(sh => ({ kind: sh.kind, pts: sh.pts.map(p => p.slice()) })),
-      plateOn, plateTime, plateImg, trim: { start: trim.start, end: trim.end }
+      plateOn, plateTime, plateImg, trim: { start: trim.start, end: trim.end }, crop: Object.assign({}, crop)
     };
   }
   const same = (a, b) => JSON.stringify(Object.assign({}, a, { plateImg: 0 })) === JSON.stringify(Object.assign({}, b, { plateImg: 0 })) && a.plateImg === b.plateImg;
@@ -380,6 +390,7 @@
     }
     plateImg = st.plateImg; showPlate();
     trim.start = st.trim.start; trim.end = st.trim.end; layoutTimeline();
+    Object.assign(crop, st.crop); cropChanged();
     $('feather-out').textContent = $('feather').value;
     buildMask(); redraw();
     restoring = false;
@@ -480,6 +491,7 @@
     ['play', 'make', 'auto-key', 'add-key', 'plate', 'swatch-btn'].forEach(id => { $(id).disabled = false; });
     document.querySelectorAll('.tool').forEach(b => { b.disabled = false; });
     trim.start = 0; trim.end = video.duration;
+    Object.assign(crop, { x: 0, y: 0, w: 1, h: 1 }); cropChanged();
     timelineOn(true); layoutTimeline(); if (typeof gifNote === 'function') gifNote();
     status('file-status', 'ok', w + ' × ' + h + ', ' + fmt(video.duration) + ' long.');
     video.currentTime = Math.min(0.5, video.duration / 2);
@@ -665,6 +677,58 @@
   view.addEventListener('pointercancel', endDrag);
   view.addEventListener('pointerleave', () => { if (hover) { hover = null; drawOverlay(); } });
 
+  // ---------------------------------------------------------------- crop: a dot on each corner of the preview
+  // The preview always shows the whole picture, with the part that's cut off darkened; the files are made from the box.
+  // Drag a corner dot to crop (or focus it and use the arrow keys).
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const rawVideo = e => { const r = view.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height]; };
+  const cropDots = [...document.querySelectorAll('.crop-dot')];
+  // move one corner (c = 'tl', 'tr', 'bl' or 'br') to x, y (0..1 of the picture); the opposite corner stays put
+  function moveCorner(c, x, y) {
+    const right = crop.x + crop.w, bottom = crop.y + crop.h, snapE = 0.012;
+    if (c[1] === 'l') { x = clamp(x, 0, right - MIN_CROP); if (x < snapE) x = 0; crop.x = x; crop.w = right - x; }
+    else { x = clamp(x, crop.x + MIN_CROP, 1); if (x > 1 - snapE) x = 1; crop.w = x - crop.x; }
+    if (c[0] === 't') { y = clamp(y, 0, bottom - MIN_CROP); if (y < snapE) y = 0; crop.y = y; crop.h = bottom - y; }
+    else { y = clamp(y, crop.y + MIN_CROP, 1); if (y > 1 - snapE) y = 1; crop.h = y - crop.y; }
+    cropChanged();
+  }
+  function cropChanged() {
+    cropDots.forEach(d => {
+      const c = d.dataset.c;
+      d.style.left = (c[1] === 'l' ? crop.x : crop.x + crop.w) * 100 + '%';
+      d.style.top = (c[0] === 't' ? crop.y : crop.y + crop.h) * 100 + '%';
+      d.hidden = !loaded;
+    });
+    drawOverlay();
+    if (fmtReady) { gifNote(); updateSummary(); }
+  }
+  let cropDrag = null, cropKeyCommit = 0;
+  cropDots.forEach(d => {
+    d.addEventListener('pointerdown', e => {
+      if (!loaded || making) return;
+      cropDrag = d.dataset.c; d.setPointerCapture(e.pointerId); d.classList.add('dragging'); e.preventDefault();
+    });
+    d.addEventListener('pointermove', e => { if (cropDrag === d.dataset.c) { const p = rawVideo(e); moveCorner(cropDrag, p[0], p[1]); } });
+    const end = () => { if (cropDrag) { cropDrag = null; d.classList.remove('dragging'); commit(); } };
+    d.addEventListener('pointerup', end); d.addEventListener('pointercancel', end);
+    d.addEventListener('keydown', e => {
+      if (!loaded || making) return;
+      const step = e.shiftKey ? 0.05 : 0.01, c = d.dataset.c;
+      const mv = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+      if (!mv) return;
+      e.preventDefault();
+      moveCorner(c, (c[1] === 'l' ? crop.x : crop.x + crop.w) + mv[0], (c[0] === 't' ? crop.y : crop.y + crop.h) + mv[1]);
+      clearTimeout(cropKeyCommit); cropKeyCommit = setTimeout(commit, 700);   // a burst of key presses is one undo step
+    });
+  });
+  function drawCrop(x, W, H, k) {
+    if (!cropped()) return;
+    const L = crop.x * W, T = crop.y * H, CW = crop.w * W, CH = crop.h * H;
+    x.fillStyle = 'rgba(0,0,0,.6)';
+    x.beginPath(); x.rect(0, 0, W, H); x.rect(L, T, CW, CH); x.fill('evenodd');
+    x.lineWidth = 1.5 * k; x.strokeStyle = 'rgba(255,255,255,.9)'; x.strokeRect(L, T, CW, CH);
+  }
+
   // ---------------------------------------------------------------- shapes: outlines on top, and the mask they make
   $('show-shapes').addEventListener('change', drawOverlay);
   function drawOverlay() {
@@ -701,6 +765,7 @@
       x.lineWidth = 2 * k; x.strokeStyle = K.line; x.setLineDash([4 * k, 4 * k]); x.stroke(); x.setLineDash([]);
       dots(draft, K.line, draft.length >= 3);
     }
+    drawCrop(x, W, H, k);
   }
   window.addEventListener('resize', drawOverlay);
   // Wide screens: the picture fills the space it has (keeping its shape), however small the video is
@@ -824,9 +889,22 @@
   $('play').addEventListener('click', () => {
     if (video.paused) {
       if (video.currentTime < trim.start || video.currentTime >= trim.end - 0.05) video.currentTime = trim.start;
-      video.play().then(loop).catch(() => {});
+      speakers();
+      // if the browser won't play it with sound, play it silently rather than not at all
+      video.play().catch(() => { video.muted = true; return video.play(); }).then(loop).catch(() => {});
     } else video.pause();
   });
+  // The preview plays with its sound. (Once a video with sound has been made, the sound runs through the page's
+  // audio graph, so it has to be routed to the speakers there too.)
+  let toSpeakers = false;
+  function speakers() {
+    const on = !making;
+    video.muted = !on;
+    if (audioSrc && audioCtx) {
+      if (on && !toSpeakers) { audioSrc.connect(audioCtx.destination); toSpeakers = true; audioCtx.resume().catch(() => {}); }
+      else if (!on && toSpeakers) { try { audioSrc.disconnect(audioCtx.destination); } catch (e) {} toSpeakers = false; }
+    }
+  }
   video.addEventListener('play', () => { $('play').textContent = '❚❚ Pause'; $('play').setAttribute('aria-label', 'Pause'); });
   video.addEventListener('pause', () => { $('play').textContent = '▶ Play'; $('play').setAttribute('aria-label', 'Play'); });
   video.loop = true;
@@ -942,8 +1020,8 @@
     warn.hidden = !msg; warn.textContent = msg;
   }
   function gifSize() {
-    const w = Math.round(Math.min(+$('size').value, 480, video.videoWidth || 480) / 2) * 2;
-    return [w, Math.round(w * (video.videoHeight || 270) / (video.videoWidth || 480) / 2) * 2];
+    const w = Math.round(Math.min(+$('size').value, 480, srcW() || 480) / 2) * 2;
+    return [w, Math.round(w * (srcH() || 270) / (srcW() || 480) / 2) * 2];
   }
   function gifNote() {
     if (fmtNow() !== 'gif') return;
@@ -956,8 +1034,8 @@
   // What will be made: kind, size, length, sound and roughly how big the file will be
   function outSize(f) {
     if (f === 'gif') return gifSize();
-    let w = Math.min(+$('size').value, video.videoWidth), h = w * video.videoHeight / video.videoWidth;
-    if (f === 'stencil' && h * 2 > 2160) { h = 1080; w = h * video.videoWidth / video.videoHeight; }
+    let w = Math.min(+$('size').value, srcW()), h = w * srcH() / srcW();
+    if (f === 'stencil' && h * 2 > 2160) { h = 1080; w = h * srcW() / srcH(); }
     return [Math.round(w / 2) * 2, Math.round(h / 2) * 2];
   }
   function updateSummary() {
@@ -967,7 +1045,7 @@
     const kind = f !== 'gif' && canRecord ? (f === 'webm' ? pickWebm(false) : pickType(false)) : null;
     $('sum-file').textContent = f === 'gif' ? 'Animated GIF' : f === 'webm' ? 'Transparent WebM'
       : kind && kind.ext === 'webm' ? 'See-through WebM (this browser can’t make MP4s)' : 'See-through MP4';
-    $('sum-size').textContent = f === 'stencil' ? w + ' × ' + h + ' (made ' + w + ' × ' + h * 2 + ', with its stencil)' : w + ' × ' + h;
+    $('sum-size').textContent = (f === 'stencil' ? w + ' × ' + h + ' (made ' + w + ' × ' + h * 2 + ', with its stencil)' : w + ' × ' + h) + (cropped() ? ', cropped' : '');
     $('sum-length').textContent = secs.toFixed(1) + ' seconds' + (trim.start > 0.05 || trim.end < video.duration - 0.05 ? ' (trimmed)' : '');
     $('sum-sound').textContent = f === 'gif' ? 'None (GIFs can’t have sound)' : $('sound').checked ? 'Kept' : 'Off';
     let bytes;
@@ -1045,9 +1123,9 @@
 
     // Size: the chosen width (never bigger than the original), even numbers; the stencil MP4 is twice as tall
     const stencil = f === 'stencil';
-    let w = Math.min(+$('size').value, video.videoWidth);
-    let h = w * video.videoHeight / video.videoWidth;
-    if (stencil && h * 2 > 2160) { h = 1080; w = h * video.videoWidth / video.videoHeight; }
+    let w = Math.min(+$('size').value, srcW());
+    let h = w * srcH() / srcW();
+    if (stencil && h * 2 > 2160) { h = 1080; w = h * srcW() / srcH(); }
     w = Math.round(w / 2) * 2; h = Math.round(h / 2) * 2;
     const out = canvas(w, stencil ? h * 2 : h);
     const og = makeGL(out, !stencil);
@@ -1076,6 +1154,7 @@
     status('make-status', '', 'Making it… this takes as long as the clip (' + fmt(end - start, true) + '). Keep this tab open.');
     video.pause(); video.loop = false;
     await seekTo(start);
+    if (audioSrc && toSpeakers) { try { audioSrc.disconnect(audioCtx.destination); } catch (e) {} toSpeakers = false; }
     video.muted = !withSound;                     // the sound goes into the file, not the speakers
     rec.start(500);
     const recStarted = performance.now();
@@ -1086,9 +1165,9 @@
       lastT = video.currentTime; drawn++;
       og.upload();
       if (stencil) {
-        og.draw(1, 0, h, w, h);                    // top: the picture, on black
-        og.draw(2, 0, 0, w, h);                    // bottom: the stencil
-      } else og.draw(3, 0, 0, w, h);               // the picture with real transparency
+        og.draw(1, 0, h, w, h, true);              // top: the picture, on black
+        og.draw(2, 0, 0, w, h, true);              // bottom: the stencil
+      } else og.draw(3, 0, 0, w, h, true);               // the picture with real transparency
       if (manual) track.requestFrame();
       $('bar').style.width = Math.min(100, (video.currentTime - start) / (end - start) * 100) + '%';
       if (video.currentTime >= end - 0.02 || video.ended || making.cancelled) return finish();
@@ -1114,7 +1193,7 @@
       const cancelled = making.cancelled;
       making = null;
       if (audioSrc && audioDest) { try { audioSrc.disconnect(audioDest); } catch (e) {} }
-      video.muted = true; video.loop = true;
+      video.loop = true; speakers();
       busy(false);
       redraw();
       if (cancelled) return status('make-status', '', 'Cancelled.');
@@ -1192,7 +1271,7 @@
     for (let i = 0; i < n; i++) {
       if (making.cancelled) break;
       await seekTo(Math.min(end - 0.001, start + i / fps));
-      og.upload(); og.draw(3, 0, 0, w, h);
+      og.upload(); og.draw(3, 0, 0, w, h, true);
       gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
       // WebGL reads bottom row first: flip it. A GIF pixel is solid or see-through, nothing between, and every
       // see-through pixel must be exactly the same colour, so the palette has only one see-through entry.

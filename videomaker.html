@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>See-through Video Maker</title>
   <meta name="description" content="Turn a green-screen video into a see-through video for 360° tours. Everything happens on your computer; nothing is uploaded.">
-  <link rel="stylesheet" href="css/create.css?v=20261022a">
-  <link rel="stylesheet" href="css/videomaker.css?v=20261022a">
+  <link rel="stylesheet" href="css/create.css?v=20261022c">
+  <link rel="stylesheet" href="css/videomaker.css?v=20261022c">
 </head>
 <body>
 <header class="masthead">
@@ -62,6 +62,10 @@
       <div class="view-wrap">
         <canvas id="view" width="640" height="360" aria-label="Preview of the see-through video"></canvas>
         <canvas id="overlay" width="640" height="360" aria-hidden="true"></canvas>
+        <button type="button" class="crop-dot" data-c="tl" hidden aria-label="Crop: top-left corner. Drag it, or use the arrow keys."></button>
+        <button type="button" class="crop-dot" data-c="tr" hidden aria-label="Crop: top-right corner. Drag it, or use the arrow keys."></button>
+        <button type="button" class="crop-dot" data-c="bl" hidden aria-label="Crop: bottom-left corner. Drag it, or use the arrow keys."></button>
+        <button type="button" class="crop-dot" data-c="br" hidden aria-label="Crop: bottom-right corner. Drag it, or use the arrow keys."></button>
       </div>
       <p class="stage-empty" id="stage-empty">Your video will appear here.</p>
     </div>
@@ -286,6 +290,6 @@
 
 <video id="src" playsinline muted preload="auto" hidden></video>
 <script src="vendor/fix-webm-duration/fix-webm-duration.js"></script>
-<script src="js/videomaker.js?v=20261022a"></script>
+<script src="js/videomaker.js?v=20261022c"></script>
 </body>
 </html>
