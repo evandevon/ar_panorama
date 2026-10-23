@@ -141,7 +141,14 @@
     // A partly see-through pixel is a mix of the subject and the screen behind it. Take the screen's share
     // back out ("unmixing"), so soft edges, glows and hair keep their own colour instead of turning grey or green.
     '    float aU = min(a, aK);',
-    '    vec3 un = max(rgb - (1.0 - al) * k, 0.0) * (aU / max(al, 0.001));',
+    '    vec3 un = max(rgb - (1.0 - al) * k, 0.0);',
+    // Don't overshoot: a dull, shadowy colour with a hint of the screen in it (hair lit by light bouncing off the screen)
+    // isn't really a mix with the bright screen, and taking that much screen out leaves the screen's opposite colour
+    // (red, for a teal screen). So never let the result lean further away from the screen's colour than the gently
+    // "despilled" pixel does. The push is along the screen's colour direction only, so brightness doesn't change.
+    '    vec3 kc = k - vec3((k.r + k.g + k.b) / 3.0); float kcl = length(kc);',
+    '    if (kcl > 0.02) { vec3 kn = kc / kcl; float over = dot(un - despill(rgb), kn); if (over < -0.02) un = max(un - (over + 0.02) * kn, 0.0); }',
+    '    un *= aU / max(al, 0.001);',
     '    pm = mix(rgb * aU, un, uSpill);',
     '    pm += rgb * max(a - aK, 0.0);',                  // filled-in holes use their own colour
     // A gentle "despill" for screen-coloured light bouncing onto edges: don't let the screen's channel rise

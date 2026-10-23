@@ -84,7 +84,7 @@ The keying runs in a WebGL fragment shader (`FRAG` in videomaker.js):
 - **Teacher-facing words:** plain English, no jargon. Say "see-through" not "alpha" and "stencil" not "matte". Australian spelling: colour, centre.
 - **Accessibility:** labels on everything, keyboard paths, focus styles, and the WCAG AA contrast ratios we checked. The timeline trim dots are role=slider. axe-core showed no violations on all pages; keep it that way.
 - **Privacy:** nothing is uploaded and nothing stored except in the link. Never put student media in the repo or deliverables.
-- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261022c**.
+- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261023a**.
 - **Colours: "Ember and slate" (dark).** Use the tokens, never raw hex:
 
   | Token | Value |
@@ -117,6 +117,7 @@ The keying runs in a WebGL fragment shader (`FRAG` in videomaker.js):
 - **Ember and slate** was chosen over light schemes.
 - **22 Oct: video maker preview bigger, controls smaller.** Side column narrower on wide screens (`--side` override in videomaker.css), sliders in 3 columns from 1280px, shorter help lines, the trim note and "Show behind it" share a row, and "＋ Add another colour" moved from Fix problems to just under the main colour (the empty-background button stays in Fix problems).
 - **22 Oct: crop and preview sound.** Crop is four draggable dots on the preview's corners (buttons over the canvas; arrow keys move them 1%, Shift 5%; a key burst is one undo step). No crop button or panel, by request. The preview shows the whole frame with the cut-off part darkened; exports use `uCrop` in the vertex shader and `srcW()/srcH()` for sizes. Crop is in undo/redo and resets for a new video. The preview always plays with sound (no button, by request); if the browser refuses sound it falls back to silent playback. During export the sound goes only into the file.
+- **23 Oct: no more red hair on teal screens.** "Unmixing" subtracts (1 − al) × key from part-solid pixels and divides by al. Dull, shadowy hair lit by screen bounce isn't really a mix with the bright screen, so the subtraction overshot: for a teal key (almost no red) it left mostly red, and the divide (worse when "Keep the person solid" or a crisp "Edge detail" forces the pixel solid) brightened it. Fix in FRAG: before the divide, the unmixed colour may not lean further from the key's chroma direction than `despill(rgb)` does (−0.02 margin). The push is along the key's zero-sum chroma vector, so brightness is unchanged. Ev's clip: 52–75 red hair pixels before, 0 after. The candle tests are unchanged.
 
 ## Work in progress / not yet verified on real devices
 
