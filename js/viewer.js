@@ -215,7 +215,11 @@
 
       this.kind = 'file';
       const a = $('audio');
-      a.src = Media.resolveMediaUrl(token, 'audio').url;
+      // A Google Drive sound needs downloading first (with this website's key); anything else plays from its link
+      if (Media.canDownloadDrive(token)) {
+        Media.downloadDrive(token).then(r => { a.src = r.url; if (this.wantPlay) { this.wantPlay = false; a.play().catch(() => this.set(false)); } })
+          .catch(err => { tell({ type: 'audio', ok: false, message: err.message }); $('btn-sound').hidden = true; });
+      } else a.src = Media.resolveMediaUrl(token, 'audio').url;
       a.loop = cfg.loop;
       a.addEventListener('play', () => this.set(true));
       a.addEventListener('pause', () => this.set(false));
@@ -252,7 +256,10 @@
     },
 
     play() {
-      if (this.kind === 'file') $('audio').play().catch(() => this.set(false));
+      if (this.kind === 'file') {
+        if (!$('audio').getAttribute('src')) { this.wantPlay = true; return; }   // a Drive sound still downloading
+        $('audio').play().catch(() => this.set(false));
+      }
       else if (this.kind === 'video') video.play().then(() => this.set(true)).catch(() => {});
       else if (this.kind === 'yt') {
         $('yt-wrap').hidden = false;
@@ -260,7 +267,7 @@
       }
     },
     pause() {
-      if (this.kind === 'file') $('audio').pause();
+      if (this.kind === 'file') { this.wantPlay = false; $('audio').pause(); }
       else if (this.kind === 'video') { video.pause(); this.set(false); }
       else if (this.kind === 'yt' && this.ytReady) this.yt.pauseVideo();
     },
@@ -338,6 +345,10 @@
   }
   window.addEventListener('resize', () => { if (win) applyWindow(); });
 
+  function clearSelection() {
+    const sel = window.getSelection && window.getSelection();
+    if (sel && sel.rangeCount && !sel.isCollapsed && !(document.activeElement && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName))) sel.removeAllRanges();
+  }
   function bindDrag() {
     const el = sceneEl.canvas;
     el.style.touchAction = 'none';
@@ -351,6 +362,10 @@
       const shade = e.target.classList && e.target.classList.contains('win-shade');
       if (e.target !== el && !shade && (PREVIEW || !e.target.closest(passThrough))) return;
       if (e.target !== el && !shade) e.target.closest(passThrough).style.touchAction = 'none';
+      // A mouse press here must not start selecting text: a selection (of spot labels) would later be dragged
+      // by the browser instead of the view, cancelling the drag after a moment
+      if (e.pointerType === 'mouse') e.preventDefault();
+      clearSelection();
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pointers.size === 1) travelled = 0;
       cancelAnimationFrame(spin); vel = { x: 0, y: 0 };
@@ -391,6 +406,9 @@
     };
     window.addEventListener('pointerup', end);
     window.addEventListener('pointercancel', end);
+    // Nothing in the viewer is meant to be dragged out by the browser (text, pictures, links): that would cancel
+    // the look-around drag. Spots and the view are moved with pointer events instead.
+    window.addEventListener('dragstart', e => { e.preventDefault(); clearSelection(); }, true);
     // A drag that started on a marker shouldn't also count as tapping it
     $('spots').addEventListener('click', e => {
       if (travelled > 10 && e.target.closest('.spot-marker, .spot-model')) { e.stopPropagation(); e.preventDefault(); }

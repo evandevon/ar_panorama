@@ -38,7 +38,7 @@ Set sharing to **Anyone with the link**. The photo should be equirectangular (2:
 - The video loops, and starts when the viewer taps to begin.
 - With spots, the toolbar's **Sound** button mutes everything, the video included.
 - The video's own sound drops to a quarter while a video spot plays.
-- **Hosting:** use this GitHub repo (under 100 MB per file). Google Drive doesn't reliably allow its videos to be used this way, and its links don't show that they're videos.
+- **Hosting:** use this GitHub repo (under 100 MB per file), or Google Drive (shared as Anyone with the link; choose **Type → Video**, since Drive links don't show that they're videos).
 - **A classroom-friendly file:** H.264 MP4, 2880 × 1440 (or 1920 × 960 for older phones), about 5–8 Mbps, 1–2 minutes long, which comes to roughly 40–90 MB. Many phones can't play 360 video wider than 4096 px, and the author page warns about that. Remember that a whole class loading a video at once is heavy on school Wi-Fi.
 - **YouTube 360 videos can't be used as the background.** Browsers don't let a page use the picture inside a YouTube player, and YouTube doesn't allow anything drawn over its player. If it's your own video, download the original from YouTube Studio and host the file.
 
@@ -139,7 +139,7 @@ A see-through video shows a person or object standing in the room, with the room
 
 **Using a transparent WebM in a tour.** Paste its path into a video spot. "See-through video" ticks itself (from a name containing "transparent" or "alpha", or by looking inside the file), with **WebM with its own transparency** chosen. The tour draws it into the room like the see-through MP4. iPhones and iPads can't play WebMs like this, so for a tour every phone can use, open the WebM in the Video Maker (it notices it's already see-through) and make the see-through MP4.
 
-**How it works:** the file is an ordinary MP4, twice as tall as the picture: the picture (on black) on top, and a black-and-white "stencil" underneath (white = solid, black = see-through, grey = partly). The tour cuts the picture out with the stencil as it plays, and draws it into the room. Opened on its own, the file looks strange; that's normal. See-through videos must be kept in your GitHub site or Dropbox (Google Drive and YouTube can't be used), and can play when tapped, when looked at, or straight away, with Loop.
+**How it works:** the file is an ordinary MP4, twice as tall as the picture: the picture (on black) on top, and a black-and-white "stencil" underneath (white = solid, black = see-through, grey = partly). The tour cuts the picture out with the stencil as it plays, and draws it into the room. Opened on its own, the file looks strange; that's normal. See-through videos can be kept in your GitHub site, Dropbox or Google Drive (shared as Anyone with the link; YouTube can't be used), and can play when tapped, when looked at, or straight away, with Loop.
 
 The sample tour includes a see-through candle (`videos/sample-candle.mp4`).
 
@@ -206,12 +206,16 @@ Use **⤢ Open** on the card in the preview to see exactly what viewers will see
 
 ### What works where
 
-**Sounds and videos on Google Drive.** Since 2024 Google won't let other websites play Drive files directly, even when they're shared as "Anyone with the link". So a Drive sound or video sits in the room as Google's own small player, and viewers tap play in it. Because the tool can't control Google's player, these spots can't play when looked at, play by themselves, loop, be hidden or be muted with the Sound button. Behind a dot, the player appears when the dot is looked at and is stopped when the viewer looks away. For any of the other options, put the file in this GitHub site or Dropbox.
+**Sounds and videos on Google Drive.** This site has a Google Drive key (in `js/settings.js`), so Drive sounds and videos (see-through ones included) are downloaded whole when the tour opens, then play like any other file: by themselves, when looked at, looping, hidden or see-through. A small "Downloading 40%" label shows on the spot meanwhile. Share each file as **Anyone with the link**, and keep it small (under about 20 MB) so it's quick on phones. The key only works on this website (evandevon.github.io), so Drive downloads fail when testing on your own computer.
+
+Without a key (for example, if the site is copied to another address and `driveKey` is left empty), Google won't let other websites play Drive files, so a Drive sound or video sits in the room as Google's own small player, and viewers tap play in it. Then it can't play when looked at, play by itself, loop, be hidden or be muted with the Sound button.
+
+**Making the key** (only if the site moves, or the key needs replacing): use a Google account with no payment card. In Google Cloud, enable the **Google Drive API**, then **APIs & Services → Credentials → Create credentials → API key**. Under **API restrictions** choose only **Google Drive API**; under **Application restrictions** choose **Websites** and add `https://YOURNAME.github.io/*`. Put the key in `js/settings.js`. The key can be seen in the site's code; those two locks are what keep it safe, and with no billing nothing can ever be charged. The worst case is that someone uses up the day's free allowance, and Drive videos stop loading until the next day.
 
 | Host | 360 photo | Sound and video spots | Documents | 3D models |
 |---|---|---|---|---|
 | This GitHub repo | ✅ Always | ✅ Always | ✅ | ✅ |
-| Google Drive | ✅ Usually | ⚠️ In Google's own player only (see below) | ✅ | ❌ |
+| Google Drive | ✅ Usually | ✅ Downloaded with the site's key (Google's own player without one) | ✅ | ❌ |
 | Dropbox | ✅ Usually | ✅ Usually | ✅ | ✅ Usually |
 | Personal OneDrive | ❌ Rarely | ❌ Rarely | ✅ with **Share → Embed** | ❌ |
 | School/work OneDrive | ❌ Usually blocked | ❌ Usually blocked | ⚠️ Only if outside sharing is allowed | ❌ |

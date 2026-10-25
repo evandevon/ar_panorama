@@ -26,7 +26,8 @@ A free, no-sign-in tool for teachers (made by Ev, a NSW primary teacher). It is 
 | Masking | js/layers.js, create.js "the front layer", spots.js (search `behind`, `layerOf`) |
 | Maker preview / phone window | create.js "preview", viewer.js "phone-sized window", css/create.css |
 | Line up with the room (camera) | js/align.js, viewer.js "lining up" |
-| Link conversion (Drive, Dropbox…) | js/sources.js |
+| Link conversion (Drive, Dropbox…), Drive downloads | js/sources.js |
+| Site settings (the Drive key) | js/settings.js (loaded before sources.js) |
 | Video maker keying quality | js/videomaker.js "WebGL" (FRAG shader) + "settings" + "patchy screens" |
 | Video maker exports | videomaker.js "making the file", "videos", "GIFs" |
 | Video maker layout | videomaker.html, css/videomaker.css |
@@ -84,7 +85,8 @@ The keying runs in a WebGL fragment shader (`FRAG` in videomaker.js):
 - **Teacher-facing words:** plain English, no jargon. Say "see-through" not "alpha" and "stencil" not "matte". Australian spelling: colour, centre.
 - **Accessibility:** labels on everything, keyboard paths, focus styles, and the WCAG AA contrast ratios we checked. The timeline trim dots are role=slider. axe-core showed no violations on all pages; keep it that way.
 - **Privacy:** nothing is uploaded and nothing stored except in the link. Never put student media in the repo or deliverables.
-- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261025f**.
+- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261026c**.
+- **Dragging the view:** `bindDrag` (viewer.js) calls preventDefault on mouse pointerdown, clears any text selection, and blocks `dragstart`. Without this, a drag on the dimmed area round the phone frame selected spot labels, and a later press on that selection started a browser text-drag that cancelled the look-around drag after a moment.
 - **Colours: "Ember and slate" (dark).** Use the tokens, never raw hex:
 
   | Token | Value |
@@ -152,3 +154,5 @@ Tests were done with Playwright (Python) driving the bundled Chromium with `--us
 - The test Chromium has no H.264, so tests use WebM media.
 - tests/ (in the hand-off zip, not on the site) holds the most useful scripts. They need test videos in videos/ (`_t.webm`, `_c.webm`), which you make yourself. See tests/README.md.
 - Checks used: pixel measurements on screenshots (mask clipping, spot sizes, keying leftovers) and axe-core for accessibility.
+- **26 Oct: fixed tap-to-play sounds starting on the first tap.** `unlock()` plays each off-screen sound muted for a moment so phones allow it later, then pauses it. It used to skip the pause when `s.playing` was set, but the sound's own play event sets that, so every tap-to-play sound began playing (unmuted) when the tour started. `play()` now counts real requests (`s.playReq`), and unlock pauses unless that count changed.
+- **26 Oct: Drive sounds and videos download with the site's key.** `js/settings.js` sets `window.TOUR_SETTINGS.driveKey` (Ev's key, locked to `https://evandevon.github.io/*` and the Drive API only; the Google account has no billing). `Media.canDownloadDrive(token)` is true for a Drive link when there's a key and the page is on http(s). `Media.downloadDrive(token, onProgress)` fetches `drive/v3/files/<id>?alt=media&supportsAllDrives=true&key=…`, streams it with progress, and resolves to a blob: URL. Downloads are shared per file ID (one request however many spots use it), with at most two running at once; a failed one is forgotten so it can be tried again. Google's error reasons become plain-English messages (`driveProblem`). In spots.js, `s.driveFile` marks a Drive sound or video; `s.drivePlayer` (Google's iframe player) is now only used when there's no key. `prepare()` calls `loadDrive()`, which shows a `.spot-dl` "Downloading n%" label on the spot, sets the media src when done, and plays if a play was asked for meanwhile (`s.ready` stays false until then). Blob URLs are same-origin, so see-through (stacked) Drive videos work. Background sound (`a=`) from Drive downloads the same way (Sound.play waits with wantPlay). Not done: a 360 video panorama from Drive (Drive links don't say they're videos, and there's no type flag for the panorama). The maker (create.js) uses `isDriveMedia` and `isDrivePlayer` (= no key); its spot messages add a note to share as Anyone with the link and keep files under about 20 MB. Testing on localhost: the real key is refused there (referrer), so tests/tdrivespots.py and tests/tdrivemake.py mock Google with page.route (Chromium in tests can't play H.264, so they use a WebM).

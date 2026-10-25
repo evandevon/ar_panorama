@@ -8,6 +8,9 @@
  * Gotchas: short codes are stored in printed QR codes, so their meaning must never change.
  *   Hosting reality (2026): Google blocks Drive sound/video playback on other sites (only its /preview iframe
  *   works; images work via lh3); personal OneDrive direct links fail (401). GitHub Pages and Dropbox work.
+ *   Drive sounds and videos DO work when downloaded whole through the Google Drive API with this site's key
+ *   (js/settings.js): downloadDrive() fetches the file and plays it from a blob: copy, which also lets
+ *   see-through videos be read. Without a key, Drive sounds and videos fall back to Google's own player.
  *
  * Background: a 360 image is drawn with WebGL, which browsers only allow when the
  * hosting server permits it (CORS). Files on this GitHub Pages site always work;
@@ -270,6 +273,97 @@
     });
   }
 
+  // ---------------------------------------------------------------- Google Drive downloads (with this site's key)
+  // The key lives in js/settings.js. It's locked (in Google Cloud) to this website and to the Drive API only, so it
+  // can't be used elsewhere or for anything that costs money. Each file is downloaded once per visit and shared by
+  // every spot that uses it; at most two download at a time, so the first ones finish sooner on a slow phone.
+  const DRIVE_API = 'https://www.googleapis.com/drive/v3/files/';
+  function driveKey() {
+    const c = global.TOUR_SETTINGS;
+    return (c && typeof c.driveKey === 'string' && c.driveKey.trim()) || '';
+  }
+  function driveId(token) {
+    const url = expand(token || '');
+    const g = url.match(/^gd:([\w-]+)$/);
+    return g ? g[1] : googleDriveId(url);
+  }
+  /** Can this sound or video be downloaded from Google Drive by this website? */
+  function canDownloadDrive(token) {
+    return !!(driveKey() && driveId(token) && /^https?:$/.test(location.protocol));
+  }
+  // Google's reasons for saying no, in plain English (no HTML: shown as text)
+  function driveProblem(status, body) {
+    const err = body && body.error || {};
+    const reason = (err.errors && err.errors[0] && err.errors[0].reason) || (err.details && err.details[0] && err.details[0].reason) || err.status || '';
+    const r = (reason + ' ' + (err.message || '')).toLowerCase();
+    if (/referer|referrer/.test(r)) return 'Google Drive refused this website’s key here. Drive videos only work on the website the key was made for (see js/settings.js).';
+    if (/api_key_invalid|keyinvalid|api key not valid/.test(r)) return 'This website’s Google Drive key isn’t valid any more. Make a new one and put it in js/settings.js.';
+    if (/accessnotconfigured|service_disabled|has not been used|is disabled/.test(r)) return 'The Google Drive API is switched off for this website’s key. Switch it on in Google Cloud.';
+    if (status === 404 || /notfound/.test(r)) return 'Google Drive can’t find this file. Check it’s shared as “Anyone with the link”. (School Google accounts sometimes don’t allow sharing outside the school.)';
+    if (/downloadquotaexceeded|ratelimit|quota/.test(r)) return 'Google Drive has had too many downloads today (of this file, or with this website’s key). Try again tomorrow.';
+    if (/abusive/.test(r)) return 'Google has flagged this file, so only its owner can download it.';
+    if (status === 403 || /insufficient|permission/.test(r)) return 'Google Drive won’t let this file be downloaded. Check it’s shared as “Anyone with the link”.';
+    return 'Google Drive said no (error ' + status + ').';
+  }
+  const driveJobs = new Map();
+  let driveRunning = 0;
+  const driveWaiting = [];
+  function driveSlot() {
+    if (driveRunning < 2) { driveRunning++; return Promise.resolve(); }
+    return new Promise(res => driveWaiting.push(res));
+  }
+  function driveDone() {
+    const next = driveWaiting.shift();
+    if (next) next(); else driveRunning--;
+  }
+  /**
+   * Download a Drive sound or video whole. onProgress(got, total) is called as it arrives (total 0 if unknown).
+   * @returns {Promise<{url: string, type: string, size: number}>} url is a blob: link to the downloaded copy
+   */
+  function downloadDrive(token, onProgress) {
+    const id = driveId(token);
+    if (!id || !driveKey()) return Promise.reject(new Error('Not a Google Drive link.'));
+    let job = driveJobs.get(id);
+    if (!job) {
+      job = { got: 0, total: 0, listeners: new Set() };
+      const tell = () => job.listeners.forEach(f => { try { f(job.got, job.total); } catch (e) {} });
+      job.promise = driveSlot().then(async () => {
+        try {
+          let resp;
+          try {
+            resp = await fetch(DRIVE_API + encodeURIComponent(id) + '?alt=media&supportsAllDrives=true&key=' + encodeURIComponent(driveKey()));
+          } catch (e) {
+            throw new Error('Couldn’t reach Google Drive. Check the internet connection.');
+          }
+          if (!resp.ok) {
+            let body = null;
+            try { body = await resp.json(); } catch (e) {}
+            throw new Error(driveProblem(resp.status, body));
+          }
+          const type = resp.headers.get('content-type') || '';
+          if (/^text\/html/.test(type)) throw new Error('Google Drive sent back a web page instead of the file. Try a smaller file.');
+          job.total = Number(resp.headers.get('content-length')) || 0;
+          let blob;
+          if (resp.body && resp.body.getReader) {
+            const reader = resp.body.getReader(), chunks = [];
+            for (;;) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              chunks.push(value); job.got += value.length; tell();
+            }
+            blob = new Blob(chunks, { type: type });
+          } else blob = await resp.blob();
+          job.got = job.total = blob.size; tell();
+          return { url: URL.createObjectURL(blob), type: type, size: blob.size };
+        } finally { driveDone(); }
+      });
+      job.promise.catch(() => driveJobs.delete(id));          // a later try can start again
+      driveJobs.set(id, job);
+    }
+    if (onProgress) { job.listeners.add(onProgress); if (job.got) onProgress(job.got, job.total); }
+    return job.promise;
+  }
+
   global.Media = { shorten, expand, youTube, looksLikeVideo, looksLikeImage, looksLikeAudio, looksLikeModel, looksLikeDoc, docKind,
-    docViewer, fromEmbedCode, resolveMediaUrl, hostingHint, videoHasAlpha, probeAlpha };
+    docViewer, fromEmbedCode, resolveMediaUrl, hostingHint, videoHasAlpha, probeAlpha, driveKey, canDownloadDrive, downloadDrive };
 })(window);

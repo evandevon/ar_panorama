@@ -245,8 +245,10 @@
       s.isModel = s.kind === 'model';
       s.isDoc = s.kind === 'doc';
       // Google Drive won't let other websites play its sounds and videos (since 2024): only its own player can.
-      // So those sit in the room as Google's player, which the viewer taps; nothing can start, stop or loop them.
-      s.drivePlayer = (s.kind === 'audio' || s.kind === 'video') && !Media.youTube(def.src) && /drive\.google\.com|docs\.google\.com\/uc|^gd:/i.test(Media.expand(def.src).trim());
+      // With this website's Drive key (js/settings.js) they're downloaded whole instead, and play like any other file.
+      // Without one, they sit in the room as Google's player, which the viewer taps; nothing can start, stop or loop them.
+      s.driveFile = (s.kind === 'audio' || s.kind === 'video') && !Media.youTube(def.src) && /drive\.google\.com|docs\.google\.com\/uc|^gd:/i.test(Media.expand(def.src).trim());
+      s.drivePlayer = s.driveFile && !Media.canDownloadDrive(def.src);
       if (s.drivePlayer) { s.hidden = false; s.loop = false; s.play = 'tap'; }
       // A see-through ("stencil") video: picture on top, black-and-white stencil underneath, drawn into the room
       s.isStacked = s.kind === 'video' && !!def.stacked && !Media.youTube(def.src) && !s.drivePlayer;
@@ -1054,17 +1056,44 @@
         m.muted = muted;
         if (m.tagName === 'VIDEO') { m.controls = true; m.playsInline = true; }
         if (s.isStacked) { m.crossOrigin = 'anonymous'; m.preload = 'auto'; m.controls = false; }
-        m.src = Media.resolveMediaUrl(s.src, s.isVideoFile ? 'video' : 'audio').url;
+        if (s.driveFile) loadDrive(s, m);
+        else m.src = Media.resolveMediaUrl(s.src, s.isVideoFile ? 'video' : 'audio').url;
         m.addEventListener('play', () => setPlaying(s, true));
         m.addEventListener('pause', () => setPlaying(s, false));
         m.addEventListener('ended', () => { s.userPaused = true; setPlaying(s, false); vanishNow(s); });
-        m.addEventListener('error', () => opts.onError(s.index, /drive\.google|^gd:/.test(s.src.trim())
-          ? 'Google Drive won’t play this file inside other websites (Google started blocking this in 2024), even when it’s shared correctly. For now, put the sound in your GitHub site or Dropbox.'
+        m.addEventListener('error', () => opts.onError(s.index, s.driveFile
+          ? 'This file came from Google Drive but couldn’t be played. Check it’s an MP4 video or an MP3 sound.'
           : 'This file couldn’t be loaded. Check the link and that it’s shared as “Anyone with the link”.'), { once: true });
         s.mediaHost.appendChild(m);
         s.media = m;
-        s.ready = true;
+        s.ready = !s.driveFile;                                   // a Drive file is ready once it has downloaded
       }
+    }
+
+    // A Google Drive sound or video: downloaded whole (with this website's key), then played from that copy.
+    // A small label on the spot shows how far the download has got.
+    function loadDrive(s, m) {
+      const tag = s.el ? el('div', 'spot-dl') : null;
+      if (tag) {
+        tag.setAttribute('role', 'status');
+        tag.textContent = 'Downloading…';
+        s.el.appendChild(tag);
+        s.el.classList.add('downloading');
+      }
+      const size = n => n < 1048576 ? Math.max(1, Math.round(n / 1024)) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+      const done = () => { if (tag) tag.remove(); if (s.el) s.el.classList.remove('downloading'); };
+      Media.downloadDrive(s.src, (got, total) => {
+        if (tag) tag.textContent = total ? 'Downloading ' + Math.min(99, Math.floor(got / total * 100)) + '%' : 'Downloading ' + size(got);
+      }).then(r => {
+        done();
+        if (s.media !== m) return;                                // the spot was rebuilt meanwhile
+        m.src = r.url;
+        s.ready = true;
+        if (s.wantPlay) play(s);
+      }).catch(err => {
+        done();
+        if (s.media === m) opts.onError(s.index, err.message);
+      });
     }
 
     // ---------------------------------------------------------- playing
@@ -1080,6 +1109,7 @@
       if (s.el) s.el.classList.remove('gone');
     }
     function play(s) {
+      s.playReq = (s.playReq || 0) + 1;                         // so the first-tap "unlock" knows a real play was asked for
       unvanish(s);
       expand(s, true);
       if (!s.ready) { s.wantPlay = true; return; }
@@ -1559,7 +1589,8 @@
       v.addEventListener('loadeddata', () => { if (v.paused && v.currentTime === 0) { try { v.currentTime = 0.01; } catch (e) {} } });
       v.addEventListener('error', () => opts.onError(s.index, s.ownAlpha
         ? 'This WebM couldn’t be played here. iPhones and iPads can’t play see-through WebM videos: for a tour every phone can use, open it in the See-through Video Maker and make a see-through MP4. It also needs to be kept in your GitHub site or Dropbox.'
-        : 'This video couldn’t be loaded. See-through videos must be kept in your GitHub site or Dropbox (Google Drive and YouTube can’t be used).'), { once: true });
+        : s.driveFile ? 'This see-through video came from Google Drive but couldn’t be played. Check it’s the MP4 made by the See-through Video Maker.'
+        : 'This video couldn’t be loaded. See-through videos must be kept in your GitHub site, Dropbox or Google Drive (YouTube can’t be used).'), { once: true });
       // For the author: check the WebM really has transparency in it
       if (s.ownAlpha && opts.editable) v.addEventListener('loadeddata', () => {
         Media.videoHasAlpha(v).then(has => { if (has === false) opts.onError(s.index, 'This WebM doesn’t seem to have any transparency in it, so it will show as a rectangle. If it should be see-through, make it again with the See-through Video Maker (choose “WebM with transparency”).'); });
@@ -1744,8 +1775,10 @@
       unlocked = true;
       spots.forEach(s => {
         if (s.media && !s.inScene) {
-          const m = s.media; m.muted = true;
-          m.play().then(() => { if (!s.wantPlay && !s.playing) m.pause(); m.muted = muted; }).catch(() => { m.muted = muted; });
+          // Play silently for a moment (that's what lets phones play it later), then stop, unless something really
+          // asked it to play meanwhile. (Its own "play" event marks it as playing, so that can't be the test.)
+          const m = s.media, req = s.playReq || 0; m.muted = true;
+          m.play().then(() => { if ((s.playReq || 0) === req) m.pause(); m.muted = muted; }).catch(() => { m.muted = muted; });
         }
       });
     }

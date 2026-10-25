@@ -112,11 +112,18 @@
     return q;
   }
 
-  // Google Drive sounds and videos can only play in Google's own player (Google blocks other sites since 2024)
-  function isDrivePlayer(sp) {
+  // A Google Drive sound or video
+  function isDriveMedia(sp) {
     const kind = HotSpots.kindOf(sp);
     return (kind === 'audio' || kind === 'video') && !Media.youTube(sp.src) && /drive\.google\.com|docs\.google\.com\/uc|^gd:/i.test(sp.src.trim());
   }
+  // Without this website's Drive key (js/settings.js), Drive sounds and videos can only play in Google's own player
+  // (Google blocks other sites since 2024). With it, they're downloaded whole and play like any other file.
+  function isDrivePlayer(sp) {
+    return isDriveMedia(sp) && !Media.canDownloadDrive(sp.src);
+  }
+  // Where a see-through video can be kept
+  const seeThroughHomes = () => Media.driveKey() ? 'your GitHub site, Dropbox or Google Drive' : 'your GitHub site or Dropbox';
 
   // A visual spot in the room (masks can hide it): not a sound, a hidden player, a link, or Google's audio player
   function isMaskable(sp) {
@@ -890,6 +897,9 @@
     const set = (k, html) => {
       fieldError(li.querySelector('.sp-src'), k === 'err' ? html : '');
       if (k === 'err') { el.className = 'status sp-status'; el.innerHTML = ''; return; }
+      if (html && isDriveMedia(sp) && !isDrivePlayer(sp)) {
+        html += ' It’s downloaded from Google Drive when the tour opens, so it must be shared as <b>Anyone with the link</b>. Keep it small (under about 20 MB) so it’s quick on phones.';
+      }
       el.className = 'status sp-status ' + k; el.innerHTML = html;
     };
     if (!sp.src.trim()) return set('', '');
@@ -930,11 +940,11 @@
     if (kind === 'video' && sp.stacked && sp.alpha) {
       return set('note', 'See-through WebM: the room shows around it in Chrome, Edge, Firefox and on Android phones. <b>iPhones and iPads can’t play it.</b> ' +
         'For a tour every phone can use, open it in the <a href="videomaker.html" target="_blank" rel="noopener">See-through Video Maker</a> and make a see-through MP4 (it keeps the transparency). ' +
-        'Drag it in the preview to move it; pull a corner to resize it. Keep the file in your GitHub site or Dropbox.' + dwellNote);
+        'Drag it in the preview to move it; pull a corner to resize it. Keep the file in ' + seeThroughHomes() + '.' + dwellNote);
     }
     if (kind === 'video' && sp.stacked) {
       return set('ok', 'See-through video: the room shows around it. Drag it in the preview to move it; pull a corner to resize it. ' +
-        (sp.play === 'tap' ? 'Viewers tap it to play. ' : '') + 'Keep the file in your GitHub site or Dropbox.' + dwellNote);
+        (sp.play === 'tap' ? 'Viewers tap it to play. ' : '') + 'Keep the file in ' + seeThroughHomes() + '.' + dwellNote);
     }
     if (isDrivePlayer(sp)) {
       return set('note', 'Google Drive only lets its own player play this, so it sits in the room as Google’s player and viewers tap play in it. ' +
