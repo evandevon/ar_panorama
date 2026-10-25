@@ -1,101 +1,650 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Drive sound test</title>
-<style>
-  :root { --ink: #2a1d12; --soft: #6b5743; --line: #d8c9a8; --ok: #2f6b3a; --bad: #8f2d1f; }
-  body { margin: 0; padding: 16px; background: #f6efe1; color: var(--ink); font: 16px/1.45 system-ui, sans-serif; }
-  main { max-width: 640px; margin: 0 auto; }
-  h1 { font-size: 1.4rem; margin: 0 0 6px; }
-  p { margin: 0 0 12px; color: var(--soft); }
-  label { font-weight: 600; display: block; margin: 12px 0 4px; }
-  input { width: 100%; box-sizing: border-box; min-height: 44px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; font: inherit; }
-  button { min-height: 44px; padding: 0 16px; border: 0; border-radius: 8px; background: #1f2a24; color: #fff; font: 600 1rem system-ui, sans-serif; cursor: pointer; }
-  ol { padding: 0; list-style: none; }
-  li { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center; padding: 12px; margin: 8px 0; background: #fff; border: 1px solid var(--line); border-radius: 8px; }
-  li small { grid-column: 1 / -1; color: var(--soft); overflow-wrap: anywhere; }
-  .res { grid-column: 1 / -1; font-weight: 700; }
-  .res.ok { color: var(--ok); } .res.bad { color: var(--bad); }
-  iframe { width: 100%; height: 120px; border: 0; grid-column: 1 / -1; }
-  #summary { padding: 12px; border-radius: 8px; background: #fff; border: 2px solid var(--line); font-weight: 600; }
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Google Drive Video Test</title>
+  <meta name="description" content="Checks whether a video kept on Google Drive can be downloaded by this site and shown see-through in a 360° tour.">
+  <meta name="robots" content="noindex">
+  <style>
+/* ===================================================================== Author page (make.html) */
+:root {
+  /* "Ember and slate": warm charcoal surfaces, ember for actions, teal for what's selected and for focus */
+  color-scheme: dark;
+  --slate: #0f0d0c; --slate-2: #2a2523;              /* the darkest surface (header, preview); a raised surface */
+  --paper: #161312; --card: #221e1c; --card-2: #2a2523; --card-hover: #332d2a; --field: #1a1716;
+  --ink: #f3ede9; --ink-soft: #b9ada6; --ink-faint: #8f837c; --line: #3b3431; --line-strong: #7d716a;
+  --brass: #ee8b5c; --brass-hover: #f4a37c; --on-brass: #2a1105; --brass-dark: #f6b596;   /* ember: actions; light ember: links */
+  --select: #6fc7b8; --select-bg: #163430; --select-text: #a6e2d7;                      /* teal: selected, focus */
+  --ok: #86d6a0; --danger: #ff8c8c; --danger-fill: #d43c3c; --note: #f2c98a; --warn-bg: #3a2a1a;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --r: 8px;             /* corner radius */
+  --control: 44px;      /* height of buttons and fields: comfortable to tap */
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { scroll-padding-top: 16px; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 var(--sans); }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px; }
+
+/* ---------------------------------------------------------------- header */
+.masthead { background: var(--slate); color: var(--ink); padding: 24px 0 26px; border-bottom: 4px solid var(--brass); }
+.eyebrow { margin: 0 0 6px; font: 600 .76rem/1.2 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--brass); }
+.masthead h1 { margin: 0 0 8px; font: 700 clamp(1.6rem, 4vw, 2.3rem)/1.1 var(--serif); }
+.lede { margin: 0; max-width: 62ch; opacity: .92; }
+
+/* ---------------------------------------------------------------- layout
+   Phones:  photo → preview → spots → title → share  (the preview sits right where it's first useful)
+   Wide:    the steps on the left, the preview on the right, staying in view while you scroll */
+#form { display: contents; }
+.grid { display: grid; gap: 16px; padding-top: 20px; padding-bottom: 12px;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "photo" "preview" "spots" "title" "share"; }
+.grid > *, #form > * { min-width: 0; }
+.step-photo { grid-area: photo; } .step-spots { grid-area: spots; } .step-title { grid-area: title; }
+.preview-panel { grid-area: preview; } .qr-panel { grid-area: share; }
+@media (min-width: 900px) {
+  .grid { grid-template-columns: minmax(340px, 420px) minmax(0, 1fr); align-items: start;
+          grid-template-areas: "photo preview" "spots preview" "title preview" "share preview"; }
+  .preview-panel { position: sticky; top: 16px; }
+}
+
+/* ---------------------------------------------------------------- panels and type */
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; }
+.panel h2 { margin: 0 0 12px; font: 700 1.15rem/1.2 var(--serif); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.num { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--brass); color: var(--on-brass); font: 700 .85rem var(--sans); }
+.opt { font: 400 .82rem var(--sans); color: var(--ink-soft); }
+.help { margin: 6px 0 0; font-size: .87rem; color: var(--ink-soft); line-height: 1.45; }
+.help.flush { margin-top: 0; }
+.help.small { font-size: .78rem; word-break: break-all; }
+.help-inline { font-weight: 400; color: var(--ink-soft); font-size: .85rem; }
+
+/* ---------------------------------------------------------------- fields */
+label { display: block; font-weight: 600; font-size: .92rem; margin: 0 0 6px; }
+label .opt { font-weight: 400; }
+input[type=url], input[type=text], select, textarea {
+  width: 100%; min-height: var(--control); padding: 10px 12px; font: inherit; font-size: .95rem;
+  border: 1px solid var(--line-strong); border-radius: 6px; background: var(--field); color: var(--ink);
+}
+select { padding: 8px 10px; }
+input::placeholder, textarea::placeholder { color: var(--ink-faint); }
+a { color: var(--brass-dark); }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visible {
+  outline: 3px solid var(--select); outline-offset: 2px;
+}
+.check { display: flex; gap: 10px; align-items: flex-start; font-weight: 500; margin-top: 10px; cursor: pointer; min-height: 24px; }
+.check input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--brass); }
+.check input:disabled, .check input:disabled ~ * { opacity: .5; }
+
+/* "How it works" and other tucked-away detail */
+.howto { margin-top: 10px; font-size: .87rem; color: var(--ink-soft); }
+.howto summary { cursor: pointer; color: var(--brass-dark); font-weight: 600; min-height: 32px; display: inline-flex; align-items: center; }
+.howto ul { margin: 6px 0 0; padding-left: 20px; } .howto li + li { margin-top: 4px; }
+.howto p { margin: 6px 0 0; }
+
+/* status lines under fields */
+.status { margin: 10px 0 0; font-size: .88rem; line-height: 1.45; padding-left: 26px; position: relative; }
+.status:empty { display: none; }
+.status::before { position: absolute; left: 0; top: 0; width: 20px; text-align: center; font-weight: 700; }
+.status.ok { color: var(--ok); } .status.ok::before { content: "✓"; }
+.status.err { color: var(--danger); } .status.err::before { content: "✕"; }
+.status.wait { color: var(--ink-soft); } .status.wait::before { content: "…"; }
+.status.note { color: var(--note); } .status.note::before { content: "!"; }
+
+/* ---------------------------------------------------------------- buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: var(--control); padding: 0 16px; border-radius: 6px;
+       border: 1px solid var(--brass); background: var(--brass); color: var(--on-brass); font: 700 .92rem var(--sans); cursor: pointer; text-decoration: none; }
+.btn:hover { background: var(--brass-hover); border-color: var(--brass-hover); }
+.btn.small { min-height: 36px; padding: 0 12px; font-size: .86rem; }
+.btn.ghost { background: transparent; color: var(--ink); border-color: var(--line-strong); }
+.btn.ghost:hover { background: var(--card-hover); }
+.btn:disabled, .btn.disabled { opacity: .45; cursor: not-allowed; pointer-events: none; }
+#sample { margin-top: 10px; }
+
+/* ---------------------------------------------------------------- preview */
+/* Arrows around the preview */
+.frame-nav { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; grid-template-rows: 40px auto 40px; gap: 6px; align-items: center; justify-items: center; }
+.frame-nav.phone { grid-template-columns: 40px minmax(0, 1fr) 40px; }
+.frame-nav > .frame { grid-area: 2 / 2; width: 100%; }
+.frame-nav.phone > .frame { width: 100%; }
+.nav-btn { width: 40px; height: 40px; display: grid; place-items: center; padding: 0; border: 1px solid var(--line-strong); border-radius: 50%; background: var(--card); color: var(--ink); cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; }
+.nav-btn svg { width: 22px; height: 22px; }
+.nav-btn:hover:not(:disabled) { background: var(--card-hover); border-color: var(--ink-soft); }
+.nav-btn:active:not(:disabled) { transform: scale(.94); }
+.nav-btn:disabled { opacity: .35; cursor: default; }
+.nav-btn:focus-visible { outline: 3px solid var(--select); outline-offset: 2px; }
+.nav-up { grid-area: 1 / 2; } .nav-down { grid-area: 3 / 2; }
+.nav-left { grid-area: 2 / 1; } .nav-right { grid-area: 2 / 3; }
+
+.frame { position: relative; aspect-ratio: 16 / 10; background: var(--slate); border-radius: 6px; overflow: hidden; }
+.frame.phone { aspect-ratio: auto; width: 100%; height: clamp(440px, calc(100vh - 230px), 820px); margin: 0 auto; }
+/* Phone view: the whole photo, with a phone-shaped window showing exactly what a phone held upright sees */
+.phone-window { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2; pointer-events: none;
+  border-radius: 22px; box-shadow: 0 0 0 2px rgba(255, 255, 255, .9), 0 0 0 5px rgba(15, 13, 12, .6), 0 0 0 100vmax rgba(15, 13, 12, .5); display: none; }
+.frame.phone.has-pano .phone-window { display: block; }
+@media (max-width: 899px) { .frame.phone { height: clamp(420px, 75vh, 640px); } }
+.frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.empty { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; text-align: center; color: var(--ink-soft); font-size: .95rem; }
+.shape { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 12px; }
+.shape button { min-height: 36px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 999px; background: transparent; color: var(--ink); font: 600 .86rem var(--sans); cursor: pointer; }
+.shape button[aria-pressed="true"] { background: var(--select-bg); color: var(--select-text); border-color: var(--select); }
+.shape .help-inline { flex: 1 1 200px; font-size: .8rem; }
+.facing { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 12px; font-size: .9rem; }
+.facing p { margin: 0; color: var(--ink-soft); }
+.facing-btns { display: flex; gap: 8px; align-items: center; }
+
+/* ---------------------------------------------------------------- spot cards (collapsible) */
+.spot-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.spot-card { min-width: 0; border: 1px solid var(--line); border-left: 4px solid var(--brass); border-radius: 6px; background: var(--card-2); }
+.spot-card.selected { border-color: var(--select); border-left-color: var(--select); box-shadow: 0 0 0 1px var(--select); }
+.sc-head { display: flex; align-items: stretch; }
+.sc-toggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 10px 8px 10px 10px; min-height: 56px;
+  border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 6px 0 0 6px; }
+.sc-toggle:hover { background: var(--card-hover); }
+.pin { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--brass); color: var(--on-brass); font: 700 .8rem var(--sans); }
+.sc-icon { flex: none; width: 22px; height: 22px; color: var(--brass-dark); }
+.sc-sum { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.sc-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-meta { font-size: .8rem; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-flag { color: var(--danger); font-weight: 700; }
+.chev { flex: none; width: 18px; height: 18px; color: var(--ink-soft); transition: transform .2s; }
+.spot-card.open .chev { transform: rotate(180deg); }
+.iconbtn { flex: none; width: var(--control); align-self: center; height: var(--control); margin-right: 6px; border: 1px solid transparent; border-radius: 6px;
+  background: transparent; color: var(--ink-soft); cursor: pointer; display: grid; place-items: center; }
+.iconbtn:hover { border-color: var(--line-strong); color: var(--danger); }
+.iconbtn svg { width: 18px; height: 18px; }
+.sc-body { padding: 4px 12px 14px; border-top: 1px dashed var(--line); }
+.sc-body > * + * { margin-top: 12px; }
+.sc-field label { font-size: .86rem; margin-bottom: 4px; }
+.spot-card textarea.sp-src { min-height: var(--control); resize: none; line-height: 1.35; overflow: hidden; }
+.sc-grid { display: grid; gap: 10px 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.sp-row { font-size: .86rem; } .sp-row select { margin-top: 4px; font-size: .9rem; }
+.sp-place { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; font-size: .86rem; color: var(--ink-soft); }
+.sp-place-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.sp-turn { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: .86rem; color: var(--ink-soft); }
+.sp-turn[hidden] { display: none; }
+.sp-turn-text { flex: 1 1 100%; }
+.sp-turn .check { margin: 0; }
+.sc-checks { display: grid; gap: 2px; }
+.sc-checks[hidden], .sc-checks > [hidden] { display: none; }
+.sc-checks .check { font-size: .9rem; }
+.sc-type select { font-weight: 600; }
+.spot-card .status { font-size: .85rem; }
+.add-spot { width: 100%; margin-top: 12px; border-style: dashed; }
+
+/* ---------------------------------------------------------------- share */
+.qr-card { background: #fff; color: #1b1715; border: 1px solid var(--line); border-top: 6px solid var(--brass); border-radius: 6px; padding: 18px; text-align: center; }   /* stays light: phones scan dark-on-light codes best */
+.qr-card .qr-sub, .qr-card .qr-foot, .qr-card .qr-empty { color: #5c524c; }
+.qr-card .qr-empty { border-color: #d8d0ca; }
+.qr-title { margin: 0 0 2px; font: 700 1.25rem/1.2 var(--serif); overflow-wrap: anywhere; }
+.qr-sub { margin: 0 0 12px; color: var(--ink-soft); font-size: .92rem; }
+.qr { width: min(240px, 100%); aspect-ratio: 1; margin: 0 auto; }
+.qr svg { width: 100%; height: 100%; display: block; }
+.qr-empty { height: 100%; display: grid; place-items: center; border: 2px dashed var(--line); border-radius: 6px; color: var(--ink-soft); font-size: .88rem; padding: 16px; }
+.qr-foot { margin: 10px 0 0; font-size: .85rem; color: var(--ink-soft); }
+.warn { margin: 12px 0 0; padding: 8px 12px; background: var(--warn-bg); border-left: 4px solid var(--brass); font-size: .86rem; line-height: 1.45; border-radius: 0 6px 6px 0; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.actions > * { flex: 1 1 auto; white-space: nowrap; }
+.embed-panel { margin-top: 12px; padding: 12px; border: 1px dashed var(--line-strong); border-radius: 6px; background: var(--card); }
+.embed-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.embed-row select { flex: 1; }
+#embed-code { font: .78rem/1.4 ui-monospace, Menlo, Consolas, monospace; resize: vertical; }
+.link-details { margin-top: 12px; }
+
+/* ---------------------------------------------------------------- toast (with Undo) */
+.toast { position: fixed; z-index: 50; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 14px; max-width: calc(100% - 32px); padding: 8px 8px 8px 16px; border-radius: 10px;
+  background: var(--slate-2); color: var(--ink); border: 1px solid var(--line-strong); font-size: .92rem; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+.toast-btn { min-height: 40px; padding: 0 14px; border: 0; border-radius: 6px; background: var(--brass); color: var(--on-brass); font: 700 .9rem var(--sans); cursor: pointer; }
+
+.foot { padding-top: 6px; padding-bottom: 32px; font-size: .85rem; color: var(--ink-soft); }
+
+@media (prefers-reduced-motion: reduce) { .chev { transition: none; } }
+
+@media print {
+  .masthead, .step-photo, .step-spots, .step-title, .preview-panel, .actions, .warn, .foot, .qr-panel > h2, .link-details, .embed-panel, .toast { display: none !important; }
+  body { background: #fff; color: #000; }
+  .grid { display: block; padding: 0; }
+  .panel { border: 0; padding: 0; background: none; }
+  .qr-card { max-width: 13cm; margin: 1.5cm auto; border: 2px solid #000; border-top-width: 8px; }
+  .qr { width: 9cm; }
+}
+
+/* 3D model brightness */
+.bright-row { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.bright-row[hidden] { display: none; }
+.bright-row output { float: right; font-weight: 600; color: var(--ink-soft); }
+.bright-ctl { display: flex; align-items: center; gap: 10px; font-size: .86rem; color: var(--ink-soft); }
+.bright-ctl input[type=range] { flex: 1; min-width: 0; min-height: 44px; accent-color: var(--brass); }
+
+/* A problem with a link: ⚠ inside the end of the field; its message shows as a tooltip */
+.field-wrap { position: relative; display: block; }
+.field-wrap.has-err input, .field-wrap.has-err textarea { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger); padding-right: 44px; }
+.field-err {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px;
+  display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%;
+  background: var(--danger-fill); color: #fff; font: 800 1rem/1 var(--sans, system-ui); cursor: help;
+}
+textarea + .field-err { top: 8px; transform: none; }
+.field-err[hidden] { display: none; }
+.field-err:focus-visible { outline: 3px solid var(--select); outline-offset: 2px; }
+.err-tip {
+  position: absolute; z-index: 30; right: 0; top: calc(100% + 8px); width: min(320px, 100%); min-width: 220px;
+  padding: 10px 12px; border-radius: 8px; background: #3a1513; color: #ffe9e6; border: 1px solid #6e2a26;
+  font: 500 .88rem/1.45 var(--sans, system-ui); box-shadow: 0 8px 24px rgba(0,0,0,.3);
+}
+.err-tip::before { content: ""; position: absolute; right: 14px; top: -6px; border: 6px solid transparent; border-top: 0; border-bottom-color: #6e2a26; }
+.err-tip[hidden] { display: none; }
+.err-tip b { font-weight: 700; }
+
+/* see-through video: which kind */
+.sp-stk-kind { display: grid; gap: 2px; margin: -2px 0 6px 30px; }
+.sp-stk-kind[hidden] { display: none; }
+.sp-stk-kind .check { font-size: .9rem; }
+
+/* ---------------------------------------------------------------- front layer ("Things in front") */
+.layers { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.layers > summary { cursor: pointer; font-size: .95rem; list-style-position: outside; }
+.layers > summary .opt { font-weight: 400; }
+.layers[open] > summary { margin-bottom: 6px; }
+.layer-tools { display: grid; gap: 6px; margin: 8px 0; }
+.layers > .ltool { width: 100%; margin: 8px 0; }
+.ltool { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; text-align: left; border: 1px solid var(--line-strong);
+  border-radius: 8px; background: var(--field); color: var(--ink); font: inherit; font-size: .92rem; cursor: pointer; }
+.ltool[aria-pressed="true"] { border-color: var(--select); box-shadow: inset 0 0 0 2px var(--select); background: var(--select-bg); }
+.ltool:disabled { opacity: .55; cursor: default; }
+.lmark { flex: none; width: 18px; height: 18px; margin-top: 2px; border-radius: 4px; border: 2px dashed; box-sizing: border-box; }
+.lmark.front { border-color: #ffc93c; background: rgba(255, 201, 60, .25); }
+.lmark.window { border-color: #5ad1ff; background: rgba(90, 209, 255, .25); }
+.layer-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 8px; background: var(--warn-bg); font-size: .9rem; }
+.layer-bar > span { flex: 1 1 100%; }
+.layer-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.layer-list li { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: .92rem; }
+.layer-list li > span:nth-child(2) { flex: 1; }
+.layer-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 8px; }
+
+/* ---------------------------------------------------------------- wide screens: an editor layout
+   The steps scroll on their own down the left; the preview fills the rest of the window and never scrolls away. */
+@media (min-width: 900px) {
+  :root { --side: clamp(380px, 32vw, 470px); }
+  html { height: 100%; overflow: hidden; }
+  body { height: 100%; width: var(--side); overflow-y: auto; overscroll-behavior: contain; }
+  .masthead { padding: 18px 0 20px; }
+  .masthead .wrap, .grid, .foot { max-width: none; }
+  .masthead h1 { font-size: 1.75rem; }
+  .grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "photo" "spots" "title" "share"; padding-top: 16px; }
+  .preview-panel { position: fixed; top: 0; bottom: 0; left: var(--side); right: 0; z-index: 5;
+    display: flex; flex-direction: column; margin: 0; padding: 14px 18px 12px; border: 0; border-left: 1px solid var(--line); border-radius: 0; }
+  .preview-panel > h2 { margin-bottom: 8px; }
+  .preview-panel .shape { margin-bottom: 8px; }
+  .frame-nav, .frame-nav.phone { flex: 1 1 auto; min-height: 0; grid-template-rows: 40px minmax(0, 1fr) 40px; }
+  .frame-nav > .frame, .frame-nav.phone > .frame, .frame.phone { width: 100%; height: 100%; aspect-ratio: auto; }
+  .facing { margin-top: 8px; }
+}
+.frame-nav { cursor: grab; } .frame-nav:active { cursor: grabbing; } .frame-nav > * { cursor: auto; }
+
+/* then and now: a second photo, tucked under the first */
+.compare-box { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.compare-box > summary { cursor: pointer; font-weight: 600; min-height: 36px; display: flex; flex-wrap: wrap; align-items: center; gap: 0 8px; color: var(--ink); }
+.compare-box > summary .opt { font-weight: 400; font-size: .85rem; color: var(--ink-soft); }
+.compare-box[open] > summary { margin-bottom: 6px; }
+.compare-box input[type=range] { width: 100%; min-height: 36px; accent-color: var(--brass); }
+.compare-box label output { float: right; font-weight: 600; color: var(--ink-soft); }
+.compare-box .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+
+/* floating spots: nine places on the screen; and the delay's seconds box */
+.sp-floatpos { display: grid; grid-template-columns: repeat(3, 36px); gap: 4px; width: max-content; margin: 8px 0 2px; padding: 4px;
+  border: 1px solid var(--line-strong); border-radius: 8px; background: var(--field); }
+.sp-floatpos[hidden] { display: none; }
+.sp-fpos { display: flex; width: 36px; height: 26px; padding: 4px; border: 1px solid var(--line); border-radius: 4px; background: transparent; color: var(--ink-soft); cursor: pointer; }
+.sp-fpos span { width: 11px; height: 8px; border-radius: 2px; background: currentColor; }
+.sp-fpos[data-x="50"] { justify-content: center; } .sp-fpos[data-x="100"] { justify-content: flex-end; }
+.sp-fpos[data-y="50"] { align-items: center; } .sp-fpos[data-y="100"] { align-items: flex-end; }
+.sp-fpos:hover { border-color: var(--brass); color: var(--ink); }
+.sp-fpos[aria-pressed="true"] { background: var(--select-bg); border-color: var(--select); color: var(--select-text); }
+.sp-fpos:focus-visible { outline: 3px solid var(--select); outline-offset: 1px; }
+.sp-delay { width: 100%; min-height: var(--control); padding: 8px 10px; font: inherit; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--field); color: var(--ink); }
+
+/* floor plan: click the plan where the photo was taken; turn the cone to match */
+.sp-planset { margin: 8px 0 4px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); }
+.sp-planset[hidden] { display: none; }
+.sp-plan-pick { position: relative; display: block; width: 100%; max-width: 320px; margin: 6px 0 10px; cursor: crosshair; border-radius: 6px; overflow: hidden; line-height: 0; }
+.sp-plan-pick:focus-visible { outline: 3px solid var(--select); outline-offset: 2px; }
+.sp-plan-img { display: block; width: 100%; height: auto; min-height: 60px; background: var(--card-2); }
+.sp-plan-dot { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: var(--brass); border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.5), 0 1px 4px rgba(0,0,0,.5); pointer-events: none; }
+.sp-plan-turn-label { display: block; font-size: .86rem; }
+.sp-plan-turn-label output { float: right; font-weight: 600; color: var(--ink-soft); }
+.sp-plan-turn { width: 100%; min-height: 36px; accent-color: var(--brass); }
+.sp-plan-here { margin: 2px 0 4px; height: auto; min-height: 36px; padding: 6px 12px; line-height: 1.3; white-space: normal; text-align: left; }
+
+/* ===================================================================== Google Drive Video Test (drive-test.html)
+   Uses the tour maker's colours and controls (css/create.css), but as one ordinary scrolling page. */
+@media (min-width: 900px) {
+  html { height: auto; overflow: visible; }
+  body { height: auto; width: auto; overflow: visible; }
+}
+.dt-main { display: grid; gap: 16px; max-width: 760px; padding-top: 20px; padding-bottom: 12px; }
+.dt-main input[type=url], .dt-main input[type=text] { width: 100%; }
+.dt-kind { border: 0; padding: 0; margin: 14px 0 12px; }
+.dt-kind legend { font-weight: 600; font-size: .92rem; padding: 0; margin-bottom: 4px; }
+#dt-stop { margin-left: 8px; }
+.dt-where { margin-top: 10px; }
+
+.dt-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.dt-steps li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--card-2); }
+.dt-steps li b { font-size: .95rem; }
+.dt-msg { margin: 2px 0 0; font-size: .88rem; color: var(--ink-soft); line-height: 1.45; overflow-wrap: anywhere; }
+.dt-msg:empty { display: none; }
+.dt-ico { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--line-strong); font: 700 .9rem/1 var(--sans); color: var(--ink-soft); }
+.dt-steps li.ok .dt-ico { border-color: var(--select); color: var(--select); }
+.dt-steps li.bad .dt-ico { border-color: #ff8c8c; color: #ff8c8c; }
+.dt-steps li.warn .dt-ico, .dt-steps li.busy .dt-ico { border-color: var(--brass); color: var(--brass); }
+.dt-steps li.bad { border-color: #ff8c8c; }
+.dt-bar { height: 8px; margin-top: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.dt-bar > div { height: 100%; width: 0; background: var(--brass); transition: width .2s; }
+@media (prefers-reduced-motion: reduce) { .dt-bar > div { transition: none; } }
+
+.dt-verdict { margin: 14px 0 0; padding: 12px 14px; border-radius: 8px; font-size: .95rem; line-height: 1.5; }
+.dt-verdict.ok { background: var(--select-bg); color: var(--select-text); border: 1px solid var(--select); }
+.dt-verdict.bad { background: #3a1513; color: #ffd9d4; border: 1px solid #ff8c8c; }
+.dt-preview { margin-top: 14px; }
+#dt-canvas { display: block; max-width: 100%; height: auto; margin-top: 8px; border-radius: 6px;
+  background: repeating-conic-gradient(#cfcfcf 0 25%, #ffffff 0 50%) 0 0 / 16px 16px; }
+.dt-howto { margin: 8px 0 0; padding-left: 1.3em; font-size: .92rem; line-height: 1.5; }
+.dt-howto li + li { margin-top: 6px; }
+.dt-howto code, .dt-msg code { font-size: .85em; }
+@media (min-width: 900px) { .masthead .wrap, .foot { max-width: 760px; } }
+
+  </style>
 </head>
 <body>
-<main>
-  <h1>Google Drive sound test</h1>
-  <p>Tries each way of playing a Google Drive sound inside a web page. Press <b>Run all tests</b>, wait a few seconds, then send the results.</p>
-  <label for="link">Google Drive share link</label>
-  <input id="link" value="https://drive.google.com/file/d/1OnvZbvApXc9eqGZkwcGARQTtVz74gYTu/view?usp=sharing">
-  <p style="margin-top:10px"><button id="run">Run all tests</button></p>
-  <p id="summary">Not run yet.</p>
-  <ol id="list"></ol>
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow">For the site's owner · A test, not part of tours</p>
+    <h1>Google Drive Video Test</h1>
+    <p class="lede">Checks whether a video kept on Google Drive can be downloaded by this website and shown see-through in a 360° tour. Paste a Drive link and your API key, then press <b>Run the test</b>.</p>
+  </div>
+</header>
+
+<main class="wrap dt-main">
+  <section class="panel" aria-labelledby="h-in">
+    <h2 id="h-in"><span class="num" aria-hidden="true">1</span> The video and your key</h2>
+
+    <label for="dt-link">Google Drive link to a video</label>
+    <input id="dt-link" type="url" inputmode="url" autocomplete="off" placeholder="https://drive.google.com/file/d/…/view?usp=sharing" aria-describedby="dt-link-help">
+    <p class="help" id="dt-link-help">In Drive: <b>Share → General access → Anyone with the link</b>, then <b>Copy link</b>.</p>
+
+    <label for="dt-key">Google API key</label>
+    <input id="dt-key" type="text" autocomplete="off" spellcheck="false" placeholder="AIza…" aria-describedby="dt-key-help">
+    <p class="help" id="dt-key-help">Not sure how to get one? Open <b>How to make and lock an API key</b> below.</p>
+    <label class="check"><input type="checkbox" id="dt-remember"> Remember the key on this computer <span class="help-inline">(only in this browser; it's never put in a tour link)</span></label>
+
+    <fieldset class="dt-kind">
+      <legend>What kind of video is it?</legend>
+      <label class="check"><input type="radio" name="dt-kind" value="stencil" checked> <span>See-through MP4 <span class="help-inline">— made by the See-through Video Maker (twice as tall: picture on top, stencil underneath)</span></span></label>
+      <label class="check"><input type="radio" name="dt-kind" value="alpha"> <span>WebM with its own transparency</span></label>
+      <label class="check"><input type="radio" name="dt-kind" value="plain"> <span>An ordinary video</span></label>
+    </fieldset>
+
+    <button type="button" class="btn" id="dt-run">Run the test</button>
+    <button type="button" class="btn ghost" id="dt-stop" hidden>Stop</button>
+    <p class="help dt-where" id="dt-where"></p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-res">
+    <h2 id="h-res"><span class="num" aria-hidden="true">2</span> Results</h2>
+    <ol class="dt-steps" id="dt-steps" aria-live="polite">
+      <li data-step="id"><span class="dt-ico" aria-hidden="true"></span><div><b>Reading the link</b><p class="dt-msg">Waiting to start.</p></div></li>
+      <li data-step="meta"><span class="dt-ico" aria-hidden="true"></span><div><b>Asking Google about the file</b><p class="dt-msg"></p></div></li>
+      <li data-step="get"><span class="dt-ico" aria-hidden="true"></span><div><b>Downloading the whole video</b><p class="dt-msg"></p>
+        <div class="dt-bar" id="dt-bar" hidden><div></div></div></div></li>
+      <li data-step="play"><span class="dt-ico" aria-hidden="true"></span><div><b>Playing it from the downloaded copy</b><p class="dt-msg"></p></div></li>
+      <li data-step="pixels"><span class="dt-ico" aria-hidden="true"></span><div><b>Reading its pictures (needed for see-through)</b><p class="dt-msg"></p></div></li>
+    </ol>
+    <p class="dt-verdict" id="dt-verdict" role="status" hidden></p>
+    <div class="dt-preview" id="dt-preview" hidden>
+      <h3 class="sub">How it would look</h3>
+      <p class="help flush" id="dt-preview-help"></p>
+      <canvas id="dt-canvas" width="320" height="180" aria-label="The video, see-through, over a checked background"></canvas>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-how">
+    <h2 id="h-how"><span class="num" aria-hidden="true">3</span> How to make and lock an API key</h2>
+    <p class="help flush">It's free and takes about five minutes. You only do it once. Use a Google account you look after (a personal one is fine).</p>
+    <ol class="dt-howto">
+      <li>Go to <b>console.cloud.google.com</b> and sign in. Make a new project (top bar → project list → <b>New project</b>), and call it something like “360 tours”. Use this project only for the tours.</li>
+      <li>Turn on the Drive API: search the top bar for <b>Google Drive API</b>, open it and press <b>Enable</b>.</li>
+      <li>Make the key: <b>APIs &amp; Services → Credentials → Create credentials → API key</b>. Copy it.</li>
+      <li><b>Lock it to your website</b> (important): open the key, and under <b>Application restrictions</b> choose <b>Websites</b>. Add your site's address with <code>/*</code> on the end, for example <code id="dt-origin-eg">https://yourname.github.io/*</code>. Then under <b>API restrictions</b> choose <b>Restrict key</b> and tick only <b>Google Drive API</b>. Save.</li>
+      <li>Don't add a billing account (credit card) to this project. The Drive API is free without one.</li>
+      <li>Changes can take a few minutes to start working. Then paste the key above and run the test.</li>
+    </ol>
+    <details class="howto">
+      <summary>Can other people use or copy the key?</summary>
+      <p>Anyone who looks at your website's code can see the key; every key used by a web page can be seen like this. Locking it protects you: Google then only accepts it from pages on your website, and only for reading files on Drive that are already shared with “Anyone with the link”. It can't open your own private files, change anything, or cost you money (as long as there's no billing account).</p>
+      <p>Someone determined could still copy it into their own program and pretend to be your website. The worst they could do is use up the key's daily allowance, so Drive videos in your tours stop loading until the next day. If that ever happens, make a new key, lock it the same way, and delete the old one.</p>
+    </details>
+  </section>
 </main>
+
+<footer class="wrap foot">
+  <p>This page only talks to Google. The video downloads to this browser and isn't kept or sent anywhere else.</p>
+</footer>
+
 <script>
+/*
+ * FILE GUIDE: js/drivetest.js  ·  the Google Drive Video Test (drive-test.html), for the site's owner
+ * Checks, step by step, whether a video on Google Drive (shared "Anyone with the link") can be fetched through the
+ *   Google Drive API with a website-locked API key, downloaded whole, played from the downloaded copy (a blob: URL,
+ *   which counts as this site's own), and have its pictures read (needed for see-through videos in tours).
+ * Stand-alone: this one file holds the page, its styles and this script. Upload it anywhere on the website and open it there.
+ * Sections (search for "// ---- <name>"): the page · reading the link · Google's answers · the test · the preview
+ * Gotchas: a key locked to "Websites" only works when the browser sends this page's address (Referer), so the page
+ *   must be opened from the website itself (not a file on the computer). A resource key (older shared links) is sent
+ *   as the X-Goog-Drive-Resource-Keys header.
+ */
 (function () {
+  'use strict';
   const $ = id => document.getElementById(id);
-  const idOf = s => (s.match(/\/d\/([\w-]{10,})/) || s.match(/[?&]id=([\w-]{10,})/) || [])[1] || s.trim();
-  const METHODS = [
-    ['A', 'Old download link', id => 'https://drive.google.com/uc?export=download&id=' + id, false],
-    ['B', 'Old download link, hiding which site asked', id => 'https://drive.google.com/uc?export=download&id=' + id, true],
-    ['C', 'New download link (the tool uses this now)', id => 'https://drive.usercontent.google.com/download?id=' + id + '&export=download&confirm=t', false],
-    ['D', 'New download link, hiding which site asked', id => 'https://drive.usercontent.google.com/download?id=' + id + '&export=download&confirm=t', true],
-    ['E', '“Open” link', id => 'https://docs.google.com/uc?export=open&id=' + id, false],
-    ['F', '“Open” link, hiding which site asked', id => 'https://docs.google.com/uc?export=open&id=' + id, true]
-  ];
+  const API = 'https://www.googleapis.com/drive/v3/files/';
 
-  // An <audio> in a tiny same-site frame whose page says "don't tell other sites who's asking"
-  function quietAudio(url) {
-    return new Promise(resolve => {
-      const f = document.createElement('iframe');
-      f.style.display = 'none';
-      f.srcdoc = '<!doctype html><meta name="referrer" content="no-referrer"><audio preload="auto"></audio>';
-      f.onload = () => { const a = f.contentDocument.querySelector('audio'); a.src = url; resolve({ audio: a, frame: f }); };
-      document.body.appendChild(f);
-    });
-  }
-  function test(audio) {
-    return new Promise(resolve => {
-      let done = false;
-      const finish = r => { if (!done) { done = true; resolve(r); } };
-      audio.addEventListener('canplay', () => finish({ ok: true, text: 'Plays ✓ (' + (isFinite(audio.duration) ? Math.round(audio.duration) + ' s long' : 'length unknown') + ')' }), { once: true });
-      audio.addEventListener('error', () => finish({ ok: false, text: 'Blocked ✕ (error ' + (audio.error ? audio.error.code : '?') + ')' }), { once: true });
-      setTimeout(() => finish({ ok: false, text: 'No answer after 12 s ✕' }), 12000);
-      audio.load();
-    });
-  }
-
-  $('run').addEventListener('click', async () => {
-    const id = idOf($('link').value);
-    const list = $('list');
-    list.innerHTML = '';
-    $('summary').textContent = 'Testing…';
-    const results = [];
-    await Promise.all(METHODS.map(async ([key, name, make, quiet]) => {
-      const li = document.createElement('li');
-      li.innerHTML = '<b>' + key + '. ' + name + '</b><button type="button">▶</button><small></small><span class="res">Testing…</span>';
-      list.appendChild(li);
-      const url = make(id);
-      li.querySelector('small').textContent = url;
-      let audio;
-      if (quiet) audio = (await quietAudio(url)).audio;
-      else { audio = new Audio(); audio.preload = 'auto'; audio.src = url; }
-      li.querySelector('button').addEventListener('click', () => { if (audio.paused) audio.play().catch(() => {}); else audio.pause(); });
-      const r = await test(audio);
-      const res = li.querySelector('.res');
-      res.textContent = r.text; res.className = 'res ' + (r.ok ? 'ok' : 'bad');
-      results.push(key + (r.ok ? ' ✓' : ' ✕'));
-    }));
-    // Google's own player, for comparison (needs a tap)
-    const li = document.createElement('li');
-    li.innerHTML = '<b>G. Google’s own player (tap play inside it)</b><span></span><iframe allow="autoplay" title="Google Drive player"></iframe>';
-    li.querySelector('iframe').src = 'https://drive.google.com/file/d/' + id + '/preview';
-    list.appendChild(li);
-    results.sort();
-    $('summary').textContent = 'Results: ' + results.join('  ·  ') + '  —  and does G play?  (' + navigator.userAgent.replace(/^.*?\(([^)]*)\).*$/, '$1') + ')';
+  // ---------------------------------------------------------------- the page
+  const KEY_STORE = 'drivetest-key';
+  try { const k = localStorage.getItem(KEY_STORE); if (k) { $('dt-key').value = k; $('dt-remember').checked = true; } } catch (e) {}
+  $('dt-remember').addEventListener('change', () => {
+    try { if ($('dt-remember').checked) localStorage.setItem(KEY_STORE, $('dt-key').value.trim()); else localStorage.removeItem(KEY_STORE); } catch (e) {}
   });
+  $('dt-key').addEventListener('change', () => { try { if ($('dt-remember').checked) localStorage.setItem(KEY_STORE, $('dt-key').value.trim()); } catch (e) {} });
+  const origin = location.protocol === 'file:' ? '' : location.origin;
+  if (origin) $('dt-origin-eg').textContent = origin + '/*';
+  $('dt-where').textContent = origin
+    ? 'This page is at ' + origin + '. Your key must be locked to this address (' + origin + '/*).'
+    : 'This page has been opened as a file on this computer, so a locked key won’t work here. Upload it to your website and open it there.';
+
+  function step(name, state, html) {
+    const li = document.querySelector('[data-step="' + name + '"]');
+    li.className = state || '';
+    li.querySelector('.dt-ico').textContent = { ok: '✓', bad: '✕', busy: '…', warn: '!', skip: '–' }[state] || '';
+    if (html != null) li.querySelector('.dt-msg').innerHTML = html;
+  }
+  function reset() {
+    ['id', 'meta', 'get', 'play', 'pixels'].forEach(n => step(n, '', ''));
+    $('dt-bar').hidden = true; $('dt-bar').firstElementChild.style.width = '0';
+    $('dt-verdict').hidden = true; $('dt-preview').hidden = true;
+    stopPreview();
+  }
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const mb = n => n < 1048576 ? Math.max(1, Math.round(n / 1024)) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+
+  // ---------------------------------------------------------------- reading the link
+  // Drive share links come in a few shapes; a bare file ID works too. Older links carry a resource key.
+  function readLink(text) {
+    text = text.trim();
+    let id = null, m;
+    if ((m = text.match(/\/file\/d\/([\w-]{10,})/))) id = m[1];
+    else if ((m = text.match(/[?&]id=([\w-]{10,})/))) id = m[1];
+    else if (/^[\w-]{20,}$/.test(text)) id = text;
+    const rk = (text.match(/[?&]resourcekey=([\w-]+)/) || [])[1] || '';
+    return id ? { id, rk } : null;
+  }
+
+  // ---------------------------------------------------------------- Google's answers
+  // Google's error reasons, in plain English, with what to do
+  function explain(status, body) {
+    const err = body && body.error || {};
+    const reason = (err.errors && err.errors[0] && err.errors[0].reason) || (err.details && err.details[0] && err.details[0].reason) || err.status || '';
+    const msg = err.message || '';
+    const r = (reason + ' ' + msg).toLowerCase();
+    if (/referer|referrer/.test(r)) return 'Google refused the key from this page’s address. Check the key’s <b>Website restrictions</b> include <code>' + esc(origin || 'your site') + '/*</code> exactly (wait a few minutes after saving).';
+    if (/api_key_invalid|keyinvalid|api key not valid/.test(r)) return 'Google says the key isn’t valid. Copy it again from <b>APIs &amp; Services → Credentials</b>.';
+    if (/accessnotconfigured|service_disabled|has not been used|is disabled/.test(r)) return 'The Google Drive API isn’t turned on for this key’s project. Search for <b>Google Drive API</b> in the Cloud Console and press <b>Enable</b> (then wait a few minutes).';
+    if (/api_key_service_blocked|blocked/.test(r) && /api/.test(r)) return 'The key isn’t allowed to use the Drive API. In the key’s <b>API restrictions</b>, tick <b>Google Drive API</b>.';
+    if (status === 404 || /notfound/.test(r)) return 'Google can’t find the file with this key. The file probably isn’t shared as <b>Anyone with the link</b> (or the link is wrong). School Google accounts sometimes don’t allow sharing outside the school.';
+    if (/downloadquotaexceeded|quota/.test(r)) return 'Too many downloads: either this file has been downloaded a great many times today, or the key’s allowance is used up. Try again tomorrow.';
+    if (/abusive/.test(r)) return 'Google has flagged this file, so only its owner can download it.';
+    if (/insufficient|permission/.test(r)) return 'Google says this file can’t be read with a key. Check it’s shared as <b>Anyone with the link</b>.';
+    return 'Google said no (' + status + (msg ? ': ' + esc(msg) : '') + ').';
+  }
+  async function readError(resp) { try { return await resp.json(); } catch (e) { return null; } }
+  const blockedMsg = 'The browser blocked Google’s answer, or the connection failed. If your internet is fine, Google didn’t give this website permission to read the file (“CORS”), so <b>this way of using Drive won’t work</b>.';
+
+  // ---------------------------------------------------------------- the test
+  let running = null;
+  $('dt-run').addEventListener('click', run);
+  $('dt-stop').addEventListener('click', () => { if (running) running.abort(); });
+
+  async function run() {
+    if (running) return;
+    reset();
+    const kind = document.querySelector('input[name=dt-kind]:checked').value;
+    const key = $('dt-key').value.trim();
+    const link = readLink($('dt-link').value);
+    if (!link) return step('id', 'bad', 'That doesn’t look like a Google Drive file link. It should look like <code>https://drive.google.com/file/d/…/view</code>.');
+    step('id', 'ok', 'File ID: <code>' + esc(link.id) + '</code>' + (link.rk ? ' (with a resource key)' : '') + '.');
+    if (!key) return step('meta', 'bad', 'Paste your API key first (see section 3 for how to make one).');
+    if (!origin) return step('meta', 'bad', 'Open this page from your website (not from a file on this computer): a locked key only works there.');
+    const headers = link.rk ? { 'X-Goog-Drive-Resource-Keys': link.id + '/' + link.rk } : {};
+    running = new AbortController();
+    $('dt-run').disabled = true; $('dt-stop').hidden = false;
+    try {
+      // 1. what is it?
+      step('meta', 'busy', 'Asking…');
+      let resp;
+      try {
+        resp = await fetch(API + encodeURIComponent(link.id) + '?fields=name,mimeType,size,videoMediaMetadata&supportsAllDrives=true&key=' + encodeURIComponent(key), { headers, signal: running.signal });
+      } catch (e) { if (e.name === 'AbortError') throw e; return step('meta', 'bad', blockedMsg); }
+      if (!resp.ok) return step('meta', 'bad', explain(resp.status, await readError(resp)));
+      const meta = await resp.json();
+      const size = Number(meta.size) || 0;
+      const isVideo = /^video\//.test(meta.mimeType || '');
+      step('meta', isVideo ? 'ok' : 'warn', '<b>' + esc(meta.name || 'Untitled') + '</b> · ' + esc(meta.mimeType || 'unknown type') +
+        (size ? ' · ' + mb(size) : '') + (isVideo ? '' : '. That doesn’t look like a video, but the test will carry on.') +
+        (size > 100 * 1048576 ? ' <br>That’s big: phones may struggle to download it whole. See-through clips are best kept under 20 MB.' : ''));
+
+      // 2. download it whole, showing progress
+      step('get', 'busy', 'Starting…');
+      $('dt-bar').hidden = false;
+      const t0 = performance.now();
+      try {
+        resp = await fetch(API + encodeURIComponent(link.id) + '?alt=media&supportsAllDrives=true&key=' + encodeURIComponent(key), { headers, signal: running.signal });
+      } catch (e) { if (e.name === 'AbortError') throw e; return step('get', 'bad', blockedMsg); }
+      if (!resp.ok) return step('get', 'bad', explain(resp.status, await readError(resp)));
+      const total = Number(resp.headers.get('content-length')) || size;
+      const chunks = [];
+      let got = 0;
+      const reader = resp.body.getReader();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value); got += value.length;
+        const secs = (performance.now() - t0) / 1000;
+        step('get', 'busy', mb(got) + (total ? ' of ' + mb(total) : '') + ' · ' + mb(got / Math.max(secs, 0.1)) + ' a second');
+        if (total) $('dt-bar').firstElementChild.style.width = Math.min(100, got / total * 100) + '%';
+      }
+      const blob = new Blob(chunks, { type: meta.mimeType || resp.headers.get('content-type') || 'video/mp4' });
+      const secs = (performance.now() - t0) / 1000;
+      if (/^text\/html/.test(resp.headers.get('content-type') || '')) return step('get', 'bad', 'Google sent back a web page instead of the video (often its “can’t scan this file for viruses” page for big files). Try a smaller file.');
+      $('dt-bar').firstElementChild.style.width = '100%';
+      step('get', 'ok', 'Downloaded ' + mb(blob.size) + ' in ' + secs.toFixed(1) + ' seconds (' + mb(blob.size / Math.max(secs, 0.1)) + ' a second). Google allowed this website to read it.');
+
+      // 3. play it from the downloaded copy
+      step('play', 'busy', 'Opening…');
+      const v = document.createElement('video');
+      v.muted = true; v.playsInline = true; v.loop = true; v.preload = 'auto';
+      v.src = URL.createObjectURL(blob);
+      const ok = await new Promise(res => {
+        const t = setTimeout(() => res(false), 15000);
+        v.addEventListener('loadeddata', () => { clearTimeout(t); res(true); }, { once: true });
+        v.addEventListener('error', () => { clearTimeout(t); res(false); }, { once: true });
+      });
+      if (!ok) return step('play', 'bad', 'This browser couldn’t play the downloaded file. ' + (kind === 'alpha' ? 'iPhones and iPads can’t play see-through WebM videos; use the see-through MP4 instead.' : 'Check it’s an MP4 (or WebM) video.'));
+      try { await v.play(); } catch (e) {}
+      const dims = v.videoWidth + ' × ' + v.videoHeight + ', ' + (Number.isFinite(v.duration) ? v.duration.toFixed(1) + ' seconds' : 'length unknown');
+      step('play', 'ok', 'Plays: ' + dims + '.' + (kind === 'stencil' && v.videoHeight < v.videoWidth * 0.9 ? ' <br>It isn’t twice as tall as a normal video, so it may not be a see-through MP4 from the Video Maker.' : ''));
+
+      // 4. read its pictures: what see-through needs (and what a 360 tour does with every video it draws)
+      step('pixels', 'busy', 'Checking…');
+      try {
+        const c = document.createElement('canvas'); c.width = 8; c.height = 8;
+        const x = c.getContext('2d'); x.drawImage(v, 0, 0, 8, 8); x.getImageData(0, 0, 1, 1);
+        step('pixels', 'ok', 'Its pictures can be read, so it can be made see-through and drawn in the 360 view.');
+      } catch (e) {
+        return step('pixels', 'bad', 'The browser won’t let the page read its pictures, so it can’t be made see-through.');
+      }
+      verdict(true, kind, blob.size, secs);
+      startPreview(v, kind);
+    } catch (e) {
+      if (e.name === 'AbortError') step('get', 'warn', 'Stopped.');
+      else { console.error(e); $('dt-verdict').hidden = false; $('dt-verdict').className = 'dt-verdict bad'; $('dt-verdict').textContent = 'Something unexpected went wrong: ' + e.message; }
+    } finally {
+      running = null; $('dt-run').disabled = false; $('dt-stop').hidden = true;
+      if (document.querySelector('.dt-steps .bad')) verdict(false);
+    }
+  }
+  function verdict(good, kind, bytes, secs) {
+    const v = $('dt-verdict');
+    v.hidden = false;
+    v.className = 'dt-verdict ' + (good ? 'ok' : 'bad');
+    v.innerHTML = good
+      ? '<b>It works.</b> This video can be downloaded from Google Drive by your website and ' + (kind === 'plain' ? 'played in a tour.' : 'shown see-through in a tour.') +
+        ' Tell Claude it passed (and the speed: ' + mb(bytes / Math.max(secs, 0.1)) + ' a second), and Drive videos can be switched on in the tour maker.'
+      : '<b>It didn’t work.</b> Fix the step marked ✕ and run the test again. If it says the browser blocked Google’s answer, this way of using Drive isn’t possible, and Dropbox or your GitHub site are the reliable places for see-through videos.';
+  }
+
+  // ---------------------------------------------------------------- the preview
+  // A small see-through picture over checks, made the same way a tour makes it: for a see-through MP4, the bottom
+  // half (the stencil) says how solid each pixel of the top half (the picture, on black) is.
+  let raf = 0;
+  function stopPreview() { cancelAnimationFrame(raf); raf = 0; }
+  function startPreview(v, kind) {
+    const out = $('dt-canvas'), stencil = kind === 'stencil';
+    const W = 320, H = Math.round(W * (stencil ? v.videoHeight / 2 : v.videoHeight) / v.videoWidth) || 180;
+    out.width = W; out.height = H;
+    $('dt-preview').hidden = false;
+    $('dt-preview-help').textContent = stencil ? 'The checks show through wherever the video is see-through.' : kind === 'alpha' ? 'The checks show through wherever the WebM is see-through.' : 'An ordinary video: no see-through parts.';
+    const o = out.getContext('2d');
+    const work = document.createElement('canvas'); work.width = W; work.height = H * 2;
+    const w = work.getContext('2d', { willReadFrequently: true });
+    const frame = () => {
+      if (!stencil) { o.clearRect(0, 0, W, H); o.drawImage(v, 0, 0, W, H); }
+      else {
+        w.drawImage(v, 0, 0, W, H * 2);
+        const top = w.getImageData(0, 0, W, H), bot = w.getImageData(0, H, W, H), d = top.data, s = bot.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const a = s[i] / 255;                                      // white = solid, black = see-through
+          d[i] = Math.min(255, d[i] / Math.max(a, 0.004)); d[i + 1] = Math.min(255, d[i + 1] / Math.max(a, 0.004)); d[i + 2] = Math.min(255, d[i + 2] / Math.max(a, 0.004));
+          d[i + 3] = s[i];
+        }
+        o.putImageData(top, 0, 0);
+      }
+      raf = requestAnimationFrame(frame);
+    };
+    frame();
+  }
 })();
+
 </script>
 </body>
 </html>
