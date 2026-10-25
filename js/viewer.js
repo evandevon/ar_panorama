@@ -4,13 +4,14 @@
  *   js/layers.js (FrontLayer = masks).
  * Page address: p (photo or 360 video), t (title), y (start direction), al=1 (offer "line up with the room"),
  *   mb (3D model brightness), s (one per spot, see spots.js), f (one per mask, see layers.js), v=2 (format version),
- *   preview=1 (inside the tour maker: no start card, editable spots).
+ *   preview=1 (inside the tour maker: no start card, editable spots), p2 / y2 / n1 / n2 (then and now: a second
+ *   photo, its turn, and the two photos' names).
  * In preview mode it talks to make.html with postMessage: tell({type:...}) out; window 'message' handler in.
- *   In: setYaw setSpots lookAt pinSpot selectSpot nudge setLayers setWindow setBrightness stopAll.
- *   Out: status view spotEdit spotSelect spotError layerPoint layerClose layerMove audio.
+ *   In: setYaw setSpots setCompare lookAt pinSpot selectSpot nudge setLayers setWindow setBrightness stopAll.
+ *   Out: status compare view spotEdit spotSelect spotError layerPoint layerClose layerMove audio.
  * Sections (search for "// ---- <name>"): talking to the author page · start card · loading the panorama · sound ·
  *   looking around: drag · the author's preview: a phone-sized window · looking around: phone motion · entering ·
- *   lining up with the real room · video spots · boot
+ *   lining up with the real room · video spots · then and now · boot
  * Gotchas: phones only allow motion sensors and sound after a tap (enter() runs inside the tap).
  *   "Phone window" mode: the preview iframe is bigger than the phone; win/winFov make spot sizes and drag speed
  *   match a real phone, and .win-shade panels outside the window only turn the view.
@@ -66,12 +67,28 @@
     e.innerHTML = html;
     e.hidden = false;
     $('choices').hidden = true;
-    document.querySelector('.progress').hidden = true;
+    $('loading').hidden = true;
     $('start').hidden = false;
     $('start').classList.remove('gone');
     tell({ type: 'status', state: 'error', message: plain || e.textContent });
   }
-  function setProgress(f) { $('bar').style.width = Math.round(Math.max(0, Math.min(1, f)) * 100) + '%'; }
+  // The loading line: f = 0..1 (null when the host didn't say how big the file is); got/total in bytes
+  const mb = n => n < 1048576 ? Math.max(1, Math.round(n / 1024)) + ' KB' : (n / 1048576).toFixed(n < 10485760 ? 1 : 0) + ' MB';
+  function setProgress(f, got, total) {
+    const bar = document.querySelector('.progress'), box = $('loading');
+    bar.classList.toggle('unknown', f == null);
+    if (f == null) {
+      $('load-size').textContent = got ? mb(got) : '';
+      box.removeAttribute('aria-valuenow');
+      return;
+    }
+    const pct = Math.round(Math.max(0, Math.min(1, f)) * 100);
+    bar.style.setProperty('--p', pct + '%');
+    $('bar-pct').textContent = pct + '%';
+    box.setAttribute('aria-valuenow', pct);
+    $('load-size').textContent = total ? mb(got) + ' of ' + mb(total) : '';
+    if (pct >= 100) $('load-what').textContent = 'Getting it ready…';
+  }
 
   let hintTimer = 0;
   function hint(text, ms) {
@@ -104,18 +121,28 @@
         for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
-          chunks.push(value); got += value.length; setProgress(got / total);
+          chunks.push(value); got += value.length; setProgress(got / total, got, total);
         }
         blob = new Blob(chunks, { type: resp.headers.get('content-type') || '' });
       } else {
-        setProgress(0.5);
-        blob = await resp.blob();
+        // the host didn't say how big it is: count what arrives instead
+        setProgress(null);
+        if (resp.body) {
+          const reader = resp.body.getReader(), chunks = [];
+          let got = 0;
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value); got += value.length; setProgress(null, got);
+          }
+          blob = new Blob(chunks, { type: resp.headers.get('content-type') || '' });
+        } else blob = await resp.blob();
       }
     } catch (err) {
       return fail('the host didn’t allow it, or the link is wrong');
     }
     if (/^text\/html/.test(blob.type)) return fail('the link opened a web page, not a picture');
-    setProgress(1);
+    setProgress(1, blob.size, blob.size);
 
     const img = new Image();
     img.src = URL.createObjectURL(blob);
@@ -530,6 +557,8 @@
     } else if (m.type === 'setSpots') {
       spotDefs = (m.spots || []).map(HotSpots.decode);
       spots.set(spotDefs);
+    } else if (m.type === 'setCompare') {
+      setCompare(m);
     } else if (m.type === 'lookAt') {
       lookAt(m.yaw, m.pitch);
     } else if (m.type === 'pinSpot') {
@@ -572,6 +601,15 @@
     isEditing: () => layerEditing,
     tell: tell
   });
+  // Where floating spots may go: the screen (or the preview's phone window), clear of the toolbar along the bottom
+  // and the motion switch at the top
+  function floatArea() {
+    const r = win ? { x: (innerWidth - win.w) / 2, y: (innerHeight - win.h) / 2, w: win.w, h: win.h } : { x: 0, y: 0, w: innerWidth, h: innerHeight };
+    const tb = $('toolbar'), mt = $('mode-toggle');
+    if (tb && !tb.hidden) { const b = tb.offsetHeight || 56; r.h -= b + 12; }
+    if (mt && !mt.hidden) { const t = (mt.offsetHeight || 40) + 10; r.y += t; r.h -= t; }
+    return r;
+  }
   const spots = HotSpots({
     sceneEl: sceneEl,
     editable: PREVIEW,
@@ -581,6 +619,7 @@
     layer: $('spots'),
     backLayer: front.backLayer,
     pxPerDegree: () => (win ? win.h / winFov : 0),
+    viewRect: floatArea,                               // floating spots stay inside it
     frontAt: (x, y) => front.hiddenAt(x, y),
     offscreen: $('spots-offscreen'),
     onActivity: n => Sound.duck(n > 0),
@@ -590,7 +629,104 @@
       document.addEventListener('pointerdown', fix, { once: true, capture: true });
     }
   });
-  AFRAME.registerComponent('spot-tracker', { tock: () => { front.update(); spots.update(); } });
+  AFRAME.registerComponent('spot-tracker', { tock: () => { front.update(); spots.update(); compareTick(); } });
+
+  // ------------------------------------------------------------- then and now: a second photo, and a bar to drag
+  // p2 = a second 360 photo taken from the same spot, y2 = turn it (degrees) to line it up, n1 / n2 = names for the
+  // main photo (right of the bar) and the second one (left of it). The second photo is a sphere just inside the
+  // first, drawn only left of the bar (decided per pixel on screen), so dragging the bar wipes between them.
+  // Spots sit in front of both. (Masks still show the main photo, on both sides.)
+  const cmp = { split: 0.5, ent: null, mat: null, yaw2: Number(params.get('y2')) || 0, n1: params.get('n1') || '', n2: params.get('n2') || '' };
+  async function loadCompare(token) {
+    const { url, provider } = Media.resolveMediaUrl(token, 'image');
+    const fail = why => {
+      tell({ type: 'compare', state: 'error', message: 'Couldn’t load the second photo (' + why + '). ' + Media.hostingHint(provider).replace(/<[^>]+>/g, '') });
+      if (!PREVIEW) console.warn('Second photo: ' + why);
+    };
+    let img;
+    try {
+      const resp = await fetch(url, { mode: 'cors' });
+      if (!resp.ok) return fail('error ' + resp.status);
+      const blob = await resp.blob();
+      if (/^text\/html/.test(blob.type)) return fail('the link opened a web page, not a picture');
+      img = new Image(); img.src = URL.createObjectURL(blob);
+      await img.decode();
+    } catch (e) { return fail('the host didn’t allow it, the link is wrong, or it isn’t a JPEG'); }
+    await sceneReady();
+    const THREE_ = AFRAME.THREE;
+    const max = Math.min(sceneEl.renderer ? sceneEl.renderer.capabilities.maxTextureSize : 4096, 8192);
+    let source = img;
+    if (img.naturalWidth > max) {
+      const c = document.createElement('canvas');
+      c.width = max; c.height = Math.round(max * img.naturalHeight / img.naturalWidth);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      source = c;
+    }
+    const tex = new THREE_.Texture(source);
+    tex.colorSpace = THREE_.NoColorSpace;              // the stored colours exactly, to match the main photo
+    tex.minFilter = THREE_.LinearFilter; tex.generateMipmaps = false;
+    tex.needsUpdate = true;
+    cmp.mat = new THREE_.ShaderMaterial({
+      uniforms: { map: { value: tex }, uSplit: { value: cmp.split }, uX: { value: 0 }, uW: { value: 1 } },
+      vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform sampler2D map; uniform float uSplit, uX, uW; varying vec2 vUv;' +
+        'void main() { if (gl_FragCoord.x > uX + uSplit * uW) discard; gl_FragColor = vec4(texture2D(map, vUv).rgb, 1.0); }',
+      side: THREE_.DoubleSide, toneMapped: false
+    });
+    // the same placement as the main photo's <a-sky> (turned −90°, mirrored), plus the author's turn
+    cmp.ent = document.createElement('a-entity');
+    cmp.ent.setAttribute('scale', '-1 1 1');
+    sceneEl.appendChild(cmp.ent);
+    const add = () => { cmp.ent.setObject3D('mesh', new THREE_.Mesh(new THREE_.SphereGeometry(99, 64, 32), cmp.mat)); setCompare({}); };
+    if (cmp.ent.hasLoaded) add(); else cmp.ent.addEventListener('loaded', add, { once: true });
+    $('compare').hidden = false;
+    tell({ type: 'compare', state: 'ready', width: img.naturalWidth, height: img.naturalHeight });
+  }
+  function setCompare(m) {
+    if (m.yaw2 != null) cmp.yaw2 = Number(m.yaw2) || 0;
+    if (m.n1 != null) cmp.n1 = m.n1;
+    if (m.n2 != null) cmp.n2 = m.n2;
+    if (cmp.ent) cmp.ent.setAttribute('rotation', { x: 0, y: -90 + cmp.yaw2, z: 0 });
+    $('cmp-n1').textContent = cmp.n1; $('cmp-n1').hidden = !cmp.n1;
+    $('cmp-n2').textContent = cmp.n2; $('cmp-n2').hidden = !cmp.n2;
+    setSplit(cmp.split);
+  }
+  function setSplit(f) {
+    cmp.split = Math.max(0, Math.min(1, f));
+    const c = sceneEl.canvas, r = c && c.getBoundingClientRect();
+    if (r) $('compare').style.setProperty('--split', (r.left + cmp.split * r.width) + 'px');
+    const pct = Math.round(cmp.split * 100), a = cmp.n2 || 'the second photo', b = cmp.n1 || 'the main photo';
+    const g = $('cmp-grip');
+    g.setAttribute('aria-valuenow', pct);
+    g.setAttribute('aria-valuetext', pct + '% ' + a + ', ' + (100 - pct) + '% ' + b);
+    // names fade when their side is too narrow to read them
+    $('compare').classList.toggle('narrow-l', cmp.split < 0.15);
+    $('compare').classList.toggle('narrow-r', cmp.split > 0.85);
+  }
+  // every frame: the bar's place in drawing-buffer pixels (the canvas can be any size, and phones draw at 2–3×)
+  function compareTick() {
+    if (!cmp.mat) return;
+    const c = sceneEl.canvas;
+    cmp.mat.uniforms.uW.value = c.width;
+    cmp.mat.uniforms.uX.value = 0;
+    cmp.mat.uniforms.uSplit.value = cmp.split;
+  }
+  {
+    const bar = $('cmp-bar'), grip = $('cmp-grip');
+    let dragging = false;
+    const at = e => { const r = sceneEl.canvas.getBoundingClientRect(); setSplit((e.clientX - r.left) / r.width); };
+    bar.addEventListener('pointerdown', e => { dragging = true; bar.setPointerCapture(e.pointerId); e.stopPropagation(); e.preventDefault(); at(e); $('compare').classList.add('dragging'); });
+    bar.addEventListener('pointermove', e => { if (dragging) { e.stopPropagation(); at(e); } });
+    const end = e => { dragging = false; $('compare').classList.remove('dragging'); e.stopPropagation(); };
+    bar.addEventListener('pointerup', end); bar.addEventListener('pointercancel', end);
+    grip.addEventListener('keydown', e => {
+      const step = e.shiftKey ? 0.2 : 0.05;
+      const to = { ArrowLeft: cmp.split - step, ArrowDown: cmp.split - step, ArrowRight: cmp.split + step, ArrowUp: cmp.split + step, Home: 0, End: 1 }[e.key];
+      if (to === undefined) return;
+      e.preventDefault(); e.stopPropagation(); setSplit(to);
+    });
+    window.addEventListener('resize', () => setSplit(cmp.split));
+  }
 
   // ------------------------------------------------------------- boot
   async function main() {
@@ -616,7 +752,7 @@
     spots.set(spotDefs);
 
     const isVideo = Media.looksLikeVideo(cfg.pano);
-    if (isVideo) loadVideo(cfg.pano);
+    if (isVideo) { $('loading').hidden = true; loadVideo(cfg.pano); }
     Sound.init(cfg.audio);
     // With spots, the sound button mutes everything (a 360 video background included)
     if ((Sound.kind === 'none' || Sound.kind === 'video') && spots.count) {
@@ -636,7 +772,8 @@
       // Autoplay spots start once the author first clicks in the preview (browsers need a click for sound)
       document.addEventListener('pointerdown', () => spots.start(), { once: true, capture: true });
       tell({ type: 'status', state: 'loading' });
-      if (!isVideo) await loadImage(cfg.pano);
+      const ok = isVideo ? true : await loadImage(cfg.pano);
+      if (ok && params.get('p2')) loadCompare(params.get('p2'));
       reportView();
       return;
     }
@@ -675,6 +812,7 @@
     }
 
     const ok = isVideo ? true : await loadImage(cfg.pano);
+    if (ok && params.get('p2')) loadCompare(params.get('p2'));
     if (ok) {
       $('go-align').disabled = $('go-motion').disabled = $('go-drag').disabled = false;
       document.querySelector('.card').classList.add('ready');

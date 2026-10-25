@@ -12,12 +12,17 @@
  *   the manager · building · 3D models · documents · playing · screen geometry · pinned corners ·
  *   every frame (after A-Frame draws) · see-through ("stencil") videos · author editing (preview only) ·
  *   starting and sound
+ *   Outlines of 3D models and see-through videos hug what's seen: samplePoints() (model vertices) and solidPart()
+ *   (the stencil's solid area); setBox() centres the frame on it.
  * Gotchas: the link format (encodeSpot/decodeSpot) must stay backward compatible: never change what an existing
- *   flag letter means. Flags: l s h r d o f x w u e (+ legacy b) and kind letters a v i k m p (see README).
+ *   flag letter means. Flags: l s h r d o f x w u e g (+ legacy b) and kind letters a v i k m p (see README).
  *   rebuildKey() lists the settings that need a spot rebuilt when they change.
  *
  * Each spot (decoded):  { src, type, yaw, pitch, w, play, hidden, loop, label, pin, rot, dwell, spin, flat,
- *                         stacked, alpha, noMask, vanish }
+ *                         stacked, alpha, noMask, vanish, float, delay }
+ *   float      stays in one place on the screen: yaw / pitch are then 0–100 across / down it, w = % of its shorter side
+ *   delay      seconds after the viewer starts before it appears (fades in; "as soon as it opens" starts then)
+ *   plan       pictures only: a floor plan [x %, y %, turn °]: a you-are-here dot and a cone showing which way the viewer faces
  *   yaw/pitch  where its centre sits, in degrees (yaw: left +, right −; pitch: up +)
  *   w          width in degrees of the view, so it stays the same size in the room
  *   play       tap | look (plays while the crosshair is on it) | start
@@ -106,13 +111,15 @@
     const kindFlag = kind === 'text' || kind === guess || (kind === 'video' && Media.youTube(s.src)) ? ''
       : { audio: 'a', video: 'v', image: 'i', link: 'k', model: 'm', doc: 'p' }[kind];
     const flags = (s.play === 'look' ? 'l' : s.play === 'start' ? 's' : '') + kindFlag +
-      (s.hidden ? 'h' : '') + (s.loop ? 'r' : '') + (s.dwell ? 'd' : '') + (s.spin ? 'o' : '') + (s.flat ? 'f' : '') + (s.stacked && kind === 'video' ? 'x' + (s.alpha ? 'w' : '') : '') + (s.noMask ? 'u' : '') + (s.vanish && kind === 'video' && !s.loop ? 'e' : '');
+      (s.hidden ? 'h' : '') + (s.loop ? 'r' : '') + (s.dwell ? 'd' : '') + (s.spin ? 'o' : '') + (s.flat ? 'f' : '') + (s.stacked && kind === 'video' ? 'x' + (s.alpha ? 'w' : '') : '') + (s.noMask ? 'u' : '') + (s.vanish && kind === 'video' && !s.loop ? 'e' : '') + (s.float ? 'g' : '');
     const label = (s.label || '').trim();
     const w = s.w && Math.round(s.w) !== DEFAULT_W ? Math.round(s.w) : '';
     const src = kind === 'text' ? 't:' + s.src.trim() : shorten ? Media.shorten(s.src) : s.src.trim();
-    const pin = validPin(s.pin) ? s.pin.map(c => c.map(n => Math.round(n)).join(',')).join(',') : '';
+    const pin = validPin(s.pin) && !s.float ? s.pin.map(c => c.map(n => Math.round(n)).join(',')).join(',') : '';
     const rot = Array.isArray(s.rot) && s.rot.some(n => Math.round(n)) ? s.rot.map(n => Math.round(n)).join(',') : '';
-    return [escField(src), Math.round(s.yaw), Math.round(s.pitch), flags, escField(label), w, pin, rot].join('~').replace(/~+$/, '');
+    const delay = s.delay > 0 ? +(+s.delay).toFixed(1) : '';
+    const plan = validPlan(s.plan) && kind === 'image' ? s.plan.map(n => Math.round(n)).join(',') : '';
+    return [escField(src), Math.round(s.yaw), Math.round(s.pitch), flags, escField(label), w, pin, rot, delay, plan].join('~').replace(/~+$/, '');
   }
   function decodeSpot(str) {
     str = String(str || '');
@@ -139,9 +146,13 @@
       noMask: flags.includes('u'),     // masks don't hide this spot (it stays in front of them)
       vanish: flags.includes('e'),     // a video that disappears when it ends (instead of staying on its last frame)
       alpha: flags.includes('x') && flags.includes('w'),       // a WebM with its own transparency (not a stencil MP4)
+      float: flags.includes('g'),      // floats on the screen: yaw / pitch are then 0–100 across / down it, w is % of its shorter side
+      delay: Math.max(0, Math.min(3600, Number(parts[8]) || 0)),   // seconds after the viewer starts before it appears
+      plan: (() => { const n = String(parts[9] || '').split(',').map(Number); return validPlan(n) ? n : null; })(),   // floor plan: you-are-here x, y (%), turn (°)
       rot: (() => { const r = String(parts[7] || '').split(',').map(Number); return r.length === 3 && r.every(Number.isFinite) ? r : [0, 0, 0]; })()
     };
   }
+  const validPlan = p => Array.isArray(p) && p.length === 3 && p.every(Number.isFinite);
   function validPin(p) {
     return Array.isArray(p) && p.length === 4 && p.every(c => Array.isArray(c) && c.length === 2 && c.every(Number.isFinite));
   }
@@ -151,7 +162,7 @@
     return [[n[0], n[1]], [n[2], n[3]], [n[4], n[5]], [n[6], n[7]]];
   }
   // Settings that need the player rebuilt when they change (moving, resizing and relabelling don't)
-  const rebuildKey = d => [d.src, kindOf(d), d.play, !!d.hidden, !!d.loop, !!d.dwell, !!d.stacked, !!d.alpha, !!d.noMask, !!d.vanish, kindOf(d) === 'link' ? d.label : ''].join('|');
+  const rebuildKey = d => [d.src, kindOf(d), d.play, !!d.hidden, !!d.loop, !!d.dwell, !!d.stacked, !!d.alpha, !!d.noMask, !!d.vanish, !!d.float, kindOf(d) === 'link' ? d.label : ''].join('|');
   const MODEL_DIST = 8;            // 3D models sit this far from the viewer (the 360 photo is much further away)
   const BEHIND_DIST = 60;          // …or this far, when they're behind the front layer (a cut-out copy of the photo, nearer than this)
   const distOf = s => s.behind ? BEHIND_DIST : MODEL_DIST;
@@ -199,8 +210,9 @@
           old.used = true;
           Object.assign(old, { yaw: d.yaw, pitch: d.pitch, w: d.w || DEFAULT_W, label: d.label, dir: dirFrom(d.yaw, d.pitch),
             pin: validPin(d.pin) ? d.pin.map(c => c.slice()) : null, lastW: null,
-            rot: Array.isArray(d.rot) ? d.rot.slice() : [0, 0, 0], spin: !!d.spin });
+            rot: Array.isArray(d.rot) ? d.rot.slice() : [0, 0, 0], spin: !!d.spin, delay: d.delay || 0 });
           if (old.isModel && !!d.flat !== !!old.flat) { old.flat = !!d.flat; applyLook(old); }
+          if (old.isImage) setPlan(old, d.plan);
           if (old.labelEl) { old.labelEl.textContent = labelText(old); old.labelEl.hidden = !labelText(old); }
           next.push(old);
         } else {
@@ -256,7 +268,8 @@
       // Masks (drawn by the author) hide the visual spots behind them: pictures, videos, 3D models, text and documents.
       // Controls (sound buttons, links, the dots that reveal things) are never hidden.
       // (unless the author unticked "Hidden by masks" for it)
-      s.behind = s.inScene && !s.isLink && !(s.drivePlayer && s.kind === 'audio') && !def.noMask;
+      s.behind = s.inScene && !s.isLink && !(s.drivePlayer && s.kind === 'audio') && !def.noMask && !def.float;
+      if (def.float) s.pin = null;
       s.aspect = s.isImage ? 4 / 3 : s.drivePlayer && s.kind === 'audio' ? 3 : 16 / 9;                    // a picture's real shape arrives when it loads
 
       const visible = !s.hidden || opts.editable;               // the author still sees hidden spots, faintly
@@ -270,6 +283,7 @@
       else if (visible && s.inScene) buildFrame(s);
       else if (visible) buildMarker(s);
       if (s.dwell && s.el) addDwell(s);
+      if (s.float && s.el) s.el.classList.add('floating');
 
       if (s.isStill) return s;
       if (!s.mediaHost) {                                       // sound only / hidden: the player lives off screen
@@ -391,10 +405,47 @@
       s.img = img;
       s.frame.style.aspectRatio = String(s.aspect);
       s.frame.append(s.labelEl, img);
+      setPlan(s, s.plan);
       if (opts.editable) addEditHandles(s);
       else img.addEventListener('click', () => openLightbox(s));
       s.el.appendChild(s.frame);
       layerOf(s).appendChild(s.el);
+    }
+
+    // A floor plan: a picture with a "you are here" dot and a cone that turns to show which way the viewer is
+    // facing, as wide as the part of the room they can see. plan = [x %, y % on the picture, turn °]: the turn
+    // lines the plan up with the photo (0 = the photo's straight-ahead points to the top of the plan).
+    let planIds = 0;
+    function setPlan(s, plan) {
+      s.plan = validPlan(plan) ? plan.slice() : null;
+      if (!s.plan) { if (s.planEl) { s.planBox.remove(); s.planEl = s.planBox = null; } return; }
+      if (!s.planEl) {
+        const id = 'plan-g' + (++planIds);
+        s.planEl = el('div', 'spot-plan');
+        s.planEl.setAttribute('aria-hidden', 'true');
+        s.planEl.innerHTML = '<svg viewBox="-50 -50 100 100"><defs><radialGradient id="' + id + '" cx="0" cy="0" r="48" gradientUnits="userSpaceOnUse">' +
+          '<stop offset="0" stop-color="#ee8b5c" stop-opacity=".85"/><stop offset="1" stop-color="#ee8b5c" stop-opacity="0"/></radialGradient></defs>' +
+          '<g class="plan-turn"><path class="plan-cone" fill="url(#' + id + ')"/></g>' +
+          '<circle class="plan-you" r="5.5"/></svg>';
+        s.planTurn = s.planEl.querySelector('.plan-turn');
+        s.planCone = s.planEl.querySelector('.plan-cone');
+        s.planFov = 0;
+        s.planBox = el('div', 'spot-plan-box');                 // keeps the cone inside the picture
+        s.planBox.appendChild(s.planEl);
+        s.frame.insertBefore(s.planBox, s.labelEl.nextSibling);
+      }
+      s.planEl.style.left = Math.max(0, Math.min(100, s.plan[0])) + '%';
+      s.planEl.style.top = Math.max(0, Math.min(100, s.plan[1])) + '%';
+    }
+    // every frame: turn the cone, and widen or narrow it to match the view
+    function updatePlan(s, viewYaw, fov) {
+      if (Math.abs(fov - s.planFov) > 0.5) {
+        s.planFov = fov;
+        const h = Math.min(160, Math.max(20, fov)) / 2 * Math.PI / 180, R = 48;
+        s.planCone.setAttribute('d', 'M0 0 L' + (-Math.sin(h) * R).toFixed(2) + ' ' + (-Math.cos(h) * R).toFixed(2) +
+          ' A' + R + ' ' + R + ' 0 0 1 ' + (Math.sin(h) * R).toFixed(2) + ' ' + (-Math.cos(h) * R).toFixed(2) + ' Z');
+      }
+      s.planTurn.setAttribute('transform', 'rotate(' + (s.plan[2] - viewYaw).toFixed(1) + ')');
     }
 
     // Tapping a picture shows it full screen, e.g. to read an old letter or poster
@@ -443,6 +494,24 @@
       opts.sceneEl.setAttribute('gltf-model', 'dracoDecoderPath: https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
     }
 
+    // Up to ~400 of a model's own points (spread across all its parts), in its holder's space, centred. The box
+    // around these on screen hugs the model; the corners of its 3D bounding box stick out well beyond it (the
+    // nearest corners look biggest), so the outline used to come out far too large.
+    function samplePoints(obj, centre) {
+      const meshes = [];
+      let total = 0;
+      obj.traverse(o => { const p = o.geometry && o.geometry.attributes && o.geometry.attributes.position; if (p && p.count) { meshes.push([o, p]); total += p.count; } });
+      if (!total) return null;
+      const step = Math.max(1, Math.ceil(total / 400)), out = [], v = new THREE.Vector3();
+      meshes.forEach(([o, p]) => {
+        for (let i = 0; i < p.count; i += step) {
+          v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld).sub(centre);
+          out.push(v.x, v.y, v.z);
+        }
+      });
+      return new Float32Array(out);
+    }
+
     function buildModel(s) {
       addLights();
       const THREE_ = THREE;
@@ -463,6 +532,7 @@
         const box = new THREE_.Box3().setFromObject(obj);
         if (parent) parent.add(obj);
         const size = box.getSize(new THREE_.Vector3()), centre = box.getCenter(new THREE_.Vector3());
+        s.hull = samplePoints(obj, centre);         // points on the model itself, for a tight on-screen box
         obj.position.sub(centre);
         s.maxDim = Math.max(size.x, size.y, size.z) || 1;
         s.modelObj = obj;
@@ -1082,15 +1152,17 @@
       return opts.sceneEl.canvas.clientHeight / ((camera && camera.fov) || 75);
     }
     // The size the author chose (a YouTube spot's poster size)
+    // Width in degrees of the view: a floating spot's comes from its share of the screen
+    const degW = s => s.float ? (s.fP || 0) / pxPerDegree() : s.w;
     function authoredWidth(s) {
-      return Math.max(s.isImage ? 24 : 60, s.w * pxPerDegree());
+      return Math.max(s.isImage ? 24 : 60, degW(s) * pxPerDegree());
     }
     // The size it's shown at right now: a playing YouTube video never goes below YouTube's minimum
     function frameWidth(s) {
-      if (s.yt) return s.expanded ? Math.max(YT_MIN_PX, s.w * pxPerDegree()) : authoredWidth(s);
-      if (s.isText || s.isLink || s.isDoc) return Math.max(60, s.w * pxPerDegree());
+      if (s.yt) return s.expanded ? Math.max(YT_MIN_PX, degW(s) * pxPerDegree()) : authoredWidth(s);
+      if (s.isText || s.isLink || s.isDoc) return Math.max(60, degW(s) * pxPerDegree());
       if (s.isModel || s.isStacked) return s.boxW || 40;
-      return Math.max(s.isImage ? 24 : s.drivePlayer ? 240 : 120, s.w * pxPerDegree());
+      return Math.max(s.isImage ? 24 : s.drivePlayer ? 240 : 120, degW(s) * pxPerDegree());
     }
     // Screen point → direction in the room
     function directionAt(sx, sy) {
@@ -1149,11 +1221,68 @@
       reportEdit(s);
     }
     function reportEdit(s) {
+      if (s.float) {                         // floating: across / down the screen (0–100), and size as % of it
+        opts.onEdit(s.index, { yaw: Math.round(s.yaw), pitch: Math.round(s.pitch), w: Math.round(s.w), pin: null,
+          rot: s.isModel ? s.rot.map(n => Math.round(n)) : undefined });
+        return;
+      }
       const a = anglesFrom(s.dir);
       s.yaw = a.yaw; s.pitch = a.pitch;
       opts.onEdit(s.index, { yaw: Math.round(a.yaw), pitch: Math.round(a.pitch), w: Math.round(s.w),
         pin: s.pin ? s.pin.map(c => c.map(n => Math.round(n))) : null,
         rot: s.isModel ? s.rot.map(n => Math.round(n)) : undefined });
+    }
+
+    // ---------------------------------------------------------- floating on the screen
+    // A floating spot keeps its place on the screen however the viewer turns. Its across / down (0–100) places it
+    // between the screen's edges (0 = against the left or top, 100 = against the right or bottom), so it never hangs
+    // off the screen, and its size is a share of the screen's shorter side, so it suits phones and big screens alike.
+    // (In the author's preview the "screen" is the phone-sized window, when there is one.)
+    const FLOAT_M = 10;                                            // a little room from the edges, in pixels
+    function viewRect(w, h) { return (opts.viewRect && opts.viewRect()) || { x: 0, y: 0, w, h }; }
+    function floatAspect(s) {
+      if (s.isStacked) return s.vAspect || 16 / 9;
+      if ((s.isText || s.isLink || s.isDoc) && s.frame && s.frame.offsetHeight) return s.frame.offsetWidth / s.frame.offsetHeight;
+      return s.aspect || 16 / 9;
+    }
+    function floatLayout(s, w, h) {
+      const r = viewRect(w, h), short = Math.min(r.w, r.h), asp = floatAspect(s);
+      let P = s.frame || s.isModel || s.isStacked ? s.w / 100 * short : 48;           // sounds: just their marker
+      P = Math.max(24, Math.min(P, r.w - 2 * FLOAT_M, (r.h - 2 * FLOAT_M) * asp));    // always fits on the screen
+      const H = P / asp;
+      s.fP = P;
+      s.fCx = r.x + FLOAT_M + P / 2 + Math.max(0, Math.min(100, s.yaw)) / 100 * Math.max(0, r.w - 2 * FLOAT_M - P);
+      s.fCy = r.y + FLOAT_M + H / 2 + Math.max(0, Math.min(100, s.pitch)) / 100 * Math.max(0, r.h - 2 * FLOAT_M - H);
+    }
+    // The author dragged it: work out across / down from where its centre now is
+    function floatMoveTo(s, clientX, clientY) {
+      const c = opts.sceneEl.canvas.getBoundingClientRect(), w = c.width, h = c.height;
+      const r = viewRect(w, h), P = s.fP || 48, H = P / floatAspect(s);
+      const px = clientX - c.left, py = clientY - c.top;
+      const fx = (px - r.x - FLOAT_M - P / 2) / Math.max(1, r.w - 2 * FLOAT_M - P), fy = (py - r.y - FLOAT_M - H / 2) / Math.max(1, r.h - 2 * FLOAT_M - H);
+      s.yaw = Math.max(0, Math.min(100, fx * 100)); s.pitch = Math.max(0, Math.min(100, fy * 100));
+    }
+    // 3D models and see-through videos that float: placed in front of the camera, square on to the screen
+    const _fv = new THREE.Vector3(), _fq = new THREE.Quaternion();
+    function floatMesh(s, camera, w, h) {
+      const D = distOf(s);
+      const halfH = D * Math.tan(camera.fov * Math.PI / 360), halfW = halfH * (w / h);
+      _fv.set((s.fCx / w * 2 - 1) * halfW, (1 - s.fCy / h * 2) * halfH, -D).applyMatrix4(camera.matrixWorld);
+      camera.getWorldQuaternion(_fq);
+      return { pos: _fv, quat: _fq, size: s.fP * 2 * halfH / h };   // size: the spot's width, in the scene's units
+    }
+
+    // ---------------------------------------------------------- appearing after a delay
+    // A spot with a delay stays out of sight until that many seconds after the viewer starts, then fades in
+    // (and if it plays "as soon as it opens", it starts then). The author's preview always shows it.
+    let startedAt = 0;
+    const waiting = s => s.delay > 0 && !opts.editable && !s.appeared;
+    function appear(s) {
+      s.appeared = true; s.appearAt = performance.now();
+      if (s.ent && s.ent.object3D) s.ent.object3D.visible = true;
+      if (s.el) { s.el.classList.remove('waiting'); s.el.classList.add('appear'); }
+      if (s.dotEl) s.dotEl.classList.remove('waiting');
+      if (s.play === 'start' && !s.dwell) play(s);
     }
 
     // ---------------------------------------------------------- every frame (after A-Frame draws)
@@ -1166,13 +1295,29 @@
       const ppd = pxPerDegree();
       const now = performance.now(), dt = Math.min(100, now - (lastTick || now));
       lastTick = now;
+      // floor plans: which way the viewer faces (yaw, left +), and how many degrees across they can see
+      const viewYaw = Math.atan2(-fwd.x, -fwd.z) * 180 / Math.PI;
+      const vr = viewRect(w, h), viewFov = vr.w / ppd;
       // the centre of the screen on part of the front layer: spots behind it can't be "looked at" there
       const centreHidden = !!(opts.frontAt && opts.frontAt(w / 2, h / 2));
 
       spots.forEach(s => {
-        const angle = fwd.angleTo(s.dir) * 180 / Math.PI;
-        let x = 0, y = 0, onScreen = angle < 85;
-        if (onScreen) {
+        // waiting for its delay: out of sight (and not playing) until its time comes
+        if (waiting(s)) {
+          if (started && now - startedAt >= s.delay * 1000) appear(s);
+          else {
+            if (s.el) { s.el.classList.add('waiting'); s.el.style.visibility = 'hidden'; }      // hidden from keyboards too
+            if (s.dotEl) { s.dotEl.classList.add('waiting'); s.dotEl.style.visibility = 'hidden'; }
+            if (s.ent && s.ent.object3D) s.ent.object3D.visible = false;
+            return;
+          }
+        }
+        if (s.float) floatLayout(s, w, h);
+        if (s.planEl) updatePlan(s, viewYaw, viewFov);
+        const angle = s.float ? 0 : fwd.angleTo(s.dir) * 180 / Math.PI;
+        let x = 0, y = 0, onScreen = s.float || angle < 85;
+        if (s.float) { x = s.fCx; y = s.fCy; }
+        else if (onScreen) {
           tmp.copy(s.dir).multiplyScalar(50).project(camera);
           x = (tmp.x + 1) / 2 * w; y = (1 - tmp.y) / 2 * h;
         }
@@ -1278,7 +1423,12 @@
             if (s.isLink || s.isDoc) s.frame.style.fontSize = Math.max(9, Math.min(36, fw * (s.isDoc ? 0.075 : 0.09))).toFixed(1) + 'px';
             if (s.driveFrame) s.driveFrame.style.transform = 'scale(' + (fw / s.driveSize[0]).toFixed(4) + ')';
           }
-          if (s.isModel || s.isStacked) s.frame.style.height = Math.round(s.boxH || 40) + 'px';
+          if (s.isModel || s.isStacked) {
+            s.frame.style.height = Math.round(s.boxH || 40) + 'px';
+            // centred on what's seen, which can sit off the spot's own point
+            s.frame.style.left = (s.boxCx != null ? s.boxCx - x : 0).toFixed(1) + 'px';
+            s.frame.style.top = (s.boxCy != null ? s.boxCy - y : 0).toFixed(1) + 'px';
+          }
         }
       });
     }
@@ -1287,11 +1437,18 @@
     const _c = new THREE.Vector3(), _d = new THREE.Vector3(), _q = [];
     function placeModel(s, camera, w, h, dt) {
       const o = s.ent.object3D;
-      o.position.copy(s.dir).multiplyScalar(distOf(s));
-      o.lookAt(0, o.position.y, 0);                                  // face the viewer, staying upright
+      let size;
+      if (s.float) {                                                 // floating: in front of the camera, square on
+        camera.updateMatrixWorld();
+        const f = floatMesh(s, camera, w, h);
+        o.position.copy(f.pos); o.quaternion.copy(f.quat); size = f.size;
+      } else {
+        o.position.copy(s.dir).multiplyScalar(distOf(s));
+        o.lookAt(0, o.position.y, 0);                                // face the viewer, staying upright
+        size = 2 * distOf(s) * Math.tan((s.w * Math.PI / 180) / 2);
+      }
       if (s.spin && !s.dragging) s.rot[0] = (s.rot[0] + dt * 0.02) % 360;   // about 20° a second
       s.turn.object3D.rotation.set(s.rot[1] * Math.PI / 180, s.rot[0] * Math.PI / 180, s.rot[2] * Math.PI / 180, 'YXZ');
-      const size = 2 * distOf(s) * Math.tan((s.w * Math.PI / 180) / 2);
       if (s.maxDim) s.fit.object3D.scale.setScalar(size / s.maxDim);
       // hidden until its dot is looked at; or only while looked at
       const show = !(s.dwell && !s.revealed && !opts.editable) && !(s.play === 'look' && !opts.editable && !s.el.classList.contains('shown'));
@@ -1314,7 +1471,22 @@
       }
       s.offView = off;
       if (off) return;
-      s.boxW = Math.max(30, x1 - x0); s.boxH = Math.max(30, y1 - y0);
+      if (s.hull) {                                               // the model's own points: a box that hugs it
+        x0 = y0 = 1e9; x1 = y1 = -1e9;
+        const H = s.hull;
+        for (let i = 0; i < H.length; i += 3) {
+          _c.set(H[i], H[i + 1], H[i + 2]).applyMatrix4(m).project(camera);
+          const px = (_c.x + 1) / 2 * w, py = (1 - _c.y) / 2 * h;
+          if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py;
+        }
+      }
+      setBox(s, x0, y0, x1, y1, 30);
+    }
+    // The outline's size, and its centre on screen (it's drawn around what's seen, which isn't always centred on
+    // the spot's own point)
+    function setBox(s, x0, y0, x1, y1, min) {
+      s.boxW = Math.max(min, x1 - x0); s.boxH = Math.max(min, y1 - y0);
+      s.boxCx = (x0 + x1) / 2; s.boxCy = (y0 + y1) / 2;
       s.aspect = s.boxW / s.boxH;
     }
 
@@ -1396,19 +1568,29 @@
     }
     function placeStacked(s, camera, w, h) {
       const o = s.ent.object3D;
-      o.position.copy(s.dir).multiplyScalar(distOf(s));
-      o.lookAt(0, 0, 0);                                   // face the viewer
-      const width = 2 * distOf(s) * Math.tan((s.w * Math.PI / 180) / 2);
+      let width;
+      if (s.float) {                                       // floating: in front of the camera, square on to the screen
+        camera.updateMatrixWorld();
+        const f = floatMesh(s, camera, w, h);
+        o.position.copy(f.pos); o.quaternion.copy(f.quat); width = f.size;
+      } else {
+        o.position.copy(s.dir).multiplyScalar(distOf(s));
+        o.lookAt(0, 0, 0);                                 // face the viewer
+        width = 2 * distOf(s) * Math.tan((s.w * Math.PI / 180) / 2);
+      }
       const height = width / (s.vAspect || 1);
       s.mesh.scale.set(width, height, 1);
       s.mesh.visible = !!s.vAspect && !(s.dwell && !s.revealed && !opts.editable) && !(s.gone && !opts.editable);
-      s.mesh.material.uniforms.opacity.value = opts.editable && s.dwell && !s.revealed ? 0.4 : 1;
+      s.mesh.material.uniforms.opacity.value = opts.editable && s.dwell && !s.revealed ? 0.4
+        : s.appearAt ? Math.min(1, (performance.now() - s.appearAt) / 600) : 1;        // fading in after its delay
       if (!s.vAspect) { s.boxW = 0; return; }
       o.updateMatrixWorld(true);
       camera.updateMatrixWorld();
       let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9, off = false;
+      // the part of the picture that's actually solid (u left→right, v top→bottom, 0..1), found from the video itself
+      const cr = solidPart(s);
       for (let i = 0; i < 4; i++) {
-        _c.set(i & 1 ? 0.5 : -0.5, i & 2 ? 0.5 : -0.5, 0).applyMatrix4(s.mesh.matrixWorld);
+        _c.set((i & 1 ? cr[1] : cr[0]) - 0.5, 0.5 - (i & 2 ? cr[2] : cr[3]), 0).applyMatrix4(s.mesh.matrixWorld);
         _d.copy(_c).applyMatrix4(camera.matrixWorldInverse);
         if (_d.z > -0.5) off = true;
         _c.project(camera);
@@ -1418,8 +1600,38 @@
       }
       s.offView = off;
       if (off) return;
-      s.boxW = Math.max(30, x1 - x0); s.boxH = Math.max(20, y1 - y0);
-      s.aspect = s.boxW / s.boxH;
+      setBox(s, x0, y0, x1, y1, 24);
+    }
+    // A see-through video's solid area: a tiny copy of its stencil (or its own transparency) is checked a few
+    // times a second, and the area grows to cover everywhere the person has been, so the outline fits them rather
+    // than the whole (mostly empty) picture. Falls back to the whole picture if the video can't be read.
+    const FULL = [0, 1, 0, 1];
+    let probe = null;
+    function solidPart(s) {
+      const v = s.media, now = performance.now();
+      if (s.solidFail || !v || v.readyState < 2 || !v.videoWidth) return s.solid || FULL;
+      if (s.solidAt && now - s.solidAt < (s.solid ? 400 : 150)) return s.solid || FULL;
+      s.solidAt = now;
+      try {
+        probe = probe || document.createElement('canvas');
+        const W = 48, H = Math.max(8, Math.min(160, Math.round(W / (s.vAspect || 1))));
+        probe.width = W; probe.height = H;
+        const c = probe.getContext('2d', { willReadFrequently: true });
+        c.clearRect(0, 0, W, H);
+        if (s.ownAlpha) c.drawImage(v, 0, 0, W, H);
+        else c.drawImage(v, 0, v.videoHeight / 2, v.videoWidth, v.videoHeight / 2, 0, 0, W, H);   // the stencil half
+        const d = c.getImageData(0, 0, W, H).data;
+        let u0 = W, u1 = -1, v0 = H, v1 = -1;
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+          const i = (y * W + x) * 4, val = s.ownAlpha ? d[i + 3] : d[i];
+          if (val > 40) { if (x < u0) u0 = x; if (x > u1) u1 = x; if (y < v0) v0 = y; if (y > v1) v1 = y; }
+        }
+        if (u1 < 0) return s.solid || FULL;                       // nothing solid in this picture (yet)
+        const pad = 1;                                              // a pixel of room all round (soft edges)
+        const r = [Math.max(0, (u0 - pad) / W), Math.min(1, (u1 + 1 + pad) / W), Math.max(0, (v0 - pad) / H), Math.min(1, (v1 + 1 + pad) / H)];
+        s.solid = s.solid ? [Math.min(s.solid[0], r[0]), Math.max(s.solid[1], r[1]), Math.min(s.solid[2], r[2]), Math.max(s.solid[3], r[3])] : r;
+      } catch (e) { s.solidFail = true; }                         // a video from a host that won't share its pictures
+      return s.solid || FULL;
     }
 
     // ---------------------------------------------------------- author editing (preview only)
@@ -1444,6 +1656,10 @@
         if ((s.isText || s.isLink || s.isDoc) && s.frame.offsetHeight) s.aspect = s.frame.offsetWidth / s.frame.offsetHeight;
         const r = s.el.getBoundingClientRect();                    // the spot's centre point
         const grab = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+        // models and see-through videos: the outline hugs what's seen, so resize in proportion from its centre
+        const fr = s.frame.getBoundingClientRect(), fc = [fr.left + fr.width / 2, fr.top + fr.height / 2];
+        const reach = ev => Math.max(Math.abs(ev.clientX - fc[0]), Math.abs(ev.clientY - fc[1]) * (s.aspect || 1));
+        const reach0 = Math.max(4, reach(e)), w0 = s.w;
         beginDrag(s, edit, e, ev => {
           if (corner === 'rot') {
             // Turn handle: sideways turns it, up and down tilts it
@@ -1455,8 +1671,18 @@
             s.pin[ci] = [wrap180(a.yaw - c.yaw), a.pitch - c.pitch];
           } else if (corner) {
             // Resize around the centre: width follows whichever direction you pull further
-            const half = Math.max(Math.abs(ev.clientX - r.left), Math.abs(ev.clientY - r.top) * s.aspect);
-            s.w = Math.max(5, Math.min(140, (half * 2) / pxPerDegree()));
+            const top = s.float ? 100 : 140;                                  // floating: % of the screen
+            if (s.isModel || s.isStacked) s.w = Math.max(5, Math.min(top, w0 * reach(ev) / reach0));
+            else if (s.float) {
+              const c = opts.sceneEl.canvas.getBoundingClientRect(), vr = viewRect(c.width, c.height);
+              const half = Math.max(Math.abs(ev.clientX - r.left), Math.abs(ev.clientY - r.top) * s.aspect);
+              s.w = Math.max(5, Math.min(100, half * 2 / Math.min(vr.w, vr.h) * 100));
+            } else {
+              const half = Math.max(Math.abs(ev.clientX - r.left), Math.abs(ev.clientY - r.top) * s.aspect);
+              s.w = Math.max(5, Math.min(140, (half * 2) / pxPerDegree()));
+            }
+          } else if (s.float) {
+            floatMoveTo(s, ev.clientX - grab.dx, ev.clientY - grab.dy);
           } else {
             s.dir = directionAt(ev.clientX - grab.dx, ev.clientY - grab.dy);
           }
@@ -1470,7 +1696,10 @@
         opts.onSelect(s.index);
         const r = s.el.getBoundingClientRect();
         const grab = { dx: e.clientX - r.left, dy: e.clientY - r.top };
-        beginDrag(s, handle, e, ev => { s.dir = directionAt(ev.clientX - grab.dx, ev.clientY - grab.dy); }, onClick);
+        beginDrag(s, handle, e, ev => {
+          if (s.float) floatMoveTo(s, ev.clientX - grab.dx, ev.clientY - grab.dy);
+          else s.dir = directionAt(ev.clientX - grab.dx, ev.clientY - grab.dy);
+        }, onClick);
       });
     }
 
@@ -1524,8 +1753,8 @@
     function start() {
       if (started) return;
       unlock();
-      started = true;
-      spots.forEach(s => { if (s.play === 'start') play(s); });
+      started = true; startedAt = performance.now();
+      spots.forEach(s => { if (s.play === 'start' && !waiting(s)) play(s); });
     }
     function setMuted(m) {
       muted = m;

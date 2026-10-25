@@ -18,7 +18,7 @@
 
 .stage { position: relative; background: var(--slate); border-radius: 6px; overflow: hidden; display: grid; place-items: center; min-height: 220px; }
 .view-wrap { position: relative; max-width: 100%; line-height: 0; }
-#view { display: block; max-width: 100%; max-height: max(240px, calc(100vh - 420px)); height: auto; cursor: crosshair; touch-action: none; }
+#view { display: block; max-width: 100%; max-height: max(240px, calc(100vh - 420px)); height: auto; cursor: default; touch-action: none; }
 #view.over-dot { cursor: move; }
 #overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .stage.drawing { box-shadow: 0 0 0 3px var(--select); }
@@ -227,3 +227,39 @@ h3.sub:first-of-type { margin-top: 8px; }
 .crop-dot:hover, .crop-dot.dragging { background: var(--ink); }
 .crop-dot:focus-visible { outline: 3px solid var(--select); outline-offset: 2px; }
 .crop-dot[hidden] { display: none; }
+
+/* ---------------------------------------------------------------- zoom: scroll to zoom, drag to look around */
+.view-wrap { transform-origin: 0 0; }
+.stage:focus-visible { outline: 3px solid var(--select); outline-offset: 2px; }
+.stage.zoomed:not(.picking):not(.drawing) #view { cursor: grab; }
+.stage.panning #view, .stage.panning.picking #view, .stage.panning.drawing #view { cursor: grabbing; }
+/* the crop dots keep their size, whatever the zoom */
+.crop-dot { transform: scale(var(--iz, 1)); transform-origin: 0 0; }
+.crop-dot[data-c="tr"] { transform-origin: 100% 0; } .crop-dot[data-c="bl"] { transform-origin: 0 100%; } .crop-dot[data-c="br"] { transform-origin: 100% 100%; }
+.zoom-ctl { display: inline-flex; align-items: center; gap: 2px; padding: 1px; border-radius: 999px; background: var(--field); border: 1px solid var(--line-strong); }
+.zoom-ctl[hidden] { display: none; }
+.zoom-ctl button { min-width: 32px; min-height: 34px; padding: 0 8px; border: 0; border-radius: 999px; background: transparent;
+  color: var(--ink); font: 600 .85rem var(--sans); cursor: pointer; font-variant-numeric: tabular-nums; }
+.zoom-ctl button:hover:not(:disabled) { background: var(--card-hover); }
+.zoom-ctl button:disabled { color: var(--ink-soft); cursor: default; }
+.zoom-ctl button:focus-visible { outline: 3px solid var(--select); outline-offset: -2px; }
+#zoom-in, #zoom-out { font-size: 1.1rem; line-height: 1; }
+.zoom-tip { padding: 0 6px 0 8px; font-size: .78rem; color: var(--ink-soft); white-space: nowrap; }
+@media (max-width: 1279px) { .zoom-tip { display: none; } }
+
+/* ---------------------------------------------------------------- the steps column: always the full height, with "more" markers */
+.side-more { display: none; }
+@media (min-width: 900px) {
+  body { position: fixed; top: 0; bottom: 0; left: 0; height: auto; }
+  .side-more { display: flex; position: fixed; left: 0; z-index: 4; justify-content: center; pointer-events: none;
+    opacity: 0; transition: opacity .2s; }
+  .side-more.on { opacity: 1; }
+  .side-more.on button { pointer-events: auto; }
+  .side-more.top { top: 0; padding: 6px 0 22px; background: linear-gradient(var(--paper) 30%, transparent); }
+  .side-more.bottom { bottom: 0; padding: 22px 0 8px; align-items: flex-end; background: linear-gradient(transparent, var(--paper) 70%); }
+  .side-more button { min-height: 30px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--card);
+    color: var(--ink); font: 600 .8rem var(--sans); cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.45); }
+  .side-more button:hover { background: var(--card-hover); border-color: var(--brass); }
+}
+@media (prefers-reduced-motion: reduce) { .side-more { transition: none; } }
+.stage.deep #view { image-rendering: pixelated; }

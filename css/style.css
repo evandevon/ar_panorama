@@ -57,9 +57,25 @@ a-scene { position: fixed !important; inset: 0; width: 100% !important; height: 
 .go:disabled { opacity: .55; cursor: progress; }
 .go:focus-visible, .toolbar button:focus-visible { outline: 3px solid var(--select); outline-offset: 3px; }
 
-.progress { height: 4px; margin: 12px 2px 0; background: rgba(243,237,233,.12); border-radius: 2px; overflow: hidden; }
-#bar { height: 100%; width: 0; background: var(--brass); transition: width .2s; }
-.card.ready .progress { visibility: hidden; }
+/* loading: a thick line with the percentage riding at its head, and how much has arrived */
+.loading { margin: 0 0 16px; }
+.card.ready .loading { display: none; }
+.load-text { display: flex; justify-content: space-between; gap: 10px; margin: 0 0 8px; font: 600 .92rem/1.3 var(--sans); color: var(--ink); }
+.load-size { color: var(--ink-soft); font-weight: 400; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.progress { --p: 0%; position: relative; height: 10px; margin: 0 2px; background: rgba(243,237,233,.16); border-radius: 5px; }
+#bar { height: 100%; width: var(--p); border-radius: 5px; background: var(--brass); transition: width .2s; }
+.bar-pct { position: absolute; top: 50%; left: clamp(24px, var(--p), calc(100% - 24px)); transform: translate(-50%, -50%);
+  min-width: 46px; padding: 3px 7px; border-radius: 999px; background: var(--brass); color: var(--on-brass);
+  font: 700 .82rem/1 var(--sans); text-align: center; font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 3px var(--slate-2), 0 2px 6px rgba(0,0,0,.4); transition: left .2s; }
+/* the host didn't say how big the photo is: a moving stripe instead of a percentage */
+.progress.unknown #bar { width: 35%; animation: load-slide 1.2s ease-in-out infinite; }
+.progress.unknown .bar-pct { display: none; }
+@keyframes load-slide { 0% { margin-left: 0; } 50% { margin-left: 65%; } 100% { margin-left: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  #bar, .bar-pct { transition: none; }
+  .progress.unknown #bar { animation: none; width: 100%; opacity: .5; }
+}
 .tip { margin: 10px 0 0; font-size: .88rem; color: var(--ink-soft); line-height: 1.4; }
 .tip:empty { display: none; }
 .error { margin: 4px 0 0; padding: 10px 12px; border-left: 4px solid #ff8c8c; background: #3a1513; color: #ffd9d4; font-size: .92rem; line-height: 1.45; overflow-wrap: anywhere; }
@@ -121,9 +137,9 @@ a-scene { position: fixed !important; inset: 0; width: 100% !important; height: 
 .spot-media { width: 100%; height: 100%; background: #000; border-radius: 4px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
 .spot-media iframe, .spot-media video { display: block; width: 100%; height: 100%; border: 0; }
 .spot-cap {
-  position: absolute; left: 50%; bottom: 100%; transform: translate(-50%, -6px); width: max-content; max-width: 100%;
+  position: absolute; left: 50%; bottom: 100%; transform: translate(-50%, -6px); width: max-content; max-width: max(100%, 10em);   /* narrow spots: room for a word or two */
   padding: 3px 10px; border-radius: 999px; background: rgba(22,19,18,.8); color: var(--chalk);
-  font: 600 .85rem/1.25 var(--sans); text-align: center; overflow-wrap: anywhere; pointer-events: none;
+  font: 600 .85rem/1.25 var(--sans); text-align: center; overflow-wrap: break-word; pointer-events: none;
 }
 
 /* A sound */
@@ -454,3 +470,41 @@ body.windowed .yt-wrap { left: calc(var(--wx) + 12px); top: calc(var(--wy) + 12p
 .spots-layer.editing .spot.gone { opacity: .35; pointer-events: auto; }
 .spots-layer.editing .spot.gone * { pointer-events: auto !important; }
 @media (prefers-reduced-motion: reduce) { .spot.gone { transition: none; } }
+
+/* ---------- Then and now: a bar to drag between two photos ---------- */
+.compare { --split: 50vw; position: fixed; inset: 0; z-index: 4; pointer-events: none; }
+.compare[hidden] { display: none; }
+body.aligning .compare { display: none; }
+.cmp-bar { position: absolute; top: 0; bottom: 0; left: var(--split); width: 44px; margin-left: -22px; pointer-events: auto; cursor: ew-resize; touch-action: none; }
+.cmp-bar::before { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 3px; margin-left: -1.5px; background: var(--chalk);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.35), 0 0 10px rgba(0,0,0,.45); }
+.cmp-grip { position: absolute; top: 50%; left: 50%; width: 48px; height: 48px; margin: -24px 0 0 -24px; padding: 11px; border-radius: 50%;
+  border: 3px solid var(--chalk); background: var(--brass); color: var(--on-brass); cursor: ew-resize; box-shadow: 0 2px 10px rgba(0,0,0,.5); }
+.cmp-grip svg { display: block; width: 100%; height: 100%; }
+.cmp-grip:focus-visible { outline: 3px solid var(--select); outline-offset: 3px; }
+.compare.dragging .cmp-grip { transform: scale(1.08); }
+.cmp-name { position: absolute; top: max(12px, env(safe-area-inset-top)); max-width: 40vw; padding: 5px 12px; border-radius: 999px;
+  background: rgba(22,19,18,.78); color: var(--chalk); font: 700 .9rem/1.2 var(--sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: opacity .2s; }
+.cmp-name.l { right: calc(100% - var(--split) + 14px); }
+.cmp-name.r { left: calc(var(--split) + 14px); }
+.compare.narrow-l .cmp-name.l, .compare.narrow-r .cmp-name.r { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .cmp-name { transition: none; } .compare.dragging .cmp-grip { transform: none; } }
+body:has(#mode-toggle:not([hidden])) .cmp-name { top: calc(max(10px, env(safe-area-inset-top)) + 50px); }
+
+/* ---------- Floating spots (stay in one place on the screen) and spots that appear after a delay ---------- */
+.spot.floating { z-index: 3; }
+.spot.waiting { opacity: 0; pointer-events: none; }
+.spot.appear > .spot-frame { animation: spot-appear .6s ease-out; }
+.spot.appear > .spot-marker { animation: spot-fade .6s ease-out; }
+@keyframes spot-appear { from { opacity: 0; transform: translate(-50%, -50%) scale(.92); } to { opacity: 1; } }
+.spot.pinned.appear > .spot-frame { animation-name: spot-fade; }      /* pinned spots use their own transform */
+@keyframes spot-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .spot.appear > .spot-frame, .spot.appear > .spot-marker { animation: spot-fade .3s linear; } }
+
+/* ---------- Floor plans: a you-are-here dot and a cone showing which way the viewer faces ---------- */
+.spot-plan-box { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1; border-radius: inherit; }
+.spot-plan { position: absolute; width: 60%; aspect-ratio: 1; transform: translate(-50%, -50%); }
+.spot-plan svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.plan-cone { stroke: #ee8b5c; stroke-opacity: .6; stroke-width: .8; }
+.plan-you { fill: #ee8b5c; stroke: #fff; stroke-width: 2.2; filter: drop-shadow(0 0 2px rgba(0,0,0,.6)); }

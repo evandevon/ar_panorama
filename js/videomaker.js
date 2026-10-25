@@ -16,9 +16,11 @@
  *   with uCrop (a uv rectangle in the VERTEX shader), and srcW()/srcH() give the cropped size for every export.
  *   The preview plays with sound (speakers(); after a video with sound is made, the element's audio runs through
  *   the Web Audio graph, so it is routed to audioCtx.destination too).
+ *   Zoom: .view-wrap (picture + outlines + crop dots) gets a CSS translate/scale; a click on the preview acts on
+ *   pointerup only if the pointer didn't move (act()), so a drag can look around. Wheel / pinch / buttons / keys.
  *   Shader outputs (uOut): 0 preview over a background · 1 picture on black · 2 stencil · 3 straight colour + alpha.
  * Sections (search for "// ---- <name>"): WebGL: one program, three jobs · settings · undo and redo · backgrounds for
- *   the preview · loading a video · clicking on the preview · crop: a dot on each corner · shapes · patchy screens · preview playback ·
+ *   the preview · loading a video · clicking on the preview · crop: a dot on each corner · zoom · shapes · patchy screens · preview playback ·
  *   the timeline · making the file · videos (real time) · GIFs (frame by frame)
  * Gotchas learned the hard way: MediaRecorder output needs time to start (stop only after real data arrives);
  *   browser-made WebMs have no duration (fixed on export with fix-webm-duration, and handled on import);
@@ -485,9 +487,9 @@
     const w = video.videoWidth, h = video.videoHeight;
     if (!w) return status('file-status', 'err', 'This video couldn’t be read. Try saving it as an MP4.');
     loaded = true;
-    view.width = Math.min(w, 1280); view.height = Math.round(view.width * h / w);
+    view.width = Math.min(w, 1920); view.height = Math.round(view.width * h / w);
     overlay.width = view.width; overlay.height = view.height;
-    fitView();
+    fitView(); resetZoom(); $('zoom-ctl').hidden = false;
     maskC.width = Math.min(w, 1024); maskC.height = Math.round(maskC.width * h / w);
     // a new video: start again with its shapes, extra colours and empty background
     shapes.length = 0; extraKeys.length = 0; plateOn = false; setTool(null);
@@ -575,7 +577,7 @@
   $('swatch-btn').addEventListener('click', () => setTool(tool === 'pick' ? null : 'pick'));
 
   // ---------------------------------------------------------------- clicking on the preview
-  // No tool: pick the colour to remove. A shape tool: add dots. "Add colour": pick an extra colour.
+  // No tool: nothing (drag to look around when zoomed). A shape tool: add dots. "Add colour": pick an extra colour.
   // Dragging a dot of a finished shape moves it, whatever tool is chosen.
   let tool = null, draft = [], hover = null, drag = null;
   const KIND = {
@@ -591,7 +593,7 @@
     else if (tool === 'addkey') h.textContent = 'click a patch of background that is still showing';
     else if (tool) h.textContent = draft.length >= 3 ? 'keep clicking around the area, then click the first dot to finish' : 'click around the area, dot by dot';
     else if (alpha) h.hidden = true;
-    else h.textContent = 'click the background in the picture to choose the colour to remove';
+    else h.textContent = 'to choose the colour to remove, press the colour box (below), then click the background · scroll to zoom';
     $('stage').classList.toggle('drawing', !!tool && !!KIND[tool]);
     $('stage').classList.toggle('picking', tool === 'pick' || tool === 'addkey');
   }
@@ -646,14 +648,13 @@
     }));
     return best;
   }
-  view.addEventListener('pointerdown', e => {
-    if (!loaded || making) return;
+  // A click does the job of the tool chosen (pick a colour, add a dot); a drag looks around the zoomed picture.
+  // So the click's job is done when the pointer is let go without having moved. Dragging a shape's dot moves it.
+  function act(e) {
     const p = toVideo(e);
     if (tool && KIND[tool]) {
       if (draft.length >= 3 && hitDot(e, [[draft[0]]])) { finishShape(); return; }
     }
-    const hit = (!tool || KIND[tool]) && !draft.length ? hitDot(e, shapes.map(s => s.pts)) : null;
-    if (hit) { drag = hit; view.setPointerCapture(e.pointerId); e.preventDefault(); return; }
     if (tool === 'pick') {
       setKey(sample(Math.round(p[0] * video.videoWidth), Math.round(p[1] * video.videoHeight), 3), true); commit();
       setTool(null);
@@ -665,21 +666,52 @@
       return;
     }
     if (tool) { draft.push(p); updateDrawBar(); hint(); drawOverlay(); return; }
-    if (!params().alpha) { setKey(sample(Math.round(p[0] * video.videoWidth), Math.round(p[1] * video.videoHeight), 3), true); commit(); }
+    // no tool chosen: a click does nothing (the colour is only picked after pressing the colour box), so a stray
+    // click or a drag to look around never changes the colour by accident
+  }
+  let press = null;                                 // { x, y, pointerType, moved }: a click that may turn into a drag
+  view.addEventListener('pointerdown', e => {
+    if (!loaded || making) return;
+    pointers.set(e.pointerId, [e.clientX, e.clientY]);
+    view.setPointerCapture(e.pointerId);
+    if (pointers.size === 2) { press = null; startPinch(); e.preventDefault(); return; }   // two fingers: pinch to zoom
+    if (pointers.size > 2) return;
+    const hit = (!tool || KIND[tool]) && !draft.length ? hitDot(e, shapes.map(s => s.pts)) : null;
+    if (hit) { drag = hit; e.preventDefault(); return; }
+    press = { x: e.clientX, y: e.clientY, pointerType: e.pointerType, moved: false, tx: zoom.tx, ty: zoom.ty };
+    e.preventDefault();
   });
   let maskQueued = false;
   view.addEventListener('pointermove', e => {
+    if (pointers.has(e.pointerId)) pointers.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pinch) { movePinch(); return; }
     if (drag) {
       shapes[drag.si].pts[drag.pi] = toVideo(e);
       drawOverlay();
       if (!maskQueued) { maskQueued = true; requestAnimationFrame(() => { maskQueued = false; buildMask(); }); }
       return;
     }
+    if (press) {
+      const dx = e.clientX - press.x, dy = e.clientY - press.y;
+      if (!press.moved && Math.hypot(dx, dy) > (press.pointerType === 'touch' ? 10 : 5)) press.moved = true;
+      if (press.moved) {
+        if (zoom.z > 1) { zoom.tx = press.tx + dx; zoom.ty = press.ty + dy; applyZoom(); $('stage').classList.add('panning'); }
+        return;
+      }
+    }
     const over = shapes.length && hitDot(e, shapes.map(s => s.pts));
     view.classList.toggle('over-dot', !!over && !draft.length);
     if (tool && KIND[tool]) { hover = toVideo(e); drawOverlay(); }
   });
-  const endDrag = () => { if (drag) { drag = null; buildMask(); commit(); } };
+  const endDrag = e => {
+    pointers.delete(e.pointerId);
+    if (pinch) { if (pointers.size < 2) pinch = null; return; }
+    if (drag) { drag = null; buildMask(); commit(); return; }
+    if (press) {
+      const p = press; press = null; $('stage').classList.remove('panning');
+      if (!p.moved && e.type === 'pointerup') act({ clientX: p.x, clientY: p.y, pointerType: p.pointerType });
+    }
+  };
   view.addEventListener('pointerup', endDrag);
   view.addEventListener('pointercancel', endDrag);
   view.addEventListener('pointerleave', () => { if (hover) { hover = null; drawOverlay(); } });
@@ -736,6 +768,75 @@
     x.lineWidth = 1.5 * k; x.strokeStyle = 'rgba(255,255,255,.9)'; x.strokeRect(L, T, CW, CH);
   }
 
+  // ---------------------------------------------------------------- zoom: scroll (or pinch) to zoom in, drag to look around
+  // The picture, its outlines and the crop dots all sit in .view-wrap, which is scaled and moved as one, so clicks
+  // still land on the right spot (everything works from getBoundingClientRect, which includes the zoom).
+  const wrap = document.querySelector('.view-wrap');
+  const zoom = { z: 1, tx: 0, ty: 0 };
+  const ZMAX = 8;
+  const pointers = new Map();
+  let pinch = null;
+  function applyZoom() {
+    const w = wrap.offsetWidth, h = wrap.offsetHeight;
+    zoom.z = clamp(zoom.z, 1, ZMAX);
+    // the zoomed picture always covers the space it had, so it can't be dragged away out of sight
+    zoom.tx = clamp(zoom.tx, w - w * zoom.z, 0); zoom.ty = clamp(zoom.ty, h - h * zoom.z, 0);
+    wrap.style.transform = zoom.z === 1 ? '' : 'translate(' + zoom.tx + 'px,' + zoom.ty + 'px) scale(' + zoom.z + ')';
+    wrap.style.setProperty('--iz', 1 / zoom.z);
+    const pct = Math.round(zoom.z * 100);
+    $('zoom-fit').textContent = pct + '%';
+    $('zoom-fit').setAttribute('aria-label', 'Zoom ' + pct + '%. Press to show the whole picture');
+    $('zoom-fit').disabled = zoom.z === 1; $('zoom-out').disabled = zoom.z === 1; $('zoom-in').disabled = zoom.z >= ZMAX;
+    $('zoom-tip').textContent = zoom.z === 1 ? 'Scroll on the picture to zoom' : 'Drag to look around';
+    $('stage').classList.toggle('zoomed', zoom.z > 1);
+    $('stage').classList.toggle('deep', zoom.z >= 3);              // close up: show the real pixels, not a blur
+    drawOverlay();
+  }
+  // zoom to z, keeping the point (sx, sy) on the screen where it is
+  function zoomAt(z, sx, sy) {
+    const r = wrap.getBoundingClientRect(), ox = r.left - zoom.tx, oy = r.top - zoom.ty;
+    z = clamp(z, 1, ZMAX);
+    const px = (sx - ox - zoom.tx) / zoom.z, py = (sy - oy - zoom.ty) / zoom.z;
+    zoom.tx = sx - ox - z * px; zoom.ty = sy - oy - z * py; zoom.z = z;
+    applyZoom();
+  }
+  const stageMid = () => { const r = $('stage').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+  function resetZoom() { zoom.z = 1; zoom.tx = zoom.ty = 0; applyZoom(); }
+  $('stage').addEventListener('wheel', e => {
+    if (!loaded) return;
+    e.preventDefault();
+    const d = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
+    zoomAt(zoom.z * Math.exp(-d * 0.0015), e.clientX, e.clientY);
+  }, { passive: false });
+  function startPinch() {
+    const [a, b] = [...pointers.values()];
+    pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, z: zoom.z, mid: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
+  }
+  function movePinch() {
+    if (pointers.size < 2) return;
+    const [a, b] = [...pointers.values()];
+    const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    zoom.tx += mid[0] - pinch.mid[0]; zoom.ty += mid[1] - pinch.mid[1]; pinch.mid = mid;
+    zoomAt(pinch.z * Math.hypot(a[0] - b[0], a[1] - b[1]) / pinch.d, mid[0], mid[1]);
+  }
+  $('zoom-in').addEventListener('click', () => { const m = stageMid(); zoomAt(zoom.z * 1.5, m[0], m[1]); });
+  $('zoom-out').addEventListener('click', () => { const m = stageMid(); zoomAt(zoom.z / 1.5, m[0], m[1]); });
+  $('zoom-fit').addEventListener('click', resetZoom);
+  // keyboard: with the preview focused, + and − zoom, the arrow keys look around, 0 shows the whole picture
+  $('stage').addEventListener('keydown', e => {
+    if (!loaded || e.target !== $('stage')) return;
+    const m = stageMid(), step = 60;
+    if (e.key === '+' || e.key === '=') zoomAt(zoom.z * 1.5, m[0], m[1]);
+    else if (e.key === '-' || e.key === '_') zoomAt(zoom.z / 1.5, m[0], m[1]);
+    else if (e.key === '0') resetZoom();
+    else if (zoom.z > 1 && e.key.startsWith('Arrow')) {
+      zoom.tx += { ArrowLeft: step, ArrowRight: -step }[e.key] || 0;
+      zoom.ty += { ArrowUp: step, ArrowDown: -step }[e.key] || 0;
+      applyZoom();
+    } else return;
+    e.preventDefault();
+  });
+
   // ---------------------------------------------------------------- shapes: outlines on top, and the mask they make
   $('show-shapes').addEventListener('change', drawOverlay);
   function drawOverlay() {
@@ -782,7 +883,7 @@
     const st = $('stage'), W = st.clientWidth, H = st.clientHeight;
     if (!W || !H || !view.width) return;
     view.style.width = Math.floor(Math.min(W, H * view.width / view.height)) + 'px';
-    drawOverlay();
+    if (typeof applyZoom === 'function' && zoom) applyZoom(); else drawOverlay();
   }
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fitView).observe($('stage'));
   wide.addEventListener('change', fitView);
@@ -1310,6 +1411,25 @@
       : null);
   }
   $('cancel').addEventListener('click', () => { if (making && making.finish) { making.cancelled = true; making.finish(); } });
+  // ---------------------------------------------------------------- wide screens: show when the steps have more above or below
+  // (the steps scroll on their own down the left; mouse and keyboard users scroll as usual, so these are only pointers)
+  {
+    const sc = document.body, up = $('more-up'), down = $('more-down');
+    const smooth = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const show = () => {
+      const on = wide.matches;
+      up.classList.toggle('on', on && sc.scrollTop > 8);
+      down.classList.toggle('on', on && sc.scrollTop + sc.clientHeight < sc.scrollHeight - 8);
+      up.style.width = down.style.width = sc.clientWidth + 'px';       // not over the scroll bar
+    };
+    sc.addEventListener('scroll', show, { passive: true });
+    window.addEventListener('resize', show); wide.addEventListener('change', show);
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(show).observe(document.querySelector('.vm-grid'));
+    up.querySelector('button').addEventListener('click', () => sc.scrollBy({ top: -sc.clientHeight * 0.7, behavior: smooth ? 'smooth' : 'auto' }));
+    down.querySelector('button').addEventListener('click', () => sc.scrollBy({ top: sc.clientHeight * 0.7, behavior: smooth ? 'smooth' : 'auto' }));
+    show();
+  }
+
   setKey(key.rgb, false);
   listKeys(); hint(); layoutTimeline();
 })();

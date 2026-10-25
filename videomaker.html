@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>See-through Video Maker</title>
   <meta name="description" content="Turn a green-screen video into a see-through video for 360° tours. Everything happens on your computer; nothing is uploaded.">
-  <link rel="stylesheet" href="css/create.css?v=20261023a">
-  <link rel="stylesheet" href="css/videomaker.css?v=20261023a">
+  <link rel="stylesheet" href="css/create.css?v=20261025e">
+  <link rel="stylesheet" href="css/videomaker.css?v=20261025e">
 </head>
 <body>
 <header class="masthead">
@@ -48,17 +48,23 @@
   <!-- Preview, with the main controls under it -->
   <section class="panel vm-preview" aria-labelledby="h-prev">
     <div class="prev-head">
-      <h2 id="h-prev">Preview <span class="opt" id="pick-hint">click the background in the picture to choose the colour to remove</span></h2>
+      <h2 id="h-prev">Preview <span class="opt" id="pick-hint">to choose the colour to remove, press the colour box (below), then click the background · scroll to zoom</span></h2>
       <div class="prev-tools">
         <button type="button" class="btn small ghost hist" id="undo" disabled title="Undo (Ctrl+Z)"><span aria-hidden="true">↶</span> Undo</button>
         <button type="button" class="btn small ghost hist" id="redo" disabled title="Redo (Ctrl+Shift+Z)"><span aria-hidden="true">↷</span> Redo</button>
+        <div class="zoom-ctl" id="zoom-ctl" role="group" aria-label="Zoom" hidden>
+          <span class="zoom-tip" id="zoom-tip" aria-hidden="true">Scroll on the picture to zoom</span>
+          <button type="button" id="zoom-out" aria-label="Zoom out" disabled>−</button>
+          <button type="button" id="zoom-fit" disabled title="Show the whole picture">100%</button>
+          <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+        </div>
         <div class="view-toggle" role="group" aria-label="What the preview shows">
           <button type="button" data-view="picture" aria-pressed="true">Picture</button>
           <button type="button" data-view="stencil" aria-pressed="false" title="White = solid, black = see-through. Good for spotting holes and specks.">Stencil</button>
         </div>
       </div>
     </div>
-    <div class="stage" id="stage">
+    <div class="stage" id="stage" tabindex="0" aria-label="Preview. Scroll or pinch to zoom; when zoomed in, drag or use the arrow keys to look around. Plus and minus keys zoom, 0 shows the whole picture.">
       <div class="view-wrap">
         <canvas id="view" width="640" height="360" aria-label="Preview of the see-through video"></canvas>
         <canvas id="overlay" width="640" height="360" aria-hidden="true"></canvas>
@@ -289,7 +295,10 @@
 </footer>
 
 <video id="src" playsinline muted preload="auto" hidden></video>
+<!-- wide screens: shows when the steps on the left have more above or below -->
+<div class="side-more top" id="more-up" aria-hidden="true"><button type="button" tabindex="-1">⌃ More above</button></div>
+<div class="side-more bottom" id="more-down" aria-hidden="true"><button type="button" tabindex="-1">More below ⌄</button></div>
 <script src="vendor/fix-webm-duration/fix-webm-duration.js"></script>
-<script src="js/videomaker.js?v=20261023a"></script>
+<script src="js/videomaker.js?v=20261025e"></script>
 </body>
 </html>

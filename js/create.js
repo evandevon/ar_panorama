@@ -42,7 +42,11 @@
       pano: $('in-pano').value.trim(),
       title: $('in-title').value.trim(),
       align: $('in-align').checked,
-      bright: Number($('in-bright').value) || 1
+      bright: Number($('in-bright').value) || 1,
+      pano2: $('in-pano2').value.trim(),            // then and now: a second photo, its turn, and the two names
+      yaw2: Number($('in-yaw2').value) || 0,
+      n1: $('in-n1').value.trim(),
+      n2: $('in-n2').value.trim()
     };
   }
 
@@ -53,6 +57,7 @@
     if (yaw) q.set('y', yaw);
     if (f.align) q.set('al', '1');
     if (f.bright !== 1 && hasModels()) q.set('mb', f.bright);
+    compareParams(f, false).forEach(([k, v]) => q.set(k, v));
     spots.filter(sp => sp.src.trim()).forEach(sp => q.append('s', HotSpots.encode(sp, false)));
     layers.forEach(l => q.append('f', encodeLayer(l)));
     history.replaceState(null, '', q.toString() ? '?' + q : location.pathname);
@@ -64,6 +69,12 @@
     $('in-title').value = q.get('t') || '';
     $('in-align').checked = q.get('al') === '1';
     $('in-bright').value = Number(q.get('mb')) || 1;
+    $('in-pano2').value = q.get('p2') || '';
+    $('in-yaw2').value = Number(q.get('y2')) || 0;
+    $('in-n1').value = q.get('n1') || '';
+    $('in-n2').value = q.get('n2') || '';
+    if (q.get('p2')) $('compare-box').open = true;
+    $('yaw2-out').textContent = (Number(q.get('y2')) || 0) + '°';
     yaw = Number(q.get('y')) || 0;
     spots = q.getAll('s').map(HotSpots.decode).filter(Boolean);
     layers = q.getAll('f').map(decodeLayer).filter(Boolean);
@@ -83,11 +94,22 @@
     if (yaw) q.push(['y', yaw]);
     if (f.align && !preview) q.push(['al', '1']);
     if (f.bright !== 1 && hasModels()) q.push(['mb', f.bright]);
+    compareParams(f, true).forEach(p => q.push(p));
     if (!preview) spots.filter(sp => sp.src.trim()).forEach(sp => q.push(['s', HotSpots.encode(sp, true)]));
     if (!preview) layers.forEach(l => q.push(['f', encodeLayer(l)]));
     if (preview) q.push(['preview', '1']);
     else q.push(['v', '2']);                        // format version, and a safe last character for email
     return here.href + '?' + q.map(([k, v]) => k + '=' + enc(String(v))).join('&');
+  }
+
+  // Then and now: only when there's a second photo (a turn or names alone mean nothing)
+  function compareParams(f, short) {
+    if (!f.pano2) return [];
+    const q = [['p2', short ? Media.shorten(f.pano2) : f.pano2]];
+    if (f.yaw2) q.push(['y2', f.yaw2]);
+    if (f.n1) q.push(['n1', f.n1]);
+    if (f.n2) q.push(['n2', f.n2]);
+    return q;
   }
 
   // Google Drive sounds and videos can only play in Google's own player (Google blocks other sites since 2024)
@@ -201,8 +223,10 @@
     }
 
     // Reload the preview only when what it shows has changed (not for title edits)
-    const key = [f.pano, yaw].join('|');
+    const key = [f.pano, yaw, f.pano2].join('|');
     if (key !== loadedKey) {
+      if (f.pano2) status('pano2-status', 'wait', 'Loading the second photo…'); else status('pano2-status');
+      $('compare-opts').hidden = true;
       loadedKey = key;
       panoOk = null; setNavEnabled(panoOk === true);
       status('pano-status', 'wait', 'Loading the photo…');
@@ -250,6 +274,10 @@
         status('pano-status', 'err', escapeHtml(m.message));
       }
       renderQr(readForm());
+    } else if (m.type === 'compare') {
+      $('compare-opts').hidden = m.state !== 'ready';
+      if (m.state === 'ready') status('pano2-status', 'ok', 'Second photo loaded (' + m.width + ' × ' + m.height + '). Drag the bar in the preview to compare.');
+      else status('pano2-status', 'err', escapeHtml(m.message));
     } else if (m.type === 'view') {
       viewYaw = m.yaw; viewPitch = m.pitch || 0;
     } else if (m.type === 'spotError') {
@@ -296,7 +324,7 @@
   }
   $('set-start').addEventListener('click', () => {
     yaw = viewYaw;
-    loadedKey = [readForm().pano, yaw].join('|'); // preview already shows this view
+    loadedKey = [readForm().pano, yaw, readForm().pano2].join('|'); // preview already shows this view
     const ifr = $('frame').querySelector('iframe');
     if (ifr) ifr.contentWindow.postMessage({ type: 'setYaw', yaw: yaw }, location.origin);
     updateFacing(); refresh();
@@ -304,7 +332,7 @@
   });
   $('reset-start').addEventListener('click', () => {
     yaw = 0;
-    loadedKey = [readForm().pano, yaw].join('|');
+    loadedKey = [readForm().pano, yaw, readForm().pano2].join('|');
     const ifr = $('frame').querySelector('iframe');
     if (ifr) ifr.contentWindow.postMessage({ type: 'setYaw', yaw: 0 }, location.origin);
     updateFacing(); refresh();
@@ -417,6 +445,15 @@
   };
   const CHEVRON = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
   const TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>';
+  // Floating spots: nine places on the screen (across, down: 0–100), for choosing without dragging
+  const FLOAT_SPOTS = [[0, 0, 'Top left'], [50, 0, 'Top middle'], [100, 0, 'Top right'], [0, 50, 'Middle left'], [50, 50, 'Middle'],
+    [100, 50, 'Middle right'], [0, 100, 'Bottom left'], [50, 100, 'Bottom middle'], [100, 100, 'Bottom right']];
+  function floatPlace(x, y) {
+    const hit = FLOAT_SPOTS.find(([a, b]) => Math.abs(a - x) < 4 && Math.abs(b - y) < 4);
+    if (hit) return hit[2].toLowerCase();
+    const h = x < 34 ? 'left' : x > 66 ? 'right' : 'middle', v = y < 34 ? 'top' : y > 66 ? 'bottom' : 'middle';
+    return h === v ? 'middle' : v + ' ' + h;
+  }
   const KIND_NAMES = { video: 'Video', audio: 'Sound', image: 'Picture', text: 'Text', link: 'Link', model: '3D model', doc: 'Document' };
 
   function renderSpots() {
@@ -468,10 +505,13 @@
           '<input id="' + id + '-label" type="text" class="sp-label" maxlength="40" placeholder="e.g. The teacher’s desk"></div>' +
         '<div class="sc-grid">' +
           '<label class="sp-row">Appears<select class="sp-dwell">' +
-            '<option value="0">Straight away</option><option value="1">After looking at a dot</option></select></label>' +
+            '<option value="0">Straight away</option><option value="delay">After a delay</option><option value="1">After looking at a dot</option></select></label>' +
+          '<label class="sp-row sp-delay-row" hidden>Seconds after the viewer starts<input type="number" class="sp-delay" min="1" max="3600" step="1" inputmode="numeric"></label>' +
           '<label class="sp-row"><span class="sp-play-word">Plays</span><select class="sp-play"></select></label>' +
         '</div>' +
         '<div class="sc-checks">' +
+          '<label class="check sp-float-row"><input type="checkbox" class="sp-float"><span>Float on the screen <span class="help-inline">— stays in the same place on the screen as viewers look around, like a sticker on the glass</span></span></label>' +
+          '<label class="check sp-plan-row"><input type="checkbox" class="sp-plan"><span>Floor plan <span class="help-inline">— a “you are here” dot, and a cone that turns to show which way the viewer is facing</span></span></label>' +
           '<label class="check sp-hide-row"><input type="checkbox" class="sp-hide"><span>Hidden <span class="help-inline sp-hide-note"></span></span></label>' +
           '<label class="check sp-loop-row"><input type="checkbox" class="sp-loop"><span>Loop <span class="help-inline">— start again when it ends</span></span></label>' +
           '<label class="check sp-vanish-row"><input type="checkbox" class="sp-vanish"><span>Disappear when it ends <span class="help-inline">— instead of staying on its last frame</span></span></label>' +
@@ -482,6 +522,18 @@
           '</div>' +
           '<label class="check sp-mask-row" hidden><input type="checkbox" class="sp-mask"><span>Hidden by masks <span class="help-inline">— untick to keep it in front of every mask</span></span></label>' +
           '<label class="check sp-pin-row"><input type="checkbox" class="sp-pin"><span>Pin corners <span class="help-inline">— drag each corner onto the matching point in the photo, e.g. a picture frame or window</span></span></label>' +
+        '</div>' +
+        '<div class="sp-floatpos" role="group" aria-label="Where it sits on the screen" hidden>' +
+          FLOAT_SPOTS.map(([x, y, name]) => '<button type="button" class="sp-fpos" data-x="' + x + '" data-y="' + y + '" aria-label="' + name + '" title="' + name + '" aria-pressed="false"><span aria-hidden="true"></span></button>').join('') +
+        '</div>' +
+        '<div class="sp-planset" hidden>' +
+          '<p class="help flush">Click the plan where the 360° photo was taken.</p>' +
+          '<div class="sp-plan-pick" tabindex="0" role="slider" aria-label="Where the photo was taken on the plan: click it, or use the arrow keys" aria-valuemin="0" aria-valuemax="100">' +
+            '<img class="sp-plan-img" alt=""><span class="sp-plan-dot" aria-hidden="true"></span></div>' +
+          '<label class="sp-plan-turn-label">Turn the cone to match the plan <output class="sp-plan-turn-out"></output>' +
+            '<input type="range" class="sp-plan-turn" min="-180" max="180" step="1"></label>' +
+          '<button type="button" class="btn small ghost sp-plan-here">The way the preview faces now is the top of the plan</button>' +
+          '<p class="help">Look around in the preview: when you face something, the cone on the plan should point at it.</p>' +
         '</div>' +
         '<div class="sp-place"><span class="sp-where"></span>' +
           '<span class="sp-place-btns">' +
@@ -506,7 +558,10 @@
 
     const q = c => li.querySelector(c);
     q('.sp-src').value = sp.src;
-    q('.sp-dwell').value = sp.dwell ? '1' : '0';
+    q('.sp-dwell').value = sp.dwell ? '1' : sp.delay > 0 ? 'delay' : '0';
+    q('.sp-delay').value = sp.delay > 0 ? sp.delay : 5;
+    q('.sp-float').checked = !!sp.float;
+    q('.sp-plan').checked = !!sp.plan;
     const grow = ta => { ta.style.height = 'auto'; ta.style.height = Math.min(160, ta.scrollHeight + 2) + 'px'; };
     q('.sp-label').value = sp.label || '';
     q('.sp-hide').checked = !!sp.hidden;
@@ -554,7 +609,64 @@
       clearTimeout(typing); typing = setTimeout(() => spotsChanged(true), 600);
     });
     q('.sp-type').addEventListener('change', e => { sp.type = e.target.value; sp.autoDoc = false; sp.error = ''; syncCard(li, sp, i); spotsChanged(true); });
-    q('.sp-dwell').addEventListener('change', e => { sp.dwell = e.target.value === '1'; if (sp.dwell) sp.hidden = false; syncCard(li, sp, i); spotsChanged(true); });
+    q('.sp-dwell').addEventListener('change', e => {
+      sp.dwell = e.target.value === '1'; if (sp.dwell) sp.hidden = false;
+      sp.delay = e.target.value === 'delay' ? Math.max(1, Number(q('.sp-delay').value) || 5) : 0;
+      syncCard(li, sp, i); spotsChanged(true);
+    });
+    q('.sp-delay').addEventListener('input', e => {
+      const v = Number(e.target.value);
+      if (!(v > 0)) return;                                    // half-typed: wait
+      sp.delay = Math.min(3600, v); updateSummary(li, sp); renderSpotStatus(i, li);
+      clearTimeout(typing); typing = setTimeout(() => spotsChanged(true), 500);
+    });
+    q('.sp-delay').addEventListener('change', e => { if (!(Number(e.target.value) > 0)) e.target.value = sp.delay || 5; });
+    // Floating: remember where it was in the room (and on the screen), so switching back and forth loses nothing
+    q('.sp-float').addEventListener('change', e => {
+      if (e.target.checked) {
+        sp.roomPlace = { yaw: sp.yaw, pitch: sp.pitch, w: sp.w, pin: sp.pin };
+        const f = sp.floatPlace || { yaw: 100, pitch: 100, w: 30 };
+        Object.assign(sp, { float: true, yaw: f.yaw, pitch: f.pitch, w: f.w, pin: null });
+      } else {
+        sp.floatPlace = { yaw: sp.yaw, pitch: sp.pitch, w: sp.w };
+        const r = sp.roomPlace || { yaw: viewYaw, pitch: viewPitch, w: HotSpots.DEFAULT_W, pin: null };
+        Object.assign(sp, { float: false, yaw: r.yaw, pitch: r.pitch, w: r.w, pin: r.pin || null });
+      }
+      q('.sp-pin').checked = !!sp.pin;
+      syncCard(li, sp, i); spotsChanged(true);
+    });
+    // Floor plan: where the photo was taken on it, and which way it's turned
+    let planT = 0;
+    const planChanged = () => { showPlan(li, sp); clearTimeout(planT); planT = setTimeout(() => spotsChanged(true), 60); };
+    q('.sp-plan').addEventListener('change', e => {
+      if (!e.target.checked) sp.planWas = sp.plan;                 // remembered, in case it's ticked again
+      sp.plan = e.target.checked ? (sp.planWas || [50, 50, Math.round(yaw)]) : null;   // the cone first points up when facing the start
+      syncCard(li, sp, i); spotsChanged(true);
+    });
+    q('.sp-plan-pick').addEventListener('click', e => {
+      const r = q('.sp-plan-img').getBoundingClientRect();
+      if (!r.width || !sp.plan) return;
+      sp.plan[0] = Math.max(0, Math.min(100, Math.round((e.clientX - r.left) / r.width * 100)));
+      sp.plan[1] = Math.max(0, Math.min(100, Math.round((e.clientY - r.top) / r.height * 100)));
+      planChanged();
+    });
+    q('.sp-plan-pick').addEventListener('keydown', e => {
+      const d = e.shiftKey ? 10 : 2, mv = { ArrowLeft: [-d, 0], ArrowRight: [d, 0], ArrowUp: [0, -d], ArrowDown: [0, d] }[e.key];
+      if (!mv || !sp.plan) return;
+      e.preventDefault();
+      sp.plan[0] = Math.max(0, Math.min(100, sp.plan[0] + mv[0])); sp.plan[1] = Math.max(0, Math.min(100, sp.plan[1] + mv[1]));
+      planChanged();
+    });
+    q('.sp-plan-turn').addEventListener('input', e => { if (sp.plan) { sp.plan[2] = +e.target.value; planChanged(); } });
+    q('.sp-plan-here').addEventListener('click', () => {
+      if (!sp.plan) return;
+      sp.plan[2] = ((Math.round(viewYaw) + 540) % 360) - 180;   // the cone then points straight up for this view
+      q('.sp-plan-turn').value = sp.plan[2]; planChanged();
+    });
+    li.querySelectorAll('.sp-fpos').forEach(b => b.addEventListener('click', () => {
+      sp.yaw = +b.dataset.x; sp.pitch = +b.dataset.y;
+      updatePlaceText(i); updateSummary(li, sp); spotsChanged(true);
+    }));
     q('.sp-play').addEventListener('change', e => { sp.play = e.target.value; if (sp.play === 'tap') sp.hidden = false; syncCard(li, sp, i); spotsChanged(true); });
     q('.sp-hide').addEventListener('change', e => { sp.hidden = e.target.checked; syncCard(li, sp, i); spotsChanged(true); });
     q('.sp-loop').addEventListener('change', e => { sp.loop = e.target.checked; syncCard(li, sp, i); updateSummary(li, sp); spotsChanged(true); });
@@ -565,7 +677,7 @@
       if (!e.target.checked) { updatePlaceText(i); spotsChanged(false); }
     });
     // Size and position without dragging (keyboard and switch users, or anyone who prefers buttons)
-    const resize = f => { sp.w = Math.max(4, Math.min(140, (sp.w || HotSpots.DEFAULT_W) * f)); updatePlaceText(i); spotsChanged(true); };
+    const resize = f => { sp.w = Math.max(sp.float ? 5 : 4, Math.min(sp.float ? 100 : 140, (sp.w || HotSpots.DEFAULT_W) * f)); updatePlaceText(i); spotsChanged(true); };
     q('.sp-smaller').addEventListener('click', () => resize(1 / 1.15));
     q('.sp-bigger').addEventListener('click', () => resize(1.15));
     q('.sp-move').addEventListener('click', () => {
@@ -628,10 +740,12 @@
       if (sp.hidden) bits.push('hidden');
       if (sp.loop && (kind === 'video' || kind === 'audio')) bits.push('loops');
       else if (sp.vanish && kind === 'video' && !isDrivePlayer(sp)) bits.push('disappears at the end');
-      if (sp.pin) bits.push('pinned');
-      if (layers.length && isMaskable(sp)) bits.push(sp.noMask ? 'in front of masks' : 'hidden by masks');
+      if (sp.plan && kind === 'image') bits.push('floor plan');
+      if (sp.delay > 0 && !sp.dwell) bits.push('appears after ' + sp.delay + ' s');
+      if (sp.pin && !sp.float) bits.push('pinned');
+      if (layers.length && isMaskable(sp) && !sp.float) bits.push(sp.noMask ? 'in front of masks' : 'hidden by masks');
     }
-    bits.push(describePlace(sp.yaw, sp.pitch));
+    bits.push(sp.float ? 'floats ' + (floatPlace(sp.yaw, sp.pitch) === 'middle' ? 'in the middle' : floatPlace(sp.yaw, sp.pitch)) + ' of the screen' : describePlace(sp.yaw, sp.pitch));
     li.querySelector('.sc-meta').innerHTML = (sp.error ? '<span class="sc-flag">Problem · </span>' : '') + escapeHtml(bits.join(' · '));
   }
 
@@ -670,6 +784,19 @@
     sp.stacked = on; sp.alpha = on && alpha; sp.autoStk = on && auto;
     li.querySelector('.sp-stk').checked = on;
     li.querySelector('.sp-stk-webm').checked = sp.alpha; li.querySelector('.sp-stk-mp4').checked = !sp.alpha;
+  }
+
+  function showPlan(li, sp) {
+    const q = c => li.querySelector(c);
+    if (!sp.plan) return;
+    const img = q('.sp-plan-img'), url = Media.resolveMediaUrl(sp.src, 'image').url;
+    if (img.dataset.src !== url) { img.src = url; img.dataset.src = url; img.referrerPolicy = 'no-referrer'; }
+    q('.sp-plan-dot').style.left = sp.plan[0] + '%'; q('.sp-plan-dot').style.top = sp.plan[1] + '%';
+    const pick = q('.sp-plan-pick');
+    pick.setAttribute('aria-valuenow', sp.plan[0]);
+    pick.setAttribute('aria-valuetext', sp.plan[0] + '% across, ' + sp.plan[1] + '% down');
+    q('.sp-plan-turn').value = sp.plan[2];
+    q('.sp-plan-turn-out').textContent = sp.plan[2] + '°';
   }
 
   function syncCard(li, sp, i) {
@@ -725,7 +852,19 @@
     if (!stkOk && sp.stacked) { sp.stacked = false; q('.sp-stk').checked = false; }
     q('.sp-stk-kind').hidden = !stkOk || !sp.stacked;
     q('.sp-pin-row').hidden = !inRoomKind || !sp.src.trim() || isModel || drive || !!sp.stacked;
-    q('.sp-mask-row').hidden = !layers.length || !isMaskable(sp);
+    q('.sp-mask-row').hidden = !layers.length || !isMaskable(sp) || !!sp.float;
+    // Floating: anything with something to see (not a hidden player); pins and masks are about places in the room
+    const canFloat = !!sp.src.trim() && !(sp.hidden && !sp.stacked);
+    q('.sp-float-row').hidden = !canFloat;
+    if (!canFloat && sp.float) { sp.float = false; q('.sp-float').checked = false; }
+    if (sp.float) q('.sp-pin-row').hidden = true;
+    q('.sp-floatpos').hidden = !sp.float;
+    const planOk = kind === 'image' && !!sp.float && !!sp.src.trim();
+    q('.sp-plan-row').hidden = !planOk;
+    if (!planOk && sp.plan) { sp.planWas = sp.plan; sp.plan = null; q('.sp-plan').checked = false; }
+    q('.sp-planset').hidden = !(planOk && sp.plan);
+    if (planOk && sp.plan) showPlan(li, sp);
+    q('.sp-delay-row').hidden = !(sp.delay > 0) || !!sp.dwell;
 
     if (sp.stacked) { sp.hidden = false; q('.sp-hide-row').hidden = true; }
     const checks = [...li.querySelectorAll('.sc-checks > .check')];
@@ -755,8 +894,10 @@
     };
     if (!sp.src.trim()) return set('', '');
     if (sp.error) return set('err', escapeHtml(sp.error));
-    const dwellNote = sp.dwell ? ' It appears after the viewer rests the crosshair on its dot for a moment (or taps the dot)' +
-      ((kind === 'video' || kind === 'audio') && !isDrivePlayer(sp) ? ', and starts playing then.' : '.') : '';
+    const extra = (sp.float ? ' It floats on the screen: drag it around the phone window in the preview, or pick a place above.' : '') +
+      (sp.delay > 0 && !sp.dwell ? ' It appears ' + sp.delay + ' second' + (sp.delay === 1 ? '' : 's') + ' after the viewer starts (the preview always shows it).' : '');
+    const dwellNote = (extra ? extra : '') + (sp.dwell ? ' It appears after the viewer rests the crosshair on its dot for a moment (or taps the dot)' +
+      ((kind === 'video' || kind === 'audio') && !isDrivePlayer(sp) ? ', and starts playing then.' : '.') : '');
     if (kind === 'text') return set('ok', 'Text card. Drag it in the preview to move it; pull its corners to make the text bigger or smaller. Viewers can tap it to read it full screen.' + dwellNote);
     if (kind === 'doc') {
       const v = Media.docViewer(sp.src), raw = Media.expand(sp.src);
@@ -826,9 +967,17 @@
     if (!li || !sp) return;
     const kind = HotSpots.kindOf(sp);
     const inRoom = sp.src && (kind === 'image' || kind === 'model' || kind === 'text' || kind === 'link' || kind === 'doc' || isDrivePlayer(sp) || (kind === 'video' && !sp.hidden));
-    li.querySelector('.sp-where').textContent = 'Placed ' + describePlace(sp.yaw, sp.pitch) +
-      (inRoom ? (sp.pin ? ' · corners pinned' : ' · ' + Math.round(sp.w || HotSpots.DEFAULT_W) + '° wide') : '');
-    li.querySelector('.sp-smaller').hidden = li.querySelector('.sp-bigger').hidden = !inRoom || !!sp.pin;
+    if (sp.float) {
+      const where = floatPlace(sp.yaw, sp.pitch);
+      li.querySelector('.sp-where').textContent = 'On the screen: ' + (where === 'middle' ? 'in the middle' : where) +
+        ' · ' + Math.round(sp.w || 30) + '% of the screen' + ' · drag it in the preview to fine-tune';
+      li.querySelectorAll('.sp-fpos').forEach(b => b.setAttribute('aria-pressed', String(Math.abs(+b.dataset.x - sp.yaw) < 4 && Math.abs(+b.dataset.y - sp.pitch) < 4)));
+    } else {
+      li.querySelector('.sp-where').textContent = 'Placed ' + describePlace(sp.yaw, sp.pitch) +
+        (inRoom ? (sp.pin ? ' · corners pinned' : ' · ' + Math.round(sp.w || HotSpots.DEFAULT_W) + '° wide') : '');
+    }
+    li.querySelector('.sp-smaller').hidden = li.querySelector('.sp-bigger').hidden = (!inRoom && !sp.float) || (!!sp.pin && !sp.float);
+    li.querySelector('.sp-move').hidden = li.querySelector('.sp-show').hidden = !!sp.float;   // not somewhere in the room
     if (kind === 'model') {
       const r = (sp.rot || [0, 0, 0]).map(n => Math.round(n));
       li.querySelector('.sp-turn-text').textContent = r.some(Boolean)
@@ -948,6 +1097,14 @@
   }
 
   // ------------------------------------------------------------- wiring
+  // then and now: the turn and the names change the preview straight away
+  function syncCompare() {
+    const f = readForm();
+    $('yaw2-out').textContent = f.yaw2 + '°';
+    post({ type: 'setCompare', yaw2: f.yaw2, n1: f.n1, n2: f.n2 });
+  }
+  ['in-yaw2', 'in-n1', 'in-n2'].forEach(id => $(id).addEventListener('input', syncCompare));
+  $('in-pano2').addEventListener('change', refresh);
   let t = 0;
   $('form').addEventListener('input', () => { clearTimeout(t); t = setTimeout(refresh, 450); });
   $('in-pano').addEventListener('change', refresh);
@@ -966,7 +1123,9 @@
         { src: new URL('models/sample-inkwell.glb', here).href, yaw: -4, pitch: -16, w: 12,
         play: 'tap', type: '', hidden: false, loop: false, dwell: false, label: 'Inkwell', rot: [0, 15, 0], spin: true },
         { src: new URL('videos/sample-candle.mp4', here).href, yaw: -58, pitch: -4, w: 10,
-        play: 'look', type: 'video', hidden: false, loop: true, dwell: false, label: '', stacked: true }];
+        play: 'look', type: 'video', hidden: false, loop: true, dwell: false, label: '', stacked: true },
+        { src: new URL('panoramas/sample-plan.png', here).href, yaw: 0, pitch: 100, w: 30,
+        play: 'tap', type: '', hidden: false, loop: false, dwell: false, label: 'Where am I?', float: true, plan: [50, 50, 0] }];
       renderSpots();
     }
     yaw = 0; updateFacing(); refresh();

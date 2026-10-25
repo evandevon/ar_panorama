@@ -274,3 +274,37 @@ textarea + .field-err { top: 8px; transform: none; }
   .facing { margin-top: 8px; }
 }
 .frame-nav { cursor: grab; } .frame-nav:active { cursor: grabbing; } .frame-nav > * { cursor: auto; }
+
+/* then and now: a second photo, tucked under the first */
+.compare-box { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.compare-box > summary { cursor: pointer; font-weight: 600; min-height: 36px; display: flex; flex-wrap: wrap; align-items: center; gap: 0 8px; color: var(--ink); }
+.compare-box > summary .opt { font-weight: 400; font-size: .85rem; color: var(--ink-soft); }
+.compare-box[open] > summary { margin-bottom: 6px; }
+.compare-box input[type=range] { width: 100%; min-height: 36px; accent-color: var(--brass); }
+.compare-box label output { float: right; font-weight: 600; color: var(--ink-soft); }
+.compare-box .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+
+/* floating spots: nine places on the screen; and the delay's seconds box */
+.sp-floatpos { display: grid; grid-template-columns: repeat(3, 36px); gap: 4px; width: max-content; margin: 8px 0 2px; padding: 4px;
+  border: 1px solid var(--line-strong); border-radius: 8px; background: var(--field); }
+.sp-floatpos[hidden] { display: none; }
+.sp-fpos { display: flex; width: 36px; height: 26px; padding: 4px; border: 1px solid var(--line); border-radius: 4px; background: transparent; color: var(--ink-soft); cursor: pointer; }
+.sp-fpos span { width: 11px; height: 8px; border-radius: 2px; background: currentColor; }
+.sp-fpos[data-x="50"] { justify-content: center; } .sp-fpos[data-x="100"] { justify-content: flex-end; }
+.sp-fpos[data-y="50"] { align-items: center; } .sp-fpos[data-y="100"] { align-items: flex-end; }
+.sp-fpos:hover { border-color: var(--brass); color: var(--ink); }
+.sp-fpos[aria-pressed="true"] { background: var(--select-bg); border-color: var(--select); color: var(--select-text); }
+.sp-fpos:focus-visible { outline: 3px solid var(--select); outline-offset: 1px; }
+.sp-delay { width: 100%; min-height: var(--control); padding: 8px 10px; font: inherit; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--field); color: var(--ink); }
+
+/* floor plan: click the plan where the photo was taken; turn the cone to match */
+.sp-planset { margin: 8px 0 4px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); }
+.sp-planset[hidden] { display: none; }
+.sp-plan-pick { position: relative; display: block; width: 100%; max-width: 320px; margin: 6px 0 10px; cursor: crosshair; border-radius: 6px; overflow: hidden; line-height: 0; }
+.sp-plan-pick:focus-visible { outline: 3px solid var(--select); outline-offset: 2px; }
+.sp-plan-img { display: block; width: 100%; height: auto; min-height: 60px; background: var(--card-2); }
+.sp-plan-dot { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: var(--brass); border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.5), 0 1px 4px rgba(0,0,0,.5); pointer-events: none; }
+.sp-plan-turn-label { display: block; font-size: .86rem; }
+.sp-plan-turn-label output { float: right; font-weight: 600; color: var(--ink-soft); }
+.sp-plan-turn { width: 100%; min-height: 36px; accent-color: var(--brass); }
+.sp-plan-here { margin: 2px 0 4px; height: auto; min-height: 36px; padding: 6px 12px; line-height: 1.3; white-space: normal; text-align: left; }

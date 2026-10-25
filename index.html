@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#1f2a24">
   <title>360° experience</title>
-  <link rel="stylesheet" href="css/style.css?v=20261023a">
+  <link rel="stylesheet" href="css/style.css?v=20261025e">
   <script src="vendor/aframe-v1.8.0.min.js"></script>
-  <script src="js/sources.js?v=20261023a"></script>
-  <script src="js/spots.js?v=20261023a"></script>
-  <script src="js/layers.js?v=20261023a"></script>
-  <script src="js/align.js?v=20261023a"></script>
+  <script src="js/sources.js?v=20261025e"></script>
+  <script src="js/spots.js?v=20261025e"></script>
+  <script src="js/layers.js?v=20261025e"></script>
+  <script src="js/align.js?v=20261025e"></script>
 </head>
 <body>
   <!-- Live camera, shown under the faded 360 photo while lining up with the real room -->
@@ -35,6 +35,10 @@
     <div class="card">
       <p class="eyebrow">360° experience</p>
       <h1 id="title">Loading…</h1>
+      <div class="loading" id="loading" role="progressbar" aria-label="Loading the 360 photo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <p class="load-text"><span id="load-what">Loading the 360 photo…</span> <span class="load-size" id="load-size"></span></p>
+        <div class="progress"><div id="bar"></div><span class="bar-pct" id="bar-pct" aria-hidden="true">0%</span></div>
+      </div>
       <div class="choices" id="choices">
         <button id="go-align" class="go" disabled hidden>
           <span class="go-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h3l2-3h6l2 3h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="4"/></svg></span>
@@ -49,7 +53,6 @@
           <span><b id="drag-label">Drag to look</b><small id="drag-sub">Use your finger to move the picture</small></span>
         </button>
       </div>
-      <div class="progress" aria-hidden="true"><div id="bar"></div></div>
       <p class="tip" id="tip"></p>
       <p class="tap-any" id="tap-any" hidden>or tap anywhere to start</p>
       <p class="embed-open" id="embed-open" hidden><a id="embed-open-link" target="_blank" rel="noopener">Open full screen ↗</a> — best on phones</p>
@@ -114,7 +117,18 @@
 
   <p id="hint" class="hint" role="status" hidden></p>
 
+  <!-- Then and now: drag the bar to wipe between the second photo (left) and the main one (right) -->
+  <div id="compare" class="compare" hidden>
+    <span class="cmp-name l" id="cmp-n2" hidden></span>
+    <span class="cmp-name r" id="cmp-n1" hidden></span>
+    <div class="cmp-bar" id="cmp-bar">
+      <button type="button" class="cmp-grip" id="cmp-grip" role="slider" aria-label="Compare the two photos: left and right arrows move the divider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 6l-6 6 6 6M15 6l6 6-6 6"/></svg>
+      </button>
+    </div>
+  </div>
+
   <audio id="audio" preload="auto" playsinline></audio>
-  <script src="js/viewer.js?v=20261023a"></script>
+  <script src="js/viewer.js?v=20261025e"></script>
 </body>
 </html>

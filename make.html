@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>360° QR Experience Maker</title>
   <meta name="description" content="Paste a link to a 360° photo and some audio, and get a QR code that opens it on any phone. No sign-in.">
-  <link rel="stylesheet" href="css/create.css?v=20261023a">
+  <link rel="stylesheet" href="css/create.css?v=20261025e">
   <script src="vendor/qrcode.js"></script>
-  <script src="js/sources.js?v=20261023a"></script>
-  <script src="js/spots.js?v=20261023a"></script>
+  <script src="js/sources.js?v=20261025e"></script>
+  <script src="js/spots.js?v=20261025e"></script>
 </head>
 <body>
 <header class="masthead">
@@ -33,6 +33,23 @@
       <p class="help" id="pano-help">A Google Drive, OneDrive or Dropbox share link, a direct link to a JPEG, or a 360 video (MP4). Set sharing to <b>Anyone with the link</b>.</p>
       <button type="button" class="btn small ghost" id="sample">Try a sample</button>
       <p class="status" id="pano-status" role="status" aria-live="polite"></p>
+      <details class="compare-box" id="compare-box">
+        <summary>Then and now <span class="opt">optional: a second photo to compare</span></summary>
+        <p class="help flush">Add a second 360° photo taken from the same spot: an old photo, or the same room on another day. Viewers drag a bar left and right to wipe between the two.</p>
+        <label for="in-pano2">Link to the second 360° photo</label>
+        <input id="in-pano2" type="url" inputmode="url" placeholder="https://drive.google.com/file/d/…" aria-describedby="pano2-status">
+        <p class="status" id="pano2-status" role="status" aria-live="polite"></p>
+        <div id="compare-opts" hidden>
+          <label for="in-yaw2">Turn it to line up <output id="yaw2-out" for="in-yaw2">0°</output></label>
+          <input type="range" id="in-yaw2" min="-180" max="180" step="1" value="0" aria-describedby="yaw2-help">
+          <p class="help" id="yaw2-help">Drag the bar in the preview so you can see both photos, then turn this until things line up across it.</p>
+          <div class="two">
+            <div><label for="in-n2">Name for the left side <span class="opt">(second photo)</span></label><input id="in-n2" type="text" maxlength="24" placeholder="e.g. 1876" aria-describedby="names-help"></div>
+            <div><label for="in-n1">Name for the right side <span class="opt">(main photo)</span></label><input id="in-n1" type="text" maxlength="24" placeholder="e.g. Today" aria-describedby="names-help"></div>
+          </div>
+          <p class="help" id="names-help">Type your own name for each side; it shows beside the bar. The second photo is on the left, your main photo on the right. Leave a box empty for no name on that side.</p>
+        </div>
+      </details>
     </section>
 
     <section class="panel step-spots" aria-labelledby="h-spots">
@@ -166,6 +183,6 @@
   <p>Want a person or object standing in the room, with the room showing around them? Make a see-through video from green-screen footage with the <a href="videomaker.html">See-through Video Maker</a>.</p>
 </footer>
 
-<script src="js/create.js?v=20261023a"></script>
+<script src="js/create.js?v=20261025e"></script>
 </body>
 </html>
