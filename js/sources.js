@@ -342,7 +342,7 @@
   }
   /**
    * Download a Drive sound or video whole. onProgress(got, total) is called as it arrives (total 0 if unknown).
-   * @returns {Promise<{url: string, type: string, size: number}>} url is a blob: link to the downloaded copy
+   * @returns {Promise<{url: string, blob: Blob, type: string, size: number}>} url is a blob: link to the downloaded copy
    */
   function downloadDrive(token, onProgress) {
     const id = driveId(token);
@@ -378,7 +378,7 @@
             blob = new Blob(chunks, { type: type });
           } else blob = await resp.blob();
           job.got = job.total = blob.size; tell();
-          return { url: URL.createObjectURL(blob), type: type, size: blob.size };
+          return { url: URL.createObjectURL(blob), blob: blob, type: type, size: blob.size };
         } finally { driveDone(); }
       });
       job.promise.catch(() => driveJobs.delete(id));          // a later try can start again

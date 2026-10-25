@@ -149,7 +149,7 @@ A 3D model sits in the room as a real object: as viewers look around, they see i
 
 **Formats:** `.glb` is best: one file with colours and textures included. Tinkercad, SketchUp, Blender and Sketchfab downloads can all export it. **Tinkercad `.glb` files:** Tinkercad's exporter has a few known problems, so colours can look washed out or dull, and parts made with a Shape Generator or a group can lose their colour or shift other parts' colours. To avoid that, group those parts and turn on **Multicolor** before exporting. The brightness slider helps with models that look dull. `.stl` files (3D-printing files from Tinkercad or Thingiverse) work too but have no colours, so they show in a plain stone colour; they're turned upright automatically. `.obj` works but loses its colours unless they're baked in. `.gltf` files that come with separate texture files won't find them, so export as `.glb` instead.
 
-**Hosting:** put the file in this site's `models/` folder on GitHub (most reliable), or use a Dropbox link. You can paste the GitHub page link for a file (`github.com/…/blob/…`): it's converted to the file itself automatically, and a file in this site's own repo shrinks to just its path, e.g. `models/inkwell.glb`. Google Drive and OneDrive don't work for 3D models, because they don't let other sites load the file. Keep files under about 5 MB so they load quickly on phones; the sample inkwell is 23 KB.
+**Hosting:** put the file in this site's `models/` folder on GitHub (most reliable), or use a Dropbox link. You can paste the GitHub page link for a file (`github.com/…/blob/…`): it's converted to the file itself automatically, and a file in this site's own repo shrinks to just its path, e.g. `models/inkwell.glb`. Google Drive works too (thanks to the site's Drive key): share the file as **Anyone with the link**, paste its link and set **Type** to **3D model**; it's downloaded when the tour opens. OneDrive doesn't work for 3D models, because it doesn't let other sites load the file. Keep files under about 5 MB so they load quickly on phones; the sample inkwell is 23 KB.
 
 **In the author page:**
 - **Drag** the model in the preview to move it, and pull a **corner tag** to make it bigger or smaller.
@@ -217,7 +217,7 @@ Without a key (for example, if the site is copied to another address and `driveK
 | Host | 360 photo | Sound and video spots | Documents | 3D models |
 |---|---|---|---|---|
 | This GitHub repo | ✅ Always | ✅ Always | ✅ | ✅ |
-| Google Drive | ✅ Usually | ✅ Downloaded with the site's key (Google's own player without one) | ✅ | ❌ |
+| Google Drive | ✅ Usually | ✅ Downloaded with the site's key (Google's own player without one) | ✅ | ✅ With the site's key |
 | Dropbox | ✅ Usually | ✅ Usually | ✅ | ✅ Usually |
 | Personal OneDrive | ❌ Rarely | ❌ Rarely | ✅ with **Share → Embed** | ❌ |
 | School/work OneDrive | ❌ Usually blocked | ❌ Usually blocked | ⚠️ Only if outside sharing is allowed | ❌ |

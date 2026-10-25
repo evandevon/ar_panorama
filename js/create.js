@@ -1024,7 +1024,9 @@
     if (kind === 'model') {
       return set('ok', '3D model. Drag it in the preview to move it, pull a corner to resize it, and drag the round handle to turn it' +
         (sp.spin ? '' : ' (or use the Turn and Tilt buttons)') + '. Viewers can tap it to look at it up close. ' +
-        'Use a <b>.glb</b> file kept in your GitHub site or on Dropbox — Google Drive and OneDrive won’t work for 3D models.' + dwellNote);
+        (Media.driveKey()
+          ? 'Use a <b>.glb</b> file (or .stl or .obj) kept in your GitHub site, on Dropbox, or in Google Drive (shared as <b>Anyone with the link</b>; Drive models are downloaded when the tour opens, so keep them under about 20 MB). OneDrive won’t work for 3D models.'
+          : 'Use a <b>.glb</b> file kept in your GitHub site or on Dropbox — Google Drive and OneDrive won’t work for 3D models.') + dwellNote);
     }
     if (kind === 'image' && sp.dwell) return set('ok', 'Drag it in the preview to move it; pull its corners to resize.' + dwellNote);
     if (kind === 'image') {

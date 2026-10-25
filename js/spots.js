@@ -523,45 +523,6 @@
       s.turn.appendChild(s.fit);
       s.ent.appendChild(s.turn);
       opts.sceneEl.appendChild(s.ent);
-      const { url } = Media.resolveMediaUrl(s.src, 'model');
-      const fail = msg => opts.onError(s.index, msg || 'This 3D model couldn’t be loaded. Use a .glb file in this site’s GitHub repo or on Dropbox — Google Drive won’t work for 3D models.');
-      const ready = obj => {
-        // Centre it and measure it once, in its holder's own space (not where it happens to be in the room);
-        // sizing then happens every frame from s.w
-        const parent = obj.parent;
-        if (parent) parent.remove(obj);
-        obj.updateMatrixWorld(true);
-        const box = new THREE_.Box3().setFromObject(obj);
-        if (parent) parent.add(obj);
-        const size = box.getSize(new THREE_.Vector3()), centre = box.getCenter(new THREE_.Vector3());
-        s.hull = samplePoints(obj, centre);         // points on the model itself, for a tight on-screen box
-        obj.position.sub(centre);
-        s.maxDim = Math.max(size.x, size.y, size.z) || 1;
-        s.modelObj = obj;
-        s.localBox = new THREE_.Box3().setFromCenterAndSize(new THREE_.Vector3(), size);
-        rememberLook(s, obj);
-        applyLook(s);
-        if (s.el) s.el.classList.add('loaded');
-      };
-      if (/\.stl(\?|#|$)/i.test(Media.expand(s.src))) {
-        fetch(url, { mode: 'cors' }).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); }).then(buf => {
-          const geo = parseSTL(buf);
-          const mesh = new THREE_.Mesh(geo, new THREE_.MeshStandardMaterial({ color: 0xcdbfa8, roughness: 0.6, metalness: 0.05 }));
-          mesh.rotation.x = -Math.PI / 2;                 // 3D-printing files are Z-up; the scene is Y-up
-          const holder = new THREE_.Group(); holder.add(mesh); holder.updateMatrixWorld(true);
-          s.fit.setObject3D('mesh', holder);
-          ready(holder);
-        }).catch(() => fail());
-      } else if (/\.obj(\?|#|$)/i.test(Media.expand(s.src))) {
-        s.fit.addEventListener('model-loaded', () => ready(s.fit.getObject3D('mesh')), { once: true });
-        s.fit.addEventListener('model-error', () => fail(), { once: true });
-        s.fit.setAttribute('obj-model', 'obj: url(' + url + ')');
-      } else {
-        s.fit.addEventListener('model-loaded', () => ready(s.fit.getObject3D('mesh')), { once: true });
-        s.fit.addEventListener('model-error', () => fail(), { once: true });
-        s.fit.setAttribute('gltf-model', 'url(' + url + ')');
-      }
-
       // The on-screen box that follows the model
       s.el = el('div', 'spot spot-model' + (s.play === 'look' ? ' on-look' : ''));
       s.frame = el('div', 'spot-frame');
@@ -584,6 +545,77 @@
       }
       s.el.appendChild(s.frame);
       layerOf(s).appendChild(s.el);
+      // A Google Drive model is downloaded first (with this website's key, js/settings.js). Its link doesn't say
+      // what kind of file it is, so the first bytes do: "glTF" = GLB, "{" = glTF text, an STL's header, or OBJ text.
+      if (/drive\.google\.com|docs\.google\.com\/uc|^gd:/i.test(Media.expand(s.src).trim()) && Media.canDownloadDrive(s.src)) loadDriveModel(s);
+      else loadModel(s, Media.resolveMediaUrl(s.src, 'model').url, /\.stl(\?|#|$)/i.test(Media.expand(s.src)) ? 'stl' : /\.obj(\?|#|$)/i.test(Media.expand(s.src)) ? 'obj' : 'gltf');
+    }
+
+    function modelFormat(buf) {
+      const b = new Uint8Array(buf, 0, Math.min(buf.byteLength, 512));
+      const head = String.fromCharCode.apply(null, b.subarray(0, 4));
+      if (head === 'glTF') return 'gltf';
+      const text = new TextDecoder().decode(b).replace(/^\uFEFF/, '').trimStart();
+      if (text[0] === '{') return 'gltf';
+      if (buf.byteLength >= 84 && 84 + new DataView(buf).getUint32(80, true) * 50 === buf.byteLength) return 'stl';   // binary STL
+      if (/^solid\b/i.test(text)) return 'stl';
+      if (/^(#|v |vn |vt |o |g |mtllib |usemtl )/m.test(text)) return 'obj';
+      return 'gltf';
+    }
+    function loadDriveModel(s) {
+      const tag = el('div', 'spot-dl');
+      tag.setAttribute('role', 'status');
+      tag.textContent = 'Downloading…';
+      s.el.appendChild(tag);
+      const size = n => n < 1048576 ? Math.max(1, Math.round(n / 1024)) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+      Media.downloadDrive(s.src, (got, total) => {
+        tag.textContent = total ? 'Downloading ' + Math.min(99, Math.floor(got / total * 100)) + '%' : 'Downloading ' + size(got);
+      }).then(r => r.blob.arrayBuffer().then(buf => {
+        tag.remove();
+        if (!s.fit || !s.fit.isConnected) return;               // rebuilt meanwhile
+        loadModel(s, r.url, modelFormat(buf), buf);
+      })).catch(err => { tag.remove(); opts.onError(s.index, err.message); });
+    }
+    // url: where the file is; format: 'gltf' (GLB or glTF), 'stl' or 'obj'; buf: the file itself, if already downloaded
+    function loadModel(s, url, format, buf) {
+      const THREE_ = THREE;
+      const fail = msg => opts.onError(s.index, msg || 'This 3D model couldn’t be loaded. Use a .glb file in this site’s GitHub repo, on Dropbox' + (Media.driveKey() ? ', or in Google Drive (shared as “Anyone with the link”)' : '') + '. (A .gltf file only works if everything it needs is inside it.)');
+      const ready = obj => {
+        // Centre it and measure it once, in its holder's own space (not where it happens to be in the room);
+        // sizing then happens every frame from s.w
+        const parent = obj.parent;
+        if (parent) parent.remove(obj);
+        obj.updateMatrixWorld(true);
+        const box = new THREE_.Box3().setFromObject(obj);
+        if (parent) parent.add(obj);
+        const size = box.getSize(new THREE_.Vector3()), centre = box.getCenter(new THREE_.Vector3());
+        s.hull = samplePoints(obj, centre);         // points on the model itself, for a tight on-screen box
+        obj.position.sub(centre);
+        s.maxDim = Math.max(size.x, size.y, size.z) || 1;
+        s.modelObj = obj;
+        s.localBox = new THREE_.Box3().setFromCenterAndSize(new THREE_.Vector3(), size);
+        rememberLook(s, obj);
+        applyLook(s);
+        if (s.el) s.el.classList.add('loaded');
+      };
+      if (format === 'stl') {
+        (buf ? Promise.resolve(buf) : fetch(url, { mode: 'cors' }).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })).then(buf => {
+          const geo = parseSTL(buf);
+          const mesh = new THREE_.Mesh(geo, new THREE_.MeshStandardMaterial({ color: 0xcdbfa8, roughness: 0.6, metalness: 0.05 }));
+          mesh.rotation.x = -Math.PI / 2;                 // 3D-printing files are Z-up; the scene is Y-up
+          const holder = new THREE_.Group(); holder.add(mesh); holder.updateMatrixWorld(true);
+          s.fit.setObject3D('mesh', holder);
+          ready(holder);
+        }).catch(() => fail());
+      } else if (format === 'obj') {
+        s.fit.addEventListener('model-loaded', () => ready(s.fit.getObject3D('mesh')), { once: true });
+        s.fit.addEventListener('model-error', () => fail(), { once: true });
+        s.fit.setAttribute('obj-model', 'obj: url(' + url + ')');
+      } else {
+        s.fit.addEventListener('model-loaded', () => ready(s.fit.getObject3D('mesh')), { once: true });
+        s.fit.addEventListener('model-error', () => fail(), { once: true });
+        s.fit.setAttribute('gltf-model', 'url(' + url + ')');
+      }
     }
 
     // "Bright, flat colours (like Tinkercad)": the author's choice, made while watching the preview.
