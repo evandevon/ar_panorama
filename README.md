@@ -210,6 +210,8 @@ Use **⤢ Open** on the card in the preview to see exactly what viewers will see
 
 Without a key (for example, if the site is copied to another address and `driveKey` is left empty), Google won't let other websites play Drive files, so a Drive sound or video sits in the room as Google's own small player, and viewers tap play in it. Then it can't play when looked at, play by itself, loop, be hidden or be muted with the Sound button.
 
+**Files anyone can edit.** If a Google Drive file in your tour is shared as **Anyone with the link → Editor**, the maker warns you, because anyone who opens the tour could find the link and change or delete the file. Fix it in Drive (**Share → General access → Viewer**) and press **Check again**, or choose **I meant it** to keep it editable (you won't be asked about that file again on this computer).
+
 **Making the key** (only if the site moves, or the key needs replacing): use a Google account with no payment card. In Google Cloud, enable the **Google Drive API**, then **APIs & Services → Credentials → Create credentials → API key**. Under **API restrictions** choose only **Google Drive API**; under **Application restrictions** choose **Websites** and add `https://YOURNAME.github.io/*`. Put the key in `js/settings.js`. The key can be seen in the site's code; those two locks are what keep it safe, and with no billing nothing can ever be charged. The worst case is that someone uses up the day's free allowance, and Drive videos stop loading until the next day.
 
 | Host | 360 photo | Sound and video spots | Documents | 3D models |

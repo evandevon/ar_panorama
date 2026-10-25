@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>360° QR Experience Maker</title>
   <meta name="description" content="Paste a link to a 360° photo and some audio, and get a QR code that opens it on any phone. No sign-in.">
-  <link rel="stylesheet" href="css/create.css?v=20261026c">
+  <link rel="stylesheet" href="css/create.css?v=20261026d">
   <script src="vendor/qrcode.js"></script>
-  <script src="js/settings.js?v=20261026c"></script>
-  <script src="js/sources.js?v=20261026c"></script>
-  <script src="js/spots.js?v=20261026c"></script>
+  <script src="js/settings.js?v=20261026d"></script>
+  <script src="js/sources.js?v=20261026d"></script>
+  <script src="js/spots.js?v=20261026d"></script>
 </head>
 <body>
 <header class="masthead">
@@ -177,6 +177,19 @@
   </section>
 </main>
 
+<!-- Asked when a Google Drive file is shared so that anyone with the link can EDIT it (js/create.js "Drive edit links") -->
+<dialog class="ask" id="edit-ask" aria-labelledby="edit-ask-h" aria-describedby="edit-ask-p">
+  <h2 id="edit-ask-h"><span aria-hidden="true">⚠️</span> Anyone with this link can change the file</h2>
+  <p id="edit-ask-p"><b id="edit-ask-name"></b> is shared in Google Drive as <b>Anyone with the link → Editor</b>. Everyone who opens your tour could find the link and change, replace or delete it.</p>
+  <p>Unless you meant this, make it view-only: open it in Drive, press <b>Share</b>, and under <b>General access</b> change <b>Editor</b> to <b>Viewer</b>. Then press <b>Check again</b>.</p>
+  <p class="status" id="edit-ask-status" role="status" aria-live="polite"></p>
+  <div class="ask-btns">
+    <a class="btn" id="edit-ask-open" target="_blank" rel="noopener">Open it in Google Drive</a>
+    <button type="button" class="btn ghost" id="edit-ask-again">Check again</button>
+    <button type="button" class="btn ghost" id="edit-ask-keep">I meant it: keep it editable</button>
+  </div>
+</dialog>
+
 <div class="toast" id="toast" role="status" aria-live="polite" hidden><span id="toast-text"></span><button type="button" class="toast-btn" id="toast-btn">Undo</button></div>
 
 <footer class="wrap foot">
@@ -184,6 +197,6 @@
   <p>Want a person or object standing in the room, with the room showing around them? Make a see-through video from green-screen footage with the <a href="videomaker.html">See-through Video Maker</a>.</p>
 </footer>
 
-<script src="js/create.js?v=20261026c"></script>
+<script src="js/create.js?v=20261026d"></script>
 </body>
 </html>

@@ -50,7 +50,9 @@
     };
   }
 
+  let editCheckT = 0;
   function saveToAddress(f) {
+    clearTimeout(editCheckT); editCheckT = setTimeout(checkDriveEdits, 900);
     const q = new URLSearchParams();
     if (f.pano) q.set('p', f.pano);
     if (f.title) q.set('t', f.title);
@@ -429,6 +431,70 @@
     else if (e.key === 'Enter' && layerDraft.length >= 3 && !typing && e.target.tagName !== 'BUTTON') { finishLayer(); e.preventDefault(); }
     else if (e.key === 'Backspace' && layerDraft.length && !typing) { layerDraft.pop(); sendLayers(); renderLayerBar(); e.preventDefault(); }
   });
+
+  // ------------------------------------------------------------- Drive edit links
+  // A Drive file shared as "Anyone with the link → Editor" could be changed or deleted by anyone who finds its link
+  // in the tour. Google is asked (with this site's key) what a visitor may do with each Drive file the tour uses;
+  // if they could edit it, the author is asked once whether they meant that. "I meant it" is remembered per file.
+  const EDIT_OK = 'tour-edit-ok:';
+  const editAsked = new Set();                 // asked this visit (so closing the box doesn't bring it straight back)
+  const editQueue = [];
+  let editShowing = null;
+  function driveLinksInUse() {
+    const f = readForm();
+    return [f.pano, f.pano2].concat(spots.map(sp => sp.src || '')).filter(t => t && Media.driveFileId(t));
+  }
+  function checkDriveEdits() {
+    if (!Media.driveKey()) return;
+    driveLinksInUse().forEach(token => {
+      const id = Media.driveFileId(token);
+      if (editAsked.has(id)) return;
+      let ok = false;
+      try { ok = localStorage.getItem(EDIT_OK + id) === '1'; } catch (e) {}
+      if (ok) return;
+      Media.driveAccess(token).then(info => {
+        if (!info || !info.canEdit || editAsked.has(id)) return;
+        editAsked.add(id);
+        editQueue.push({ token, info });
+        showEditAsk();
+      });
+    });
+  }
+  function showEditAsk() {
+    const box = $('edit-ask');
+    if (editShowing || !editQueue.length || !box || !box.showModal) return;
+    editShowing = editQueue.shift();
+    const { token, info } = editShowing;
+    $('edit-ask-name').textContent = info.name ? '“' + info.name + '”' : 'This file';
+    const docs = Media.expand(token).match(/docs\.google\.com\/(document|presentation|spreadsheets|forms|drawings)\/d\//i);
+    $('edit-ask-open').href = docs ? 'https://docs.google.com/' + docs[1] + '/d/' + info.id + '/edit' : 'https://drive.google.com/file/d/' + info.id + '/view';
+    status('edit-ask-status');
+    box.showModal();
+    $('edit-ask-open').focus();
+  }
+  function closeEditAsk() {
+    const box = $('edit-ask');
+    if (box.open) box.close();
+  }
+  if ($('edit-ask')) {
+    $('edit-ask').addEventListener('close', () => { editShowing = null; setTimeout(showEditAsk, 300); });
+    $('edit-ask-keep').addEventListener('click', () => {
+      try { localStorage.setItem(EDIT_OK + editShowing.info.id, '1'); } catch (e) {}
+      closeEditAsk();
+    });
+    $('edit-ask-again').addEventListener('click', () => {
+      const cur = editShowing;
+      Media.forgetDriveAccess(cur.token);
+      status('edit-ask-status', 'wait', 'Asking Google…');
+      Media.driveAccess(cur.token).then(info => {
+        if (editShowing !== cur) return;
+        if (!info) return status('edit-ask-status', 'err', 'Google couldn’t say. Check the file is still shared as Anyone with the link, then try again.');
+        if (info.canEdit) return status('edit-ask-status', 'err', 'It’s still editable by anyone with the link. (Changes in Drive can take a minute to show.)');
+        status('edit-ask-status', 'ok', 'Done: it’s view-only now.');
+        setTimeout(() => { if (editShowing === cur) closeEditAsk(); }, 1400);
+      });
+    });
+  }
 
   function spotsChanged(reloadPreview) {
     syncBright();

@@ -287,6 +287,30 @@
     const g = url.match(/^gd:([\w-]+)$/);
     return g ? g[1] : googleDriveId(url);
   }
+  // Any Google Drive or Docs/Slides/Sheets link → its file ID (or null)
+  function driveFileId(token) {
+    const id = driveId(token);
+    if (id) return id;
+    const m = expand(token || '').match(/docs\.google\.com\/(?:document|presentation|spreadsheets|forms|drawings)\/d\/([\w-]{10,})/i);
+    return m ? m[1] : null;
+  }
+  /**
+   * Ask Google what an anonymous visitor (anyone with the link) may do with a shared file. One tiny request.
+   * @returns {Promise<{name: string, canEdit: boolean}|null>} null if Google couldn't say (not shared, no key, offline…)
+   */
+  const driveInfoCache = new Map();
+  function driveAccess(token) {
+    const id = driveFileId(token);
+    if (!id || !driveKey() || !/^https?:$/.test(location.protocol)) return Promise.resolve(null);
+    if (!driveInfoCache.has(id)) {
+      driveInfoCache.set(id, fetch(DRIVE_API + encodeURIComponent(id) + '?fields=name,capabilities(canEdit)&supportsAllDrives=true&key=' + encodeURIComponent(driveKey()))
+        .then(r => r.ok ? r.json() : null)
+        .then(j => j ? { id: id, name: j.name || '', canEdit: !!(j.capabilities && j.capabilities.canEdit) } : null)
+        .catch(() => null));
+    }
+    return driveInfoCache.get(id);
+  }
+  function forgetDriveAccess(token) { const id = driveFileId(token); if (id) driveInfoCache.delete(id); }
   /** Can this sound or video be downloaded from Google Drive by this website? */
   function canDownloadDrive(token) {
     return !!(driveKey() && driveId(token) && /^https?:$/.test(location.protocol));
@@ -365,5 +389,5 @@
   }
 
   global.Media = { shorten, expand, youTube, looksLikeVideo, looksLikeImage, looksLikeAudio, looksLikeModel, looksLikeDoc, docKind,
-    docViewer, fromEmbedCode, resolveMediaUrl, hostingHint, videoHasAlpha, probeAlpha, driveKey, canDownloadDrive, downloadDrive };
+    docViewer, fromEmbedCode, resolveMediaUrl, hostingHint, videoHasAlpha, probeAlpha, driveKey, canDownloadDrive, downloadDrive, driveFileId, driveAccess, forgetDriveAccess };
 })(window);
