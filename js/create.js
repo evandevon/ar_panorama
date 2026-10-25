@@ -650,8 +650,11 @@
     q('.sp-stk-webm').checked = !!sp.alpha; q('.sp-stk-mp4').checked = !sp.alpha;
     q('.sp-flat').checked = !!sp.flat;
     li.dataset.index = i;
-    li.addEventListener('focusin', () => selectCard(i, false));
-    q('.sc-toggle').addEventListener('click', () => { openCard(openIndex === i ? -1 : i, false); selectCard(i, false); });
+    li.addEventListener('focusin', () => selectCard(i, false, true));
+    q('.sc-toggle').addEventListener('click', () => { openCard(openIndex === i ? -1 : i, false); selectCard(i, false, true); });
+    // pointing at a card outlines its spot in the preview
+    li.addEventListener('mouseenter', () => post({ type: 'hoverSpot', index: i }));
+    li.addEventListener('mouseleave', () => post({ type: 'hoverSpot', index: -1 }));
 
     let typing = 0;
     q('.sp-src').addEventListener('input', e => {
@@ -1065,11 +1068,13 @@
   }
 
   // Highlight a spot's card here and its outline in the preview
-  function selectCard(i, scroll) {
+  // flash: pulse its outline in the preview too (when chosen here in the list, so it's easy to find)
+  function selectCard(i, scroll, flash) {
+    const was = $('spot-list').children[i] && $('spot-list').children[i].classList.contains('selected');
     [...$('spot-list').children].forEach((li, n) => li.classList.toggle('selected', n === i));
     const li = $('spot-list').children[i];
     if (scroll && li) li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    post({ type: 'selectSpot', index: i });
+    post({ type: 'selectSpot', index: i, flash: !!flash && !was });
   }
 
   $('add-spot').addEventListener('click', () => {

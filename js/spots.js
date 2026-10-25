@@ -1709,11 +1709,51 @@
       test.addEventListener('pointerdown', e => e.stopPropagation());
       s.frame.appendChild(edit);
       s.testBtn = test;
+      s.edit = edit;
 
       edit.addEventListener('pointerdown', e => {
         e.stopPropagation(); e.preventDefault();
+        if (pressOverlap(s, e)) return;
+        startEdit(s, e, e.target);
+      });
+      s.startEdit = (e, at) => startEdit(s, e, at);
+    }
+    // Overlapping spots in the author's preview: the chosen (selected) spot gets first go wherever it is under the
+    // pointer, even if another spot covers it, so it can always be moved and resized. A click that doesn't move
+    // picks the next spot down at that point, so a buried spot can be reached by clicking again.
+    function spotsAt(x, y) {
+      const hits = document.elementsFromPoint(x, y), out = [];
+      hits.forEach(h => {
+        const t = spots.find(o => o.el && o.el.contains(h) && (o.edit && o.edit.contains(h) || o.marker && o.marker.contains(h)));
+        if (t && !out.includes(t)) out.push(t);
+      });
+      return out;                                                 // top first
+    }
+    function pressOverlap(s, e) {
+      const here = spotsAt(e.clientX, e.clientY);
+      const sel = spots.find(o => o.index === selected);
+      if (sel && sel !== s && here.includes(sel) && sel.startEdit) {
+        const at = document.elementsFromPoint(e.clientX, e.clientY).find(h => sel.el.contains(h)) || sel.el;
+        sel.startEdit(e, at);
+        return true;
+      }
+      return false;
+    }
+    function nextBelow(s, e) {
+      const here = spotsAt(e.clientX, e.clientY);
+      if (here.length < 2 || s.index !== selected) return false;
+      const next = here[(here.indexOf(s) + 1) % here.length];
+      if (!next || next === s) return false;
+      opts.onSelect(next.index);
+      setSelected(next.index);
+      return true;
+    }
+    function startEdit(s, e, at) {
+      {
+        const wasSelected = s.index === selected;
         opts.onSelect(s.index);
-        const corner = e.target.dataset && e.target.dataset.corner;
+        if (!wasSelected) setSelected(s.index);
+        const corner = at && at.dataset && at.dataset.corner;
         const ci = { nw: 0, ne: 1, se: 2, sw: 3 }[corner];
         const rotStart = (s.rot || [0, 0, 0]).slice();
         if ((s.isText || s.isLink || s.isDoc) && s.frame.offsetHeight) s.aspect = s.frame.offsetWidth / s.frame.offsetHeight;
@@ -1723,7 +1763,7 @@
         const fr = s.frame.getBoundingClientRect(), fc = [fr.left + fr.width / 2, fr.top + fr.height / 2];
         const reach = ev => Math.max(Math.abs(ev.clientX - fc[0]), Math.abs(ev.clientY - fc[1]) * (s.aspect || 1));
         const reach0 = Math.max(4, reach(e)), w0 = s.w;
-        beginDrag(s, edit, e, ev => {
+        beginDrag(s, s.edit, e, ev => {
           if (corner === 'rot') {
             // Turn handle: sideways turns it, up and down tilts it
             s.rot[0] = (rotStart[0] + (ev.clientX - e.clientX) * 0.6) % 360;
@@ -1749,20 +1789,25 @@
           } else {
             s.dir = directionAt(ev.clientX - grab.dx, ev.clientY - grab.dy);
           }
-        });
-      });
+        }, wasSelected && !corner ? () => nextBelow(s, e) : null);
+      }
     }
 
     function makeDraggable(s, handle, onClick) {
+      s.startEdit = (e) => handle.dispatchEvent(new PointerEvent('pointerdown', e));
       handle.addEventListener('pointerdown', e => {
         e.stopPropagation(); e.preventDefault();
+        if (e.isTrusted && pressOverlap(s, e)) return;
+        const wasSelected = s.index === selected;
         opts.onSelect(s.index);
+        if (!wasSelected) setSelected(s.index);
+        const tap = () => { if (!(wasSelected && nextBelow(s, e))) onClick && onClick(); };
         const r = s.el.getBoundingClientRect();
         const grab = { dx: e.clientX - r.left, dy: e.clientY - r.top };
         beginDrag(s, handle, e, ev => {
           if (s.float) floatMoveTo(s, ev.clientX - grab.dx, ev.clientY - grab.dy);
           else s.dir = directionAt(ev.clientX - grab.dx, ev.clientY - grab.dy);
-        }, onClick);
+        }, tap);
       });
     }
 
@@ -1793,9 +1838,44 @@
       window.addEventListener('pointercancel', up);
     }
 
-    function setSelected(i) {
+    // flash: briefly pulse its outline (chosen from the list, so the author can see which one it is)
+    function setSelected(i, flash) {
       selected = i;
-      spots.forEach(s => { if (s.el) s.el.classList.toggle('selected', s.index === i); });
+      spots.forEach(s => {
+        if (!s.el) return;
+        s.el.classList.toggle('selected', s.index === i);
+        if (s.index === i && flash) { s.el.classList.remove('flash'); void s.el.offsetWidth; s.el.classList.add('flash'); }
+      });
+    }
+    // The spot a press would act on is outlined while the pointer is over it (the chosen one wins where they overlap),
+    // and so is the spot whose card the pointer is over in the list (listHover)
+    let hoverSpot = null, listHover = -1, hoverRaf = 0;
+    function showHover(t) {
+      if (t === hoverSpot) return;
+      if (hoverSpot && hoverSpot.el) hoverSpot.el.classList.remove('hover');
+      hoverSpot = t;
+      if (t && t.el) t.el.classList.add('hover');
+    }
+    function setHover(i) {
+      const wasList = listHover >= 0;
+      listHover = i;
+      if (i >= 0) showHover(spots.find(o => o.index === i) || null);
+      else if (wasList) hoverAt(lastPt);                        // the pointer may already be over a spot here
+    }
+    let lastPt = null;
+    function hoverAt(pt) {
+      if (!pt || spots.some(o => o.dragging)) return showHover(null);
+      const here = spotsAt(pt[0], pt[1]), sel = spots.find(o => o.index === selected);
+      showHover(sel && here.includes(sel) ? sel : here[0] || null);
+    }
+    if (opts.editable) {
+      window.addEventListener('pointermove', e => {
+        if (e.pointerType !== 'mouse') return;
+        lastPt = [e.clientX, e.clientY];
+        if (hoverRaf || listHover >= 0) return;
+        hoverRaf = requestAnimationFrame(() => { hoverRaf = 0; if (!spots.some(o => o.dragging)) hoverAt(lastPt); });
+      });
+      document.documentElement.addEventListener('pointerleave', () => { lastPt = null; if (listHover < 0) showHover(null); });
     }
 
     // ---------------------------------------------------------- starting and sound
@@ -1832,7 +1912,7 @@
     function stopAll() { spots.forEach(s => { s.userPaused = true; pause(s); }); }
 
     return {
-      set, update, start, unlock, stopAll, setMuted, setSelected, pinSpot, setBrightness,
+      set, update, start, unlock, stopAll, setMuted, setSelected, setHover, pinSpot, setBrightness,
       get count() { return spots.length; },
       get hasLook() { return spots.some(s => s.play === 'look' || s.dwell); }
     };

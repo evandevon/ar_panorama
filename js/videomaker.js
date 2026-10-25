@@ -57,7 +57,7 @@
     '#endif',
     'uniform sampler2D uVideo, uBg, uMask, uPlate;',
     'uniform vec3 uKey; uniform vec3 uKeys[8]; uniform int uNKeys, uPlateOn;',
-    'uniform float uSim, uSoft, uSolid, uSpill, uChoke, uSpeck, uHole, uFeather, uTol; uniform vec2 uPx;',
+    'uniform float uSim, uSoft, uSolid, uSpill, uChoke, uSpeck, uHole, uFeather, uTol, uRing; uniform vec2 uPx;',
     'uniform int uOut, uAlpha, uCh;',
     'varying vec2 vUv;',
     // "Colour difference": how much more screen-coloured (e.g. greener) a colour is than its other colours.
@@ -91,10 +91,11 @@
     '    vec3 pl = texture2D(uPlate, uv).rgb;',
     '    if (diff(pl) > 0.04) { float s = solidity(dd, pl); if (s < al) { al = s; k = pl; } }',
     '  }',
-    '  float a = clamp((al - uSim) / max(min(uSoft, 1.0 - uSim), 0.01), 0.0, 1.0);',
-    '  return clamp(a / max(1.0 - uSolid, 0.05), 0.0, 1.0);',                   // keep the person solid
+    '  return clamp((al - uSim) / max(min(uSoft, 1.0 - uSim), 0.01), 0.0, 1.0);',
     '}',
-    'float keyA(vec2 uv) { float al; vec3 k; return keyAt(uv, al, k); }',
+    // Keep the person solid: partly see-through counts as more solid
+    'float boost(float a) { return clamp(a / max(1.0 - uSolid, 0.05), 0.0, 1.0); }',
+    'float keyA(vec2 uv) { float al; vec3 k; return boost(keyAt(uv, al, k)); }',
     // Clean up coloured edges: bring the screen's colour down to the average of the other two, and add what was taken
     // away back as the screen's opposite colour (magenta-ish for green), so edges keep their brightness without a cast.
     // Screens are rarely pure: a teal-ish green also carries blue, so take a matching share of that too (uSec),
@@ -115,6 +116,14 @@
     '  else {',
     '    float al; vec3 k;',
     '    float aK = keyAt(vUv, al, k);',
+    // "Keep the person solid" only fills in pixels that are surrounded by the person (see-through patches inside them),
+    // not the outline itself: there, partly see-through is the truth (hair, soft edges), and making it solid gave a
+    // hard edge with the screen's colour taken out of it (red fringes in hair, for a green or teal screen).
+    '    if (uSolid > 0.0) {',
+    '      float ring = 0.0;',
+    '      for (int i = 0; i < 8; i++) { float t = float(i) * 0.7853982; ring += keyA(vUv + vec2(cos(t), sin(t)) * uRing * uPx); }',
+    '      aK = mix(aK, boost(aK), smoothstep(0.6, 0.95, ring / 8.0));',
+    '    }',
     '    a = aK;',
     // Shrink the edges: take the least solid of the neighbours
     '    if (uChoke > 0.0) {',
@@ -132,25 +141,30 @@
     '      if (uSpeck > 0.0) a *= smoothstep(0.03, 0.2, ms / 8.0);',
     '      if (uHole > 0.0) a = max(a, smoothstep(0.7, 0.9, mh / 8.0));',
     '    }',
+    // Soften the edges: how much of the area around this pixel is the person (12 directions, 3 distances). Right at
+    // the outline about half of it is, so half maps to fully see-through, rising to fully solid one feather-width in.
     '    if (uFeather > 0.0) {',
-    '      float sum = aK;',
-    '      for (int i = 0; i < 8; i++) {',
-    '        float t = float(i) * 0.7853982 + 0.19635; vec2 d = vec2(cos(t), sin(t)) * uPx;',
-    '        sum += keyA(vUv + d * uFeather) + keyA(vUv + d * uFeather * 0.5);',
+    '      float sum = 0.0;',
+    '      for (int i = 0; i < 12; i++) {',
+    '        float t = float(i) * 0.5235988 + 0.2618; vec2 d = vec2(cos(t), sin(t)) * uPx * uFeather;',
+    '        sum += keyA(vUv + d * 0.34) + keyA(vUv + d * 0.67) + keyA(vUv + d);',
     '      }',
-    '      a = min(a, smoothstep(0.0, 1.0, sum / 17.0) + max(a - aK, 0.0));',
+    '      a = min(a, smoothstep(0.5, 0.97, sum / 36.0) + max(a - aK, 0.0));',
     '    }',
     // A partly see-through pixel is a mix of the subject and the screen behind it. Take the screen's share
     // back out ("unmixing"), so soft edges, glows and hair keep their own colour instead of turning grey or green.
     '    float aU = min(a, aK);',
-    '    vec3 un = max(rgb - (1.0 - al) * k, 0.0);',
+    // Take out only as much screen as the pixel is see-through in the end: a pixel made solid (Keep the person solid)
+    // keeps its own colour, instead of losing the screen's share and being brightened back up (which turned hair red).
+    '    float aE = max(aU, al);',
+    '    vec3 un = max(rgb - (1.0 - aE) * k, 0.0);',
     // Don't overshoot: a dull, shadowy colour with a hint of the screen in it (hair lit by light bouncing off the screen)
     // isn't really a mix with the bright screen, and taking that much screen out leaves the screen's opposite colour
     // (red, for a teal screen). So never let the result lean further away from the screen's colour than the gently
     // "despilled" pixel does. The push is along the screen's colour direction only, so brightness doesn't change.
     '    vec3 kc = k - vec3((k.r + k.g + k.b) / 3.0); float kcl = length(kc);',
     '    if (kcl > 0.02) { vec3 kn = kc / kcl; float over = dot(un - despill(rgb), kn); if (over < -0.02) un = max(un - (over + 0.02) * kn, 0.0); }',
-    '    un *= aU / max(al, 0.001);',
+    '    un *= aU / max(aE, 0.001);',
     '    pm = mix(rgb * aU, un, uSpill);',
     '    pm += rgb * max(a - aK, 0.0);',                  // filled-in holes use their own colour
     // A gentle "despill" for screen-coloured light bouncing onto edges: don't let the screen's channel rise
@@ -211,7 +225,7 @@
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     const u = n => gl.getUniformLocation(prog, n);
     const U = {};
-    ['uVideo', 'uBg', 'uMask', 'uPlate', 'uKey', 'uKeys', 'uNKeys', 'uPlateOn', 'uSim', 'uSoft', 'uSolid', 'uSpill', 'uTol', 'uFeather', 'uChoke', 'uSpeck', 'uHole', 'uPx', 'uOut', 'uAlpha', 'uCh', 'uComp', 'uSec', 'uCrop']
+    ['uVideo', 'uBg', 'uMask', 'uPlate', 'uKey', 'uKeys', 'uNKeys', 'uPlateOn', 'uSim', 'uSoft', 'uSolid', 'uSpill', 'uTol', 'uFeather', 'uRing', 'uChoke', 'uSpeck', 'uHole', 'uPx', 'uOut', 'uAlpha', 'uCh', 'uComp', 'uSec', 'uCrop']
       .forEach(n => { U[n] = u(n); });
     gl.uniform1i(U.uVideo, 0); gl.uniform1i(U.uBg, 1); gl.uniform1i(U.uMask, 2); gl.uniform1i(U.uPlate, 3);
     const put = (unit, t, source) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source); };
@@ -236,7 +250,7 @@
         gl.uniform1f(U.uSim, p.sim); gl.uniform1f(U.uSoft, p.soft); gl.uniform1f(U.uSolid, p.solid); gl.uniform1f(U.uSpill, p.spill); gl.uniform1f(U.uTol, p.tol);
         // the edge tools are set in "pixels of a 720p video", so they act the same at any size
         const s = (video.videoHeight || 720) / 720;
-        gl.uniform1f(U.uFeather, p.feather * s); gl.uniform1f(U.uChoke, p.choke * s); gl.uniform1f(U.uSpeck, p.speck * s); gl.uniform1f(U.uHole, p.hole * s);
+        gl.uniform1f(U.uFeather, p.feather * s); gl.uniform1f(U.uRing, 4 * s); gl.uniform1f(U.uChoke, p.choke * s); gl.uniform1f(U.uSpeck, p.speck * s); gl.uniform1f(U.uHole, p.hole * s);
         gl.uniform2f(U.uPx, 1 / (video.videoWidth || 1), 1 / (video.videoHeight || 1));
         gl.uniform1i(U.uOut, out); gl.uniform1i(U.uAlpha, p.alpha ? 1 : 0);
         const [r, g, b] = key.rgb;

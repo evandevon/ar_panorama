@@ -7,7 +7,7 @@
  *   preview=1 (inside the tour maker: no start card, editable spots), p2 / y2 / n1 / n2 (then and now: a second
  *   photo, its turn, and the two photos' names).
  * In preview mode it talks to make.html with postMessage: tell({type:...}) out; window 'message' handler in.
- *   In: setYaw setSpots setCompare lookAt pinSpot selectSpot nudge setLayers setWindow setBrightness stopAll.
+ *   In: setYaw setSpots setCompare lookAt pinSpot selectSpot hoverSpot nudge setLayers setWindow setBrightness stopAll.
  *   Out: status compare view spotEdit spotSelect spotError layerPoint layerClose layerMove audio.
  * Sections (search for "// ---- <name>"): talking to the author page · start card · loading the panorama · sound ·
  *   looking around: drag · the author's preview: a phone-sized window · looking around: phone motion · entering ·
@@ -582,7 +582,9 @@
     } else if (m.type === 'pinSpot') {
       spots.pinSpot(m.index, m.on);
     } else if (m.type === 'selectSpot') {
-      spots.setSelected(m.index);
+      spots.setSelected(m.index, !!m.flash);
+    } else if (m.type === 'hoverSpot') {
+      spots.setHover(m.index);
     } else if (m.type === 'nudge') {
       // The author page's arrow buttons: turn by a few degrees (left and up are positive)
       if (mode === 'motion') setMode('drag');

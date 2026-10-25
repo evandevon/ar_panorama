@@ -514,3 +514,12 @@ body:has(#mode-toggle:not([hidden])) .cmp-name { top: calc(max(10px, env(safe-ar
 .spot-dl { position: absolute; left: 0; top: 0; z-index: 3; transform: translate(-50%, 26px); padding: 5px 12px; border-radius: 999px;
   background: var(--slate); color: var(--chalk); border: 2px solid var(--brass); font: 600 .85rem/1.2 var(--sans); white-space: nowrap;
   font-variant-numeric: tabular-nums; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,.4); }
+
+/* ---------- Author's preview: which spot is which, where they overlap ---------- */
+.spots-layer.editing .spot.selected { z-index: 3; }                          /* the chosen one sits on top */
+.spots-layer.editing .spot.hover:not(.selected) .spot-edit { border-style: solid; border-color: var(--chalk); box-shadow: 0 0 0 3px rgba(243,237,233,.35); }
+.spots-layer.editing .spot.hover .spot-dot { box-shadow: 0 0 0 5px rgba(243,237,233,.45); }
+.spots-layer.editing .spot.hover.selected .spot-edit { box-shadow: 0 0 0 4px rgba(111,199,184,.55); }
+.spots-layer.editing .spot.flash .spot-edit, .spots-layer.editing .spot.flash .spot-dot { animation: spot-flash .8s ease-out 2; }
+@keyframes spot-flash { 0% { box-shadow: 0 0 0 0 rgba(111,199,184,.95); } 100% { box-shadow: 0 0 0 18px rgba(111,199,184,0); } }
+@media (prefers-reduced-motion: reduce) { .spots-layer.editing .spot.flash .spot-edit, .spots-layer.editing .spot.flash .spot-dot { animation: none; } }

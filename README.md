@@ -60,6 +60,8 @@ Spots place videos, sounds, pictures, text, links and 3D models around the room.
 | Document | A PDF, Word, PowerPoint or Excel file, or a Google Doc, Slides or Sheet. It sits in the room as a card; viewers tap it to read it full screen, with **Open in new tab** as a backup. See **Documents** below. |
 | Link | A web page address. It shows as a button that opens the page in a new tab; the label is the button text. Only ordinary `https://` addresses are allowed. |
 
+**Overlapping spots:** the spot you've chosen (its card is open, and its outline is teal) always sits on top in the preview, so you can drag it and pull its corners even where it overlaps another. Click once more on an overlap (without dragging) to choose the spot underneath. Pointing at a card in the list outlines its spot in the preview, and choosing a card makes its spot pulse.
+
 Pick a spot's kind with **Type**, at the top of each spot's card. If a link has a problem, a red **!** appears at the end of its field: hover over it (or tap it) to see what's wrong and how to fix it. It's set automatically when the link ends in a file type, but Google Drive and OneDrive links don't show the file type, so choose it yourself for those. HEIC photos from iPhones and TIFFs won't display in most phone browsers; save them as JPEG or PNG first.
 
 1. Turn the preview so the **crosshair** is where you want the spot.

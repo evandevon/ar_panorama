@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>See-through Video Maker</title>
   <meta name="description" content="Turn a green-screen video into a see-through video for 360° tours. Everything happens on your computer; nothing is uploaded.">
-  <link rel="stylesheet" href="css/create.css?v=20261026e">
-  <link rel="stylesheet" href="css/videomaker.css?v=20261026e">
+  <link rel="stylesheet" href="css/create.css?v=20261026f">
+  <link rel="stylesheet" href="css/videomaker.css?v=20261026f">
 </head>
 <body>
 <header class="masthead">
@@ -132,7 +132,7 @@
         <div>
           <label for="solid">Keep the person solid <output id="solid-out" for="solid"></output></label>
           <input type="range" id="solid" min="0" max="100" value="0" aria-describedby="solid-help">
-          <p class="help" id="solid-help">If the person looks see-through, slide right. In <b>Stencil</b> view they should be pure white.</p>
+          <p class="help" id="solid-help">If the person looks see-through, slide right. It fills in see-through patches inside them; their outline stays soft. In <b>Stencil</b> view they should be pure white.</p>
         </div>
         <div>
           <label for="detail">Edge detail <output id="detail-out" for="detail"></output></label>
@@ -142,7 +142,7 @@
         <div>
           <label for="soft">Soften the edges <output id="soft-out" for="soft"></output></label>
           <input type="range" id="soft" min="0" max="100" value="25" aria-describedby="soft-help">
-          <p class="help" id="soft-help">Feathers the outline so it blends into the room.</p>
+          <p class="help" id="soft-help">Fades the outline from fully see-through at the very edge to solid a little way in, so it blends into the room.</p>
         </div>
       </div>
     </div>
@@ -299,6 +299,6 @@
 <div class="side-more top" id="more-up" aria-hidden="true"><button type="button" tabindex="-1">⌃ More above</button></div>
 <div class="side-more bottom" id="more-down" aria-hidden="true"><button type="button" tabindex="-1">More below ⌄</button></div>
 <script src="vendor/fix-webm-duration/fix-webm-duration.js"></script>
-<script src="js/videomaker.js?v=20261026e"></script>
+<script src="js/videomaker.js?v=20261026f"></script>
 </body>
 </html>
