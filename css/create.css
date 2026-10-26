@@ -162,7 +162,23 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 .sc-checks .check { font-size: .9rem; }
 .sc-type select { font-weight: 600; }
 .spot-card .status { font-size: .85rem; }
-.add-spot { width: 100%; margin-top: 12px; border-style: dashed; }
+/* Adding: one button for each kind of thing, placed at the crosshair */
+.add-row { margin-top: 14px; padding: 12px; border: 1px dashed var(--line-strong); border-radius: 8px; }
+.add-h { margin: 0 0 8px; font-weight: 600; font-size: .92rem; }
+.add-kinds { display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+.add-kind { display: flex; align-items: center; gap: 8px; min-height: var(--control); padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 6px;
+  background: var(--card-2); color: var(--ink); font: 600 .88rem var(--sans); cursor: pointer; text-align: left; }
+.add-kind:hover:not(:disabled) { border-color: var(--brass); background: var(--card-hover); }
+.add-kind:disabled { opacity: .45; cursor: not-allowed; }
+.ak-ico { flex: none; width: 20px; height: 20px; color: var(--brass-dark); }
+.ak-ico svg { display: block; width: 100%; height: 100%; }
+.add-why { margin-top: 8px; }
+.add-why[hidden] { display: none; }
+/* More options on a spot card: the settings most spots never need */
+.sc-more { margin-top: 6px; }
+.sc-more > summary { cursor: pointer; min-height: 36px; display: inline-flex; align-items: center; gap: 6px; color: var(--brass-dark); font-weight: 600; font-size: .9rem; }
+.sc-more-n { font-weight: 400; color: var(--ink-soft); }
+.sc-more > .check:first-of-type { margin-top: 4px; }
 
 /* ---------------------------------------------------------------- share */
 .qr-card { background: #fff; color: #1b1715; border: 1px solid var(--line); border-top: 6px solid var(--brass); border-radius: 6px; padding: 18px; text-align: center; }   /* stays light: phones scan dark-on-light codes best */

@@ -5,18 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>360° QR Experience Maker</title>
   <meta name="description" content="Paste a link to a 360° photo and some audio, and get a QR code that opens it on any phone. No sign-in.">
-  <link rel="stylesheet" href="css/create.css?v=20261026l">
+  <link rel="stylesheet" href="css/create.css?v=20261027a">
   <script src="vendor/qrcode.js"></script>
-  <script src="js/settings.js?v=20261026l"></script>
-  <script src="js/sources.js?v=20261026l"></script>
-  <script src="js/spots.js?v=20261026l"></script>
+  <script src="js/settings.js?v=20261027a"></script>
+  <script src="js/sources.js?v=20261027a"></script>
+  <script src="js/spots.js?v=20261027a"></script>
 </head>
 <body>
 <header class="masthead">
   <div class="wrap">
     <p class="eyebrow">Free · No sign-in · Nothing is uploaded</p>
     <h1>360° QR Experience Maker</h1>
-    <p class="lede">Paste a link to a 360° photo, place videos, sounds, pictures and text around it, then print the QR code. Anyone who scans it can look around by moving their phone or by dragging.</p>
+    <p class="lede">Add a 360° photo, put pictures, videos, sounds and words around the room, then print the QR code. Anyone who scans it looks around by moving their phone.</p>
   </div>
 </header>
 
@@ -24,7 +24,7 @@
   <!-- The form's sections are laid out individually (display: contents), so on phones the preview can sit right after step 1 -->
   <form id="form" autocomplete="off" onsubmit="return false">
     <section class="panel step-photo" aria-labelledby="h-photo">
-      <h2 id="h-photo"><span class="num" aria-hidden="true">1</span> 360° photo or video</h2>
+      <h2 id="h-photo"><span class="num" aria-hidden="true">1</span> Choose your 360° photo</h2>
       <label for="in-pano">Link to a 360° photo</label>
       <span class="field-wrap">
         <input id="in-pano" type="url" inputmode="url" placeholder="https://drive.google.com/file/d/…" aria-describedby="pano-help pano-err-tip">
@@ -55,20 +55,32 @@
     </section>
 
     <section class="panel step-spots" aria-labelledby="h-spots">
-      <h2 id="h-spots"><span class="num" aria-hidden="true">2</span> Spots <span class="opt">optional</span></h2>
-      <p class="help flush">Place videos, sounds, pictures, text and links around the room.</p>
+      <h2 id="h-spots"><span class="num" aria-hidden="true">2</span> Add things to the room <span class="opt">optional</span></h2>
+      <p class="help flush">Turn the preview until the <b>crosshair</b> (+) is where you want something, then choose what to add. You can drag it into place afterwards.</p>
       <details class="howto">
-        <summary>How to place and edit spots</summary>
+        <summary>Tips</summary>
         <ul>
-          <li>Turn the preview so the <b>crosshair</b> is where you want a spot, then press <b>Add a spot</b>.</li>
-          <li>In the preview, drag a spot to move it, and pull its corner tags to resize it. The <b>Smaller</b> / <b>Bigger</b> and <b>Move to crosshair</b> buttons do the same without dragging.</li>
-          <li>A spot can wait behind a small dot that viewers reveal by resting the crosshair on it (<b>Appears</b>).</li>
-          <li>For background sound, add an MP3 set to <b>Sound only</b>, plays <b>as soon as it opens</b>, with <b>Hidden</b> and <b>Loop</b> ticked.</li>
+          <li>In the preview, drag a thing to move it, and pull its corners to resize it. Or use <b>Smaller</b>, <b>Bigger</b> and <b>Move to crosshair</b> on its card.</li>
+          <li>Something can wait behind a small dot that viewers reveal by looking at it: <b>Appears → After looking at a dot</b>.</li>
+          <li>Background sound: add a <b>Sound</b>, set it to play <b>as soon as it opens</b>, and tick <b>Hidden</b> and <b>Loop</b>.</li>
+          <li>Rarely needed settings (floating on the screen, pinning corners, masks) are under <b>More options</b> on each card.</li>
         </ul>
       </details>
-      <p class="help" id="spots-empty">No spots yet.</p>
+      <p class="help" id="spots-empty">Nothing added yet.</p>
       <ol class="spot-list" id="spot-list"></ol>
-      <button type="button" class="btn ghost add-spot" id="add-spot" disabled>+ Add a spot at the crosshair</button>
+      <div class="add-row" role="group" aria-labelledby="add-h">
+        <p class="add-h" id="add-h">Add at the crosshair:</p>
+        <div class="add-kinds">
+          <button type="button" class="add-kind" data-kind="image" disabled><span class="ak-ico" aria-hidden="true"></span>Picture</button>
+          <button type="button" class="add-kind" data-kind="video" disabled><span class="ak-ico" aria-hidden="true"></span>Video</button>
+          <button type="button" class="add-kind" data-kind="audio" disabled><span class="ak-ico" aria-hidden="true"></span>Sound</button>
+          <button type="button" class="add-kind" data-kind="text" disabled><span class="ak-ico" aria-hidden="true"></span>Text</button>
+          <button type="button" class="add-kind" data-kind="link" disabled><span class="ak-ico" aria-hidden="true"></span>Link</button>
+          <button type="button" class="add-kind" data-kind="model" disabled><span class="ak-ico" aria-hidden="true"></span>3D model</button>
+          <button type="button" class="add-kind" data-kind="doc" disabled><span class="ak-ico" aria-hidden="true"></span>Document</button>
+        </div>
+        <p class="help add-why" id="add-why">Choose a 360° photo in step 1 first.</p>
+      </div>
       <div class="bright-row" id="bright-row" hidden>
         <label for="in-bright">Brightness of all 3D models <output id="bright-out" for="in-bright">Normal</output></label>
         <div class="bright-ctl">
@@ -101,7 +113,7 @@
     </section>
 
     <section class="panel step-title" aria-labelledby="h-title">
-      <h2 id="h-title"><span class="num" aria-hidden="true">3</span> Title and options</h2>
+      <h2 id="h-title"><span class="num" aria-hidden="true">3</span> Name it</h2>
       <label for="in-title">Title <span class="opt">shown before the experience starts</span></label>
       <input id="in-title" type="text" maxlength="80" placeholder="A classroom 150 years ago">
       <label class="check" style="margin-top:14px"><input type="checkbox" id="in-align" aria-describedby="align-help"> Line up with the real room</label>
@@ -115,11 +127,11 @@
 
   <!-- ============ 2. Preview ============ -->
   <section class="panel preview-panel" aria-labelledby="pv-h">
-    <h2 id="pv-h">Preview <span class="opt">drag the picture or use the arrows to look around · drag spots to move them</span></h2>
+    <h2 id="pv-h">Preview <span class="opt">drag to look around · drag things to move them · pull their corners to resize</span></h2>
     <div class="shape" role="group" aria-label="Preview shape">
       <button type="button" id="shape-phone" aria-pressed="true">Phone</button>
       <button type="button" id="shape-wide" aria-pressed="false">Wide</button>
-      <span class="help-inline">The outline shows what a phone held upright sees. Drag anywhere to look around; only spots inside it can be moved.</span>
+      <span class="help-inline">Phone shows exactly what a phone held upright sees.</span>
     </div>
     <div class="frame-nav phone" id="frame-nav" role="group" aria-label="Turn the preview">
       <button type="button" class="nav-btn nav-up" data-dir="up" aria-label="Look up" title="Look up (hold to keep turning)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 15 6-6 6 6"/></svg></button>
@@ -142,7 +154,7 @@
 
   <!-- ============ 3. QR ============ -->
   <section class="panel qr-panel" aria-labelledby="qr-h">
-    <h2 id="qr-h"><span class="num" aria-hidden="true">4</span> Share</h2>
+    <h2 id="qr-h"><span class="num" aria-hidden="true">4</span> Share it</h2>
     <div class="qr-card" id="qr-card">
       <p class="qr-title" id="qr-title">A 360° experience</p>
       <p class="qr-sub">Scan with your phone camera, then look around.</p>
@@ -209,6 +221,6 @@
   <p>Want a person or object standing in the room, with the room showing around them? Make a see-through video from green-screen footage with the <a href="videomaker.html">See-through Video Maker</a>.</p>
 </footer>
 
-<script src="js/create.js?v=20261026l"></script>
+<script src="js/create.js?v=20261027a"></script>
 </body>
 </html>

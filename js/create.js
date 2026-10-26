@@ -258,7 +258,7 @@
     $('empty').hidden = !text;
     $('empty').textContent = text;
     $('set-start').disabled = true;
-    $('add-spot').disabled = true;
+    updateAdd();
   }
 
   window.addEventListener('message', e => {
@@ -533,8 +533,7 @@
     const list = $('spot-list');
     list.innerHTML = '';
     spots.forEach((sp, i) => list.appendChild(spotCard(sp, i)));
-    $('add-spot').disabled = !panoOk || spots.length >= MAX_SPOTS;
-    $('add-spot').textContent = spots.length >= MAX_SPOTS ? 'Maximum of ' + MAX_SPOTS + ' spots' : '+ Add a spot at the crosshair';
+    updateAdd();
     $('spots-empty').hidden = spots.length > 0;
     syncBright();
   }
@@ -583,18 +582,20 @@
           '<label class="sp-row"><span class="sp-play-word">Plays</span><select class="sp-play"></select></label>' +
         '</div>' +
         '<div class="sc-checks">' +
-          '<label class="check sp-float-row"><input type="checkbox" class="sp-float"><span>Float on the screen <span class="help-inline">— stays in the same place on the screen as viewers look around, like a sticker on the glass</span></span></label>' +
-          '<label class="check sp-plan-row"><input type="checkbox" class="sp-plan"><span>Floor plan <span class="help-inline">— a “you are here” dot, and a cone that turns to show which way the viewer is facing</span></span></label>' +
           '<label class="check sp-hide-row"><input type="checkbox" class="sp-hide"><span>Hidden <span class="help-inline sp-hide-note"></span></span></label>' +
           '<label class="check sp-loop-row"><input type="checkbox" class="sp-loop"><span>Loop <span class="help-inline">— start again when it ends</span></span></label>' +
-          '<label class="check sp-vanish-row"><input type="checkbox" class="sp-vanish"><span>Disappear when it ends <span class="help-inline">— instead of staying on its last frame</span></span></label>' +
           '<label class="check sp-stk-row"><input type="checkbox" class="sp-stk"><span>See-through video <span class="help-inline">— the room shows around it (make one with the <a href="videomaker.html" target="_blank" rel="noopener">See-through Video Maker</a>)</span></span></label>' +
           '<div class="sp-stk-kind" role="radiogroup" aria-label="Kind of see-through video" hidden>' +
             '<label class="check"><input type="radio" class="sp-stk-mp4"><span>See-through MP4 <span class="help-inline">— from the Video Maker; plays on every phone</span></span></label>' +
             '<label class="check"><input type="radio" class="sp-stk-webm"><span>WebM with its own transparency <span class="help-inline">— iPhones and iPads can’t play these</span></span></label>' +
           '</div>' +
-          '<label class="check sp-mask-row" hidden><input type="checkbox" class="sp-mask"><span>Hidden by masks <span class="help-inline">— untick to keep it in front of every mask</span></span></label>' +
-          '<label class="check sp-pin-row"><input type="checkbox" class="sp-pin"><span>Pin corners <span class="help-inline">— drag each corner onto the matching point in the photo, e.g. a picture frame or window</span></span></label>' +
+          '<details class="sc-more"><summary>More options <span class="sc-more-n"></span></summary>' +
+            '<label class="check sp-float-row"><input type="checkbox" class="sp-float"><span>Float on the screen <span class="help-inline">— stays in the same place on the screen as viewers look around, like a sticker on the glass</span></span></label>' +
+            '<label class="check sp-plan-row"><input type="checkbox" class="sp-plan"><span>Floor plan <span class="help-inline">— a “you are here” dot, and a cone that turns to show which way the viewer is facing</span></span></label>' +
+            '<label class="check sp-pin-row"><input type="checkbox" class="sp-pin"><span>Pin corners <span class="help-inline">— drag each corner onto the matching point in the photo, e.g. a picture frame or window</span></span></label>' +
+            '<label class="check sp-vanish-row"><input type="checkbox" class="sp-vanish"><span>Disappear when it ends <span class="help-inline">— instead of staying on its last frame</span></span></label>' +
+            '<label class="check sp-mask-row" hidden><input type="checkbox" class="sp-mask"><span>Hidden by masks <span class="help-inline">— untick to keep it in front of every mask</span></span></label>' +
+          '</details>' +
         '</div>' +
         '<div class="sp-floatpos" role="group" aria-label="Where it sits on the screen" hidden>' +
           FLOAT_SPOTS.map(([x, y, name]) => '<button type="button" class="sp-fpos" data-x="' + x + '" data-y="' + y + '" aria-label="' + name + '" title="' + name + '" aria-pressed="false"><span aria-hidden="true"></span></button>').join('') +
@@ -781,6 +782,7 @@
     q('.sp-flat').addEventListener('change', e => { sp.flat = e.target.checked; updateSummary(li, sp); spotsChanged(true); });
     q('.sp-show').addEventListener('click', () => post({ type: 'lookAt', yaw: sp.yaw, pitch: sp.pitch }));
     q('.sp-remove').addEventListener('click', () => removeSpot(i));
+    q('.sc-more').addEventListener('change', () => syncCard(li, sp, i));     // keeps "(n on)" up to date
 
     syncCard(li, sp, i);
     if (i === openIndex) {
@@ -792,17 +794,35 @@
     return li;
   }
 
+  // A name for a link people can recognise: the file's own name, or where it's from (not the whole address)
+  function friendlyName(src, kind) {
+    const raw = Media.expand(src.trim());
+    if (Media.youTube(raw)) return 'YouTube video';
+    if (/^gd:|drive\.google\.com|docs\.google\.com\/uc/i.test(raw)) return 'Google Drive ' + ({ image: 'picture', video: 'video', audio: 'sound', model: '3D model', doc: 'file' }[kind] || 'file');
+    const g = raw.match(/docs\.google\.com\/(document|presentation|spreadsheets)/i);
+    if (g) return 'Google ' + ({ document: 'Doc', presentation: 'Slides', spreadsheets: 'Sheet' }[g[1].toLowerCase()]);
+    let url;
+    try { url = new URL(/^(https?:)?\/\//i.test(raw) || /^www\./i.test(raw) ? raw.replace(/^www\./i, 'https://www.') : raw, location.href); } catch (e) { return raw; }
+    const file = decodeURIComponent(url.pathname.split('/').pop() || '');
+    if (kind !== 'link' && /\.[a-z0-9]{2,5}$/i.test(file)) return file;
+    const host = url.hostname.replace(/^www\./, '');
+    if (kind === 'link') return host + (url.pathname.length > 1 ? url.pathname.replace(/\/$/, '') : '');
+    return file || host;
+  }
+
   // One-line summary shown on the closed card
   function updateSummary(li, sp) {
     const kind = HotSpots.kindOf(sp);
     const hasSrc = !!sp.src.trim();
-    li.querySelector('.sc-icon').innerHTML = ICONS[hasSrc ? kind : 'none'];
+    li.querySelector('.sc-icon').innerHTML = ICONS[hasSrc || sp.type ? kind : 'none'];
     let title = sp.label || '';
     if (!title && hasSrc) {
       if (kind === 'text') title = sp.src.trim().split('\n')[0];
-      else { const yt = Media.youTube(sp.src); title = yt ? 'YouTube video' : sp.src.trim().replace(/^https?:\/\/(www\.)?/, '').replace(/[?#].*$/, ''); }
+      else title = friendlyName(sp.src, kind);
     }
-    li.querySelector('.sc-title').textContent = title || 'New spot — add a link or text';
+    li.querySelector('.sc-title').textContent = title || (sp.type
+      ? 'New ' + (KIND_NAMES[kind] || 'spot').replace(/^(?!3D)./, c => c.toLowerCase()) + ' — ' + (kind === 'text' ? 'type the words' : 'paste its link')
+      : 'New spot — add a link or text');
     const bits = [];
     if (hasSrc) {
       bits.push(KIND_NAMES[kind]);
@@ -943,8 +963,15 @@
     q('.sp-delay-row').hidden = !(sp.delay > 0) || !!sp.dwell;
 
     if (sp.stacked) { sp.hidden = false; q('.sp-hide-row').hidden = true; }
-    const checks = [...li.querySelectorAll('.sc-checks > .check')];
-    q('.sc-checks').hidden = checks.every(c => c.hidden);
+    // More options: hidden if none apply; says how many are switched on (and opens if any are, so nothing's hidden away)
+    const main = [...li.querySelectorAll('.sc-checks > .check')], more = [...li.querySelectorAll('.sc-more > .check')];
+    const moreBox = q('.sc-more');
+    moreBox.hidden = more.every(c => c.hidden);
+    const on = more.filter(c => !c.hidden && (c.classList.contains('sp-mask-row') ? !c.querySelector('input').checked : c.querySelector('input').checked)).length;
+    q('.sc-more-n').textContent = on ? '(' + on + ' on)' : '';
+    if (on && !moreBox.dataset.seen) moreBox.open = true;
+    moreBox.dataset.seen = '1';
+    q('.sc-checks').hidden = main.every(c => c.hidden) && moreBox.hidden;
     const hide = q('.sp-hide');
     hide.disabled = sp.play === 'tap';
     if (sp.play === 'tap' || isImage || still || sp.dwell) { hide.checked = false; sp.hidden = false; }
@@ -1077,15 +1104,27 @@
     post({ type: 'selectSpot', index: i, flash: !!flash && !was });
   }
 
-  $('add-spot').addEventListener('click', () => {
+  // Adding: choose what kind of thing first (Picture, Video, Sound…); it's placed at the crosshair, and its card opens
+  // ready for the link (or the words). The kind can still be changed on the card.
+  function updateAdd() {
+    const full = spots.length >= MAX_SPOTS, ok = !!panoOk && !full;
+    document.querySelectorAll('.add-kind').forEach(b => { b.disabled = !ok; });
+    $('add-why').hidden = ok;
+    $('add-why').textContent = full ? 'That’s the most one tour can have (' + MAX_SPOTS + '). Remove one to add another.' : 'Choose a 360° photo in step 1 first.';
+  }
+  document.querySelectorAll('.add-kind').forEach(b => {
+    b.querySelector('.ak-ico').innerHTML = ICONS[b.dataset.kind];
+    b.addEventListener('click', () => addSpot(b.dataset.kind));
+  });
+  function addSpot(kind) {
     if (spots.length >= MAX_SPOTS) return;
-    spots.push({ src: '', yaw: viewYaw, pitch: viewPitch, w: 20, play: 'tap', type: '', hidden: false, loop: false, dwell: false, label: '', rot: [0, 0, 0], spin: false, flat: false });
+    spots.push({ src: '', yaw: viewYaw, pitch: viewPitch, w: kind === 'text' ? 30 : 20, play: 'tap', type: kind || '', hidden: false, loop: false, dwell: false, label: '', rot: [0, 0, 0], spin: false, flat: false });
     openIndex = spots.length - 1;
     renderSpots();
     spotsChanged(false);
     openCard(openIndex, true);
     selectCard(openIndex, false);
-  });
+  }
 
   // ------------------------------------------------------------- QR code
   function renderQr(f) {
