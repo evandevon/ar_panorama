@@ -303,7 +303,7 @@
     const id = driveFileId(token);
     if (!id || !driveKey() || !/^https?:$/.test(location.protocol)) return Promise.resolve(null);
     if (!driveInfoCache.has(id)) {
-      driveInfoCache.set(id, fetch(DRIVE_API + encodeURIComponent(id) + '?fields=name,capabilities(canEdit)&supportsAllDrives=true&key=' + encodeURIComponent(driveKey()))
+      driveInfoCache.set(id, fetch(DRIVE_API + encodeURIComponent(id) + '?fields=name,capabilities(canEdit)&supportsAllDrives=true&key=' + encodeURIComponent(driveKey()), { cache: 'no-store' })
         .then(r => r.ok ? r.json() : null)
         .then(j => j ? { id: id, name: j.name || '', canEdit: !!(j.capabilities && j.capabilities.canEdit) } : null)
         .catch(() => null));
@@ -384,9 +384,9 @@
           //    the file last changed (for the saved copy), and tells problems apart if the download itself fails
           let meta = null, metaFailed = false;
           try {
-            const r = await fetch(url + '?fields=modifiedTime,size,mimeType&supportsAllDrives=true&key=' + key);
+            const r = await fetch(url + '?fields=modifiedTime,size,mimeType&supportsAllDrives=true&key=' + key, { cache: 'no-store' });
             if (!r.ok) { let body = null; try { body = await r.json(); } catch (e) {} throw new Error(driveProblem(r.status, body)); }
-            meta = await r.json();
+            try { meta = await r.json(); } catch (e) { meta = null; }   // not readable: carry on without it
           } catch (e) {
             if (!(e instanceof TypeError)) throw e;                   // Google answered no: its reason is in the message
             metaFailed = true;
@@ -397,7 +397,7 @@
           // 3. Download it
           let resp;
           try {
-            resp = await fetch(url + '?alt=media&supportsAllDrives=true&key=' + key);
+            resp = await fetch(url + '?alt=media&supportsAllDrives=true&key=' + key, { cache: 'no-store' });   // (copies are kept in Cache Storage instead)
           } catch (e) {
             throw new Error(await whyUnreachable(metaFailed));
           }
