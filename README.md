@@ -260,6 +260,10 @@ Why some hosts fail: browsers only let a web page draw a photo in 3D if the phot
 - Keyboard: arrow keys look around, `+`/`-` zoom.
 - **Links** are buttons with a pointing-hand icon and a soft white glow, so they stand out from text cards, which can't be followed.
 
+## Tracking down a slow tour
+
+Add `&stats=1` to the end of a tour's link and open it on the phone that's slow. A small panel shows how smooth it is (frames a second), where each frame's time goes (spots, masks, 3D drawing), what's being drawn (draw calls, triangles), the photo's size and the biggest picture that phone can draw, the screen's pixels, and every spot (each model's triangles and file size, each picture's size, and how it's drawn). Switches hide 3D models, masks, pictures and cards, or videos, so you can see which one makes the difference. **Copy these stats** copies it all, to paste into a message. The maker never puts `stats` in QR codes.
+
 ## Embedding in another website
 
 Press **Embed** on the author page for a ready-to-paste `<iframe>` code, at 400, 500 or 650 px tall, or 16:9 filling the width. It works in Google Sites (**Insert → Embed → Embed code**), WordPress, Wix, Squarespace, Canvas and Moodle. SharePoint only allows embeds from sites an administrator has approved.

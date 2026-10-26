@@ -577,6 +577,7 @@
       }).then(r => r.blob.arrayBuffer().then(buf => {
         tag.remove();
         if (!s.fit || !s.fit.isConnected) return;               // rebuilt meanwhile
+        s.fileBytes = r.size;
         loadModel(s, r.url, modelFormat(buf), buf);
       })).catch(err => { tag.remove(); opts.onError(s.index, err.message); });
     }
@@ -1369,6 +1370,14 @@
       const centreHidden = !!(opts.frontAt && opts.frontAt(w / 2, h / 2));
 
       spots.forEach(s => {
+        // the stats panel (viewer.js, &stats=1) can hide kinds of spot, to see which slows things down
+        if (debugHide[s.kind] || (debugHide.image && (s.isText || s.isLink || s.isDoc))) {
+          if (s.el) s.el.style.visibility = 'hidden';
+          if (s.dotEl) s.dotEl.style.visibility = 'hidden';
+          if (s.isModel && s.ent && s.ent.object3D) s.ent.object3D.visible = false;   // (put back every frame when shown)
+          if (s.mesh) s.mesh.visible = false;
+          return;
+        }
         // waiting for its delay: out of sight (and not playing) until its time comes
         if (waiting(s)) {
           if (started && now - startedAt >= s.delay * 1000) appear(s);
@@ -1470,7 +1479,13 @@
             if (s.isText) s.frame.style.fontSize = (PIN_W * 0.075) + 'px';
             if (s.isLink || s.isDoc) s.frame.style.fontSize = (PIN_W * (s.isDoc ? 0.075 : 0.09)) + 'px';
             s.lastW = 'pin';
+            s.pinH = 0;
+          }
+          // Its height decides how it's warped onto its corners, so measure it again whenever its shape can have changed:
+          // a picture is only its real shape once it has loaded (measuring it before then stretched tall pictures)
+          if (!s.pinH || s.pinAspect !== s.aspect || s.pinText !== s.frame.textContent.length) {
             s.pinH = s.frame.offsetHeight || PIN_W * 9 / 16;
+            s.pinAspect = s.aspect; s.pinText = s.frame.textContent.length;
           }
           s.frame.style.transform = quadMatrix(PIN_W, s.pinH, q.map(([px, py]) => [px - x, py - y]));
           if (opts.editable) {          // keep the author's corner tags a usable size however small the warp makes them
@@ -1868,6 +1883,35 @@
     }
 
     // flash: briefly pulse its outline (chosen from the list, so the author can see which one it is)
+    // ---------------------------------------------------------- stats (viewer.js, &stats=1)
+    const debugHide = {};
+    function setDebugHide(kind, on) { debugHide[kind] = !!on; }
+    // What each spot costs to draw: triangles (3D models), file sizes, picture sizes, how it's drawn
+    function stats() {
+      return spots.map(s => {
+        let tris = 0;
+        if (s.modelObj) s.modelObj.traverse(o => {
+          if (o.isMesh && o.geometry) tris += (o.geometry.index ? o.geometry.index.count : (o.geometry.attributes.position || { count: 0 }).count) / 3;
+        });
+        let bytes = s.fileBytes || 0;
+        if (!bytes && s.src) {
+          try {
+            const url = new URL(Media.resolveMediaUrl(s.src, s.isModel ? 'model' : s.isImage ? 'image' : 'video').url, location.href).href;
+            const e = performance.getEntriesByName(url)[0];
+            bytes = e ? (e.decodedBodySize || e.encodedBodySize || 0) : 0;
+          } catch (err) {}
+        }
+        const media = s.img || s.media;
+        return {
+          n: s.index + 1, kind: s.kind, label: s.label || '', src: s.src, behind: !!s.behind,
+          how: s.isModel || s.isStacked ? '3D' : s.pin ? 'pinned' : s.float ? 'floating' : s.el && s.el.classList.contains('card3d') ? 'card' : 'flat',
+          tris: Math.round(tris), bytes: bytes,
+          size: media ? [media.naturalWidth || media.videoWidth || 0, media.naturalHeight || media.videoHeight || 0] : null,
+          shown: !!(s.el && s.el.style.visibility === 'visible') || !!(s.ent && s.ent.object3D && s.ent.object3D.visible)
+        };
+      });
+    }
+
     function setSelected(i, flash) {
       selected = i;
       spots.forEach(s => {
@@ -1941,7 +1985,7 @@
     function stopAll() { spots.forEach(s => { s.userPaused = true; pause(s); }); }
 
     return {
-      set, update, start, unlock, stopAll, setMuted, setSelected, setHover, pinSpot, setBrightness,
+      set, update, start, unlock, stopAll, setMuted, setSelected, setHover, pinSpot, setBrightness, stats, setDebugHide,
       get count() { return spots.length; },
       get hasLook() { return spots.some(s => s.play === 'look' || s.dwell); }
     };

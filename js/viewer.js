@@ -152,6 +152,7 @@
     await sceneReady();
     const max = Math.min(sceneEl.renderer ? sceneEl.renderer.capabilities.maxTextureSize : 4096, 8192);
     let source = img;
+    Stats.photo = { w: img.naturalWidth, h: img.naturalHeight, bytes: blob.size, max: max };
     if (img.naturalWidth > max) {
       const c = document.createElement('canvas');
       c.width = max; c.height = Math.round(max * img.naturalHeight / img.naturalWidth);
@@ -649,7 +650,15 @@
       document.addEventListener('pointerdown', fix, { once: true, capture: true });
     }
   });
-  AFRAME.registerComponent('spot-tracker', { tock: () => { front.update(); spots.update(); compareTick(); } });
+  AFRAME.registerComponent('spot-tracker', {
+    tock: () => {
+      if (!Stats.on) { front.update(); spots.update(); compareTick(); return; }
+      const t0 = performance.now(); front.update();
+      const t1 = performance.now(); spots.update();
+      const t2 = performance.now(); compareTick();
+      Stats.frame(t1 - t0, t2 - t1);
+    }
+  });
 
   // ------------------------------------------------------------- compare photospheres: a second photo, and a bar to drag
   // p2 = a second 360 photo taken from the same spot, y2 = turn it (degrees) to line it up, n1 / n2 = names for the
@@ -839,5 +848,75 @@
       (!$('go-align').hidden ? $('go-align') : $('go-motion').hidden ? $('go-drag') : $('go-motion')).focus({ preventScroll: true });
     }
   }
+  // ------------------------------------------------------------- stats (&stats=1)
+  // For tracking down a slow tour on a real phone: add &stats=1 to the tour's link (never put in QR codes).
+  // Shows how smooth it is, where each frame's time goes, what's drawn, and switches to hide kinds of things.
+  function Stats() {}
+  Stats.on = params.get('stats') === '1';
+  Stats.photo = null;
+  if (Stats.on) {
+    const acc = { masks: 0, spots: 0, draw: 0, n: 0, calls: 0, tris: 0 }, gaps = [];
+    let last = 0;
+    Stats.frame = (m, sp) => {
+      acc.masks += m; acc.spots += sp; acc.n++;
+      const info = sceneEl.renderer && sceneEl.renderer.info.render;
+      if (info) { acc.calls = info.calls; acc.tris = info.triangles; }
+    };
+    const loop = t => { if (last) gaps.push(t - last); if (gaps.length > 240) gaps.shift(); last = t; requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+    sceneReady().then(() => {
+      const r = sceneEl.renderer, render = r.render.bind(r);
+      r.render = function (scene, camera) { const t = performance.now(); render(scene, camera); acc.draw += performance.now() - t; };
+    });
+    const box = document.createElement('div');
+    box.className = 'stats-box';
+    box.setAttribute('role', 'region'); box.setAttribute('aria-label', 'Stats');
+    box.innerHTML = '<pre class="stats-text"></pre><div class="stats-btns">' +
+      [['model', '3D models'], ['mask', 'masks'], ['image', 'pictures and cards'], ['video', 'videos']].map(([k, t]) =>
+        '<button type="button" data-hide="' + k + '" aria-pressed="false">Hide ' + t + '</button>').join('') +
+      '<button type="button" data-copy>Copy these stats</button></div>';
+    document.body.appendChild(box);
+    const masks = params.getAll('f').map(FrontLayer.decode).filter(Boolean);
+    box.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      e.stopPropagation();
+      if (b.dataset.copy != null) {
+        navigator.clipboard.writeText(box.querySelector('pre').textContent)
+          .then(() => { b.textContent = 'Copied ✓'; setTimeout(() => { b.textContent = 'Copy these stats'; }, 1500); }).catch(() => {});
+        return;
+      }
+      const on = b.getAttribute('aria-pressed') !== 'true';
+      b.setAttribute('aria-pressed', String(on));
+      if (b.dataset.hide === 'mask') front.set(masks, { show: !on });
+      else spots.setDebugHide(b.dataset.hide, on);
+    });
+    box.addEventListener('pointerdown', e => e.stopPropagation());
+    const kb = n => !n ? 'size ?' : n < 1048576 ? Math.round(n / 1024) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+    const k = n => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n);
+    const name = sp => (sp.label || Media.expand(sp.src).split(/[?#]/)[0].split('/').pop() || sp.kind).slice(0, 28);
+    setInterval(() => {
+      const g = gaps.slice(-60), avg = g.length ? g.reduce((a, b) => a + b, 0) / g.length : 0, worst = g.length ? Math.max(...g) : 0;
+      const n = Math.max(1, acc.n), r = sceneEl.renderer, c = sceneEl.canvas;
+      const list = spots.stats(), by = {};
+      list.forEach(sp => { by[sp.kind] = (by[sp.kind] || 0) + 1; });
+      const ph = Stats.photo, dpr = r ? r.getPixelRatio() : devicePixelRatio;
+      const lines = [
+        'Smoothness: ' + (avg ? Math.round(1000 / avg) : '–') + ' frames a second · ' + avg.toFixed(1) + ' ms a frame (slowest ' + Math.round(worst) + ' ms)',
+        'Each frame: spots ' + (acc.spots / n).toFixed(1) + ' ms · masks ' + (acc.masks / n).toFixed(1) + ' ms · 3D drawing ' + (acc.draw / n).toFixed(1) + ' ms (code only)',
+        'Drawn: ' + acc.calls + ' draw calls · ' + k(acc.tris) + ' triangles',
+        'Photo: ' + (ph ? ph.w + '×' + ph.h + ', ' + kb(ph.bytes) + (ph.w > ph.max ? ' → shrunk to ' + ph.max + ' wide (this phone’s limit)' : '') : 'not loaded yet') +
+          ' · biggest picture this phone can draw: ' + (r ? r.capabilities.maxTextureSize : '?'),
+        'Screen: ' + (c ? c.clientWidth + '×' + c.clientHeight + ' at ×' + dpr.toFixed(2) + ' = ' + c.width + '×' + c.height + ' pixels drawn' : '?'),
+        'Spots: ' + list.length + (list.length ? ' (' + Object.keys(by).map(kk => by[kk] + ' ' + kk).join(', ') + ')' : '') + ' · masks: ' + masks.length
+      ];
+      list.forEach(sp => lines.push('  #' + sp.n + ' ' + sp.kind + ' “' + name(sp) + '” ' + sp.how + (sp.behind ? ', behind masks' : '') +
+        (sp.tris ? ' · ' + k(sp.tris) + ' triangles' : '') + (sp.size && sp.size[0] ? ' · ' + sp.size[0] + '×' + sp.size[1] : '') + ' · ' + kb(sp.bytes) + (sp.shown ? '' : ' (not in view)')));
+      lines.push('Tip: slow frames with small times above = the graphics chip (photo size, triangles, screen pixels) or redrawing pictures. Try the Hide switches.');
+      lines.push(navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 120));
+      box.querySelector('pre').textContent = lines.join('\n');
+      acc.masks = acc.spots = acc.draw = acc.n = 0;
+    }, 1000);
+  }
+
   main();
 })();

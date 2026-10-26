@@ -527,3 +527,11 @@ body:has(#mode-toggle:not([hidden])) .cmp-name { top: calc(max(10px, env(safe-ar
 /* Flat spots in the room are warped onto their four projected corners (spots.js "card"), like pinned ones */
 .spot.card3d .spot-frame { transform-origin: 0 0; }
 .spot.card3d.appear > .spot-frame, .spot.card3d.dwell.revealed > .spot-frame { animation-name: spot-fade; }
+
+/* ---------- Stats (&stats=1 on a tour link, for tracking down slow tours) ---------- */
+.stats-box { position: fixed; left: 8px; top: 8px; z-index: 50; max-width: min(560px, calc(100vw - 16px)); max-height: 60vh; overflow: auto;
+  padding: 8px 10px; border-radius: 8px; background: rgba(22,19,18,.88); color: var(--chalk); font: 11px/1.4 ui-monospace, Menlo, Consolas, monospace; }
+.stats-text { margin: 0; white-space: pre-wrap; }
+.stats-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.stats-btns button { min-height: 32px; padding: 0 10px; border: 1px solid rgba(243,237,233,.5); border-radius: 6px; background: transparent; color: var(--chalk); font: 600 11px var(--sans); cursor: pointer; }
+.stats-btns button[aria-pressed="true"] { background: var(--brass); color: var(--on-brass); border-color: var(--brass); }
