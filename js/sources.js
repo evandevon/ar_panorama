@@ -340,6 +340,32 @@
     const next = driveWaiting.shift();
     if (next) next(); else driveRunning--;
   }
+  // Copies of Drive files kept in this browser (Cache Storage), so a tour opened again, or the maker's preview reloading
+  // while a tour is being made, doesn't download them again (Google limits how often a file can be downloaded).
+  // A copy is used only while the file in Drive hasn't changed (its modifiedTime). Very big files aren't kept.
+  const CACHE = 'tour-drive-files-v1', KEEP_MAX = 150 * 1048576;
+  async function savedCopy(id, modified) {
+    try {
+      if (!global.caches) return null;
+      const r = await (await caches.open(CACHE)).match('/drive/' + id);
+      if (!r || r.headers.get('x-modified') !== modified) return null;
+      return await r.blob();
+    } catch (e) { return null; }
+  }
+  async function saveCopy(id, modified, blob) {
+    try {
+      if (!global.caches || blob.size > KEEP_MAX) return;
+      await (await caches.open(CACHE)).put('/drive/' + id, new Response(blob, { headers: { 'content-type': blob.type || 'application/octet-stream', 'x-modified': modified } }));
+    } catch (e) {}
+  }
+  // The browser couldn't read Google's answer at all: work out why, as far as a web page can
+  async function whyUnreachable(metaFailed) {
+    let reachable = false;
+    try { await fetch(DRIVE_API.replace('/drive/v3/files/', '/discovery/v1/apis?name=drive&fields=kind'), { mode: 'no-cors', cache: 'no-store' }); reachable = true; } catch (e) {}
+    if (!reachable) return 'Couldn’t reach Google Drive’s file service from here. This network or a browser add-on (an ad or tracker blocker) may be blocking googleapis.com: school networks sometimes do. Try another network or browser.';
+    if (!metaFailed) return 'Google Drive found the file but wouldn’t send it. Usually this means it has been downloaded too many times today (Google limits this for each file): it should work again within a day. A very big file can do this too.';
+    return 'Google Drive answered, but the browser wasn’t allowed to read the answer. Check this website’s Google Drive key still exists, is limited to this website, and has the Google Drive API switched on (Google Cloud → APIs & Services).';
+  }
   /**
    * Download a Drive sound or video whole. onProgress(got, total) is called as it arrives (total 0 if unknown).
    * @returns {Promise<{url: string, blob: Blob, type: string, size: number}>} url is a blob: link to the downloaded copy
@@ -353,20 +379,36 @@
       const tell = () => job.listeners.forEach(f => { try { f(job.got, job.total); } catch (e) {} });
       job.promise = driveSlot().then(async () => {
         try {
+          const key = encodeURIComponent(driveKey()), url = DRIVE_API + encodeURIComponent(id);
+          // 1. Ask about the file first: a tiny request that doesn't count against Google's download limits, says when
+          //    the file last changed (for the saved copy), and tells problems apart if the download itself fails
+          let meta = null, metaFailed = false;
+          try {
+            const r = await fetch(url + '?fields=modifiedTime,size,mimeType&supportsAllDrives=true&key=' + key);
+            if (!r.ok) { let body = null; try { body = await r.json(); } catch (e) {} throw new Error(driveProblem(r.status, body)); }
+            meta = await r.json();
+          } catch (e) {
+            if (!(e instanceof TypeError)) throw e;                   // Google answered no: its reason is in the message
+            metaFailed = true;
+          }
+          // 2. A copy saved in this browser from before, if the file hasn't changed since
+          const saved = meta && meta.modifiedTime ? await savedCopy(id, meta.modifiedTime) : null;
+          if (saved) { job.got = job.total = saved.size; tell(); return { url: URL.createObjectURL(saved), blob: saved, type: saved.type, size: saved.size, saved: true }; }
+          // 3. Download it
           let resp;
           try {
-            resp = await fetch(DRIVE_API + encodeURIComponent(id) + '?alt=media&supportsAllDrives=true&key=' + encodeURIComponent(driveKey()));
+            resp = await fetch(url + '?alt=media&supportsAllDrives=true&key=' + key);
           } catch (e) {
-            throw new Error('Couldn’t reach Google Drive. Check the internet connection.');
+            throw new Error(await whyUnreachable(metaFailed));
           }
           if (!resp.ok) {
             let body = null;
             try { body = await resp.json(); } catch (e) {}
             throw new Error(driveProblem(resp.status, body));
           }
-          const type = resp.headers.get('content-type') || '';
+          const type = resp.headers.get('content-type') || (meta && meta.mimeType) || '';
           if (/^text\/html/.test(type)) throw new Error('Google Drive sent back a web page instead of the file. Try a smaller file.');
-          job.total = Number(resp.headers.get('content-length')) || 0;
+          job.total = Number(resp.headers.get('content-length')) || Number(meta && meta.size) || 0;
           let blob;
           if (resp.body && resp.body.getReader) {
             const reader = resp.body.getReader(), chunks = [];
@@ -378,6 +420,7 @@
             blob = new Blob(chunks, { type: type });
           } else blob = await resp.blob();
           job.got = job.total = blob.size; tell();
+          if (meta && meta.modifiedTime) saveCopy(id, meta.modifiedTime, blob);
           return { url: URL.createObjectURL(blob), blob: blob, type: type, size: blob.size };
         } finally { driveDone(); }
       });
