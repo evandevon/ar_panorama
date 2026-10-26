@@ -644,7 +644,7 @@
     frontAt: (x, y) => front.hiddenAt(x, y),
     offscreen: $('spots-offscreen'),
     onActivity: n => Sound.duck(n > 0),
-    onError: (i, msg) => { tell({ type: 'spotError', index: i, message: msg, src: spotDefs[i] ? spotDefs[i].src : null }); if (!PREVIEW) console.warn('Video spot ' + (i + 1) + ': ' + msg); },
+    onError: (i, msg) => { (Stats.problems = Stats.problems || {})[i] = msg; tell({ type: 'spotError', index: i, message: msg, src: spotDefs[i] ? spotDefs[i].src : null }); if (!PREVIEW) console.warn('Video spot ' + (i + 1) + ': ' + msg); },
     onNeedTap: (text, fix) => {
       hint(text, 6000);
       document.addEventListener('pointerdown', fix, { once: true, capture: true });
@@ -854,6 +854,7 @@
   function Stats() {}
   Stats.on = params.get('stats') === '1';
   Stats.photo = null;
+  Stats.problems = {};                                   // spot index → what went wrong (shown in the stats panel)
   if (Stats.on) {
     const acc = { masks: 0, spots: 0, draw: 0, n: 0, calls: 0, tris: 0 }, gaps = [];
     let last = 0;
@@ -910,7 +911,8 @@
         'Spots: ' + list.length + (list.length ? ' (' + Object.keys(by).map(kk => by[kk] + ' ' + kk).join(', ') + ')' : '') + ' · masks: ' + masks.length
       ];
       list.forEach(sp => lines.push('  #' + sp.n + ' ' + sp.kind + ' “' + name(sp) + '” ' + sp.how + (sp.behind ? ', behind masks' : '') +
-        (sp.tris ? ' · ' + k(sp.tris) + ' triangles' : '') + (sp.size && sp.size[0] ? ' · ' + sp.size[0] + '×' + sp.size[1] : '') + ' · ' + kb(sp.bytes) + (sp.shown ? '' : ' (not in view)')));
+        (sp.tris ? ' · ' + k(sp.tris) + ' triangles' : '') + (sp.size && sp.size[0] ? ' · ' + sp.size[0] + '×' + sp.size[1] : '') + ' · ' + kb(sp.bytes) + (sp.shown ? '' : ' (not in view)') +
+        (Stats.problems[sp.n - 1] ? '\n      ✕ ' + Stats.problems[sp.n - 1] : '')));
       lines.push('Tip: slow frames with small times above = the graphics chip (photo size, triangles, screen pixels) or redrawing pictures. Try the Hide switches.');
       lines.push(navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 120));
       box.querySelector('pre').textContent = lines.join('\n');
