@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>360° QR Experience Maker</title>
   <meta name="description" content="Paste a link to a 360° photo and some audio, and get a QR code that opens it on any phone. No sign-in.">
-  <link rel="stylesheet" href="css/create.css?v=20261026f">
+  <link rel="stylesheet" href="css/create.css?v=20261026g">
   <script src="vendor/qrcode.js"></script>
-  <script src="js/settings.js?v=20261026f"></script>
-  <script src="js/sources.js?v=20261026f"></script>
-  <script src="js/spots.js?v=20261026f"></script>
+  <script src="js/settings.js?v=20261026g"></script>
+  <script src="js/sources.js?v=20261026g"></script>
+  <script src="js/spots.js?v=20261026g"></script>
 </head>
 <body>
 <header class="masthead">
@@ -34,8 +34,9 @@
       <p class="help" id="pano-help">A Google Drive, OneDrive or Dropbox share link, a direct link to a JPEG, or a 360 video (MP4). Set sharing to <b>Anyone with the link</b>.</p>
       <button type="button" class="btn small ghost" id="sample">Try a sample</button>
       <p class="status" id="pano-status" role="status" aria-live="polite"></p>
+      <p class="help merged-note" id="merged-note" hidden>This photo has spots merged into it. To move or change them, <a id="merged-orig" href="#">open the version with them still separate</a>.</p>
       <details class="compare-box" id="compare-box">
-        <summary>Then and now <span class="opt">optional: a second photo to compare</span></summary>
+        <summary>Compare photospheres <span class="opt">optional: a second photo to compare</span></summary>
         <p class="help flush">Add a second 360° photo taken from the same spot: an old photo, or the same room on another day. Viewers drag a bar left and right to wipe between the two.</p>
         <label for="in-pano2">Link to the second 360° photo</label>
         <input id="in-pano2" type="url" inputmode="url" placeholder="https://drive.google.com/file/d/…" aria-describedby="pano2-status">
@@ -155,6 +156,7 @@
       <button type="button" id="dl" class="btn ghost" disabled>Save PNG</button>
       <button type="button" id="print" class="btn ghost" disabled>Print</button>
       <button type="button" id="embed" class="btn ghost" disabled aria-expanded="false" aria-controls="embed-panel">Embed</button>
+      <a id="merge" class="btn ghost" target="_blank" rel="noopener" hidden title="Paint the pictures, text cards and 3D models that sit still into the photo, so the QR code gets simpler">Export merged photosphere…</a>
     </div>
     <div class="embed-panel" id="embed-panel" hidden>
       <label for="embed-h">Embed in a website (Google Sites, WordPress, Canvas, Moodle…)</label>
@@ -177,6 +179,16 @@
   </section>
 </main>
 
+<!-- Asked before printing a very crowded QR code (js/create.js "QR size") -->
+<dialog class="ask" id="print-ask" aria-labelledby="print-ask-h" aria-describedby="print-ask-p">
+  <h2 id="print-ask-h">This QR code is very crowded</h2>
+  <p id="print-ask-p">It holds <b id="print-ask-n"></b> characters, so its squares are tiny. Older phones, dim rooms and laminated sheets can stop it scanning. <span id="print-ask-merge"></span></p>
+  <div class="ask-btns">
+    <a class="btn" id="print-ask-smaller" target="_blank" rel="noopener">Make it smaller first</a>
+    <button type="button" class="btn ghost" id="print-ask-go">Print anyway (at least 10 cm wide)</button>
+  </div>
+</dialog>
+
 <!-- Asked when a Google Drive file is shared so that anyone with the link can EDIT it (js/create.js "Drive edit links") -->
 <dialog class="ask" id="edit-ask" aria-labelledby="edit-ask-h" aria-describedby="edit-ask-p">
   <h2 id="edit-ask-h"><span aria-hidden="true">⚠️</span> Anyone with this link can change the file</h2>
@@ -197,6 +209,6 @@
   <p>Want a person or object standing in the room, with the room showing around them? Make a see-through video from green-screen footage with the <a href="videomaker.html">See-through Video Maker</a>.</p>
 </footer>
 
-<script src="js/create.js?v=20261026f"></script>
+<script src="js/create.js?v=20261026g"></script>
 </body>
 </html>

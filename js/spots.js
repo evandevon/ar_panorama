@@ -1923,6 +1923,24 @@
   global.HotSpots.decode = decodeSpot;
   global.HotSpots.DEFAULT_W = DEFAULT_W;
   global.HotSpots.kindOf = kindOf;
+  // Export merged photosphere (merge.html): can this spot be painted into the 360 photo itself? Only things that sit
+  // still in the room and look the same to everyone: pictures, text cards and 3D models that are always there.
+  // → { ok, kind, why } (why: a plain-English reason it can't be)
+  global.HotSpots.mergeInfo = function (d) {
+    const kind = kindOf(d);
+    const no = why => ({ ok: false, kind: kind, why: why });
+    if (!d || !String(d.src || '').trim()) return no('It’s empty.');
+    if (kind !== 'image' && kind !== 'text' && kind !== 'model') {
+      return no({ video: 'Videos need to play', audio: 'Sounds need to play', link: 'Links need tapping', doc: 'Documents need opening' }[kind] + ', so it stays as a spot.');
+    }
+    if (d.float) return no('It floats on the screen.');
+    if (d.dwell) return no('It appears when its dot is looked at.');
+    if (d.delay > 0) return no('It appears after a delay.');
+    if (d.play === 'look') return no('It only shows while it’s looked at.');
+    if (d.plan) return no('It has a floor plan.');
+    if (kind === 'model' && d.spin) return no('It spins.');
+    return { ok: true, kind: kind, why: '' };
+  };
   global.HotSpots.guessKind = guessKind;
   global.loadYouTubeApi = loadYouTubeApi;
 })(window);

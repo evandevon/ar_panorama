@@ -275,7 +275,7 @@ textarea + .field-err { top: 8px; transform: none; }
 }
 .frame-nav { cursor: grab; } .frame-nav:active { cursor: grabbing; } .frame-nav > * { cursor: auto; }
 
-/* then and now: a second photo, tucked under the first */
+/* compare photospheres: a second photo, tucked under the first */
 .compare-box { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
 .compare-box > summary { cursor: pointer; font-weight: 600; min-height: 36px; display: flex; flex-wrap: wrap; align-items: center; gap: 0 8px; color: var(--ink); }
 .compare-box > summary .opt { font-weight: 400; font-size: .85rem; color: var(--ink-soft); }
@@ -316,3 +316,31 @@ textarea + .field-err { top: 8px; transform: none; }
 .ask h2 { margin: 0 0 10px; font: 700 1.15rem/1.3 var(--serif); }
 .ask p { margin: 0 0 10px; line-height: 1.5; }
 .ask-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+
+/* ---------- Export merged photosphere (merge.html) ---------- */
+.merge-grid { align-items: start; }
+.merge-steps { display: grid; gap: 16px; min-width: 0; }
+@media (min-width: 900px) { .merge-view { position: sticky; top: 12px; } }
+.merge-list, .merge-stay { list-style: none; margin: 8px 0 0; padding: 0; }
+.merge-list li + li { border-top: 1px solid var(--line); }
+.merge-stay li { margin: 6px 0; font-size: .88rem; color: var(--ink-soft); }
+.merge-qr { margin-top: 14px; padding: 10px 12px; border-radius: 6px; background: var(--card-2); font-size: .88rem; }
+.merge-qr p { margin: 2px 0; }
+.merge-progress { height: 8px; margin-top: 12px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.merge-progress > div { height: 100%; width: 0; background: var(--brass); transition: width .2s; }
+.merge-canvas { position: relative; background: var(--field); border-radius: 6px; overflow: hidden; }
+.merge-canvas canvas { display: block; width: 100%; height: auto; aspect-ratio: 2 / 1; }
+.merge-empty { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--ink-soft); }
+.merge-keep { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); font-size: .9rem; }
+.merge-keep p { margin: 0 0 4px; }
+#m-open[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
+.merge-work { position: absolute; left: -10000px; top: 0; width: 512px; height: 512px; overflow: hidden; }
+.merge-work a-scene { width: 512px; height: 512px; }
+@media (prefers-reduced-motion: reduce) { .merge-progress > div { transition: none; } }
+/* the merge page is an ordinary scrolling page, not the maker's fixed editor layout */
+@media (min-width: 900px) {
+  html:has(body.merge-page) { height: auto; overflow: auto; }
+  body.merge-page { height: auto; width: auto; overflow: visible; }
+  .merge-page .masthead .wrap, .merge-page .grid, .merge-page .foot { max-width: 1280px; }
+  .merge-page .grid.merge-grid { grid-template-columns: minmax(340px, 440px) minmax(0, 1fr); grid-template-areas: none; }
+}

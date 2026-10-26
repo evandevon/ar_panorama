@@ -4,14 +4,14 @@
  *   js/layers.js (FrontLayer = masks).
  * Page address: p (photo or 360 video), t (title), y (start direction), al=1 (offer "line up with the room"),
  *   mb (3D model brightness), s (one per spot, see spots.js), f (one per mask, see layers.js), v=2 (format version),
- *   preview=1 (inside the tour maker: no start card, editable spots), p2 / y2 / n1 / n2 (then and now: a second
+ *   preview=1 (inside the tour maker: no start card, editable spots), p2 / y2 / n1 / n2 (compare photospheres: a second
  *   photo, its turn, and the two photos' names).
  * In preview mode it talks to make.html with postMessage: tell({type:...}) out; window 'message' handler in.
  *   In: setYaw setSpots setCompare lookAt pinSpot selectSpot hoverSpot nudge setLayers setWindow setBrightness stopAll.
  *   Out: status compare view spotEdit spotSelect spotError layerPoint layerClose layerMove audio.
  * Sections (search for "// ---- <name>"): talking to the author page · start card · loading the panorama · sound ·
  *   looking around: drag · the author's preview: a phone-sized window · looking around: phone motion · entering ·
- *   lining up with the real room · video spots · then and now · boot
+ *   lining up with the real room · video spots · compare photospheres · boot
  * Gotchas: phones only allow motion sensors and sound after a tap (enter() runs inside the tap).
  *   "Phone window" mode: the preview iframe is bigger than the phone; win/winFov make spot sizes and drag speed
  *   match a real phone, and .win-shade panels outside the window only turn the view.
@@ -651,7 +651,7 @@
   });
   AFRAME.registerComponent('spot-tracker', { tock: () => { front.update(); spots.update(); compareTick(); } });
 
-  // ------------------------------------------------------------- then and now: a second photo, and a bar to drag
+  // ------------------------------------------------------------- compare photospheres: a second photo, and a bar to drag
   // p2 = a second 360 photo taken from the same spot, y2 = turn it (degrees) to line it up, n1 / n2 = names for the
   // main photo (right of the bar) and the second one (left of it). The second photo is a sphere just inside the
   // first, drawn only left of the bar (decided per pixel on screen), so dragging the bar wipes between them.

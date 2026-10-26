@@ -11,6 +11,7 @@ There's no server or database. Everything about an experience lives inside the Q
 | `make.html` | Authors. Paste links, preview with the mouse, set the starting view, then copy, print, save or embed the QR code. |
 | `index.html` | Viewers. This is what QR codes open: the site's main address. Visiting it without a code shows a pointer to the maker. |
 | `videomaker.html` | Authors. The See-through Video Maker turns green-screen footage into see-through videos for tours (also transparent WebM and GIF). |
+| `merge.html` | Authors, from the maker's **Export merged photosphere…** button. Paints still spots into the 360° photo so the QR code gets simpler. |
 | `view.html` | Only forwards older links to the main address. Keep it so earlier QR codes keep working. |
 
 Working on the code? Start with `DEVELOPER-NOTES.md`.
@@ -206,6 +207,26 @@ Paste a link to the document and **Type** becomes **Document** by itself (for Go
 
 Use **⤢ Open** on the card in the preview to see exactly what viewers will see.
 
+### Export merged photosphere
+
+Every spot makes the QR code longer. When it gets crowded, the maker suggests **Export merged photosphere…** (beside Copy, Print and the rest; it's there whenever a spot can be merged):
+
+| Squares across | About this many characters | What the maker says |
+|---|---|---|
+| up to 65 | 300 | nothing |
+| 66–97 | 650 | print it at least 6 cm wide |
+| 98–117 | 1,000 | getting crowded: print 8 cm wide, and suggests merging (with how much shorter it would get) |
+| over 117 | more | very crowded: print 10 cm wide; **Print** asks first, offering to make it smaller |
+| too long | over 2,300 | no code at all: suggests merging |
+
+The merge page paints the spots that sit still (pictures, text cards and 3D models that are always there) into the 360° photo itself. They look exactly as they do in the tour when looked at straight on (at an angle they look like real flat posters on the wall). Masks still hide what they hid. Things that need tapping, playing or revealing (videos, sounds, links, documents, spots that are looked-at, delayed, floating, spinning or have a floor plan) stay as spots.
+
+1. **Choose what to merge.** Pictures and models start ticked. Text cards start unticked, because merged text can't be read aloud by screen readers or opened full screen. It shows how big the QR code is now and will be.
+2. **Make the merged photo**, then download it (a JPEG the photo's own size, up to 8192 wide, tagged as a 360° photo). Put it in Google Drive (Anyone with the link) or the GitHub site.
+3. **Paste its link** and open the tour maker: the photo is swapped and the merged spots are gone. Masks stay only if something left can still hide behind them.
+
+Merged spots can't be moved or changed. Keep the **editable version's link** (the page offers it); the maker also remembers it in that browser, and shows *"This photo has spots merged into it…"* with a link back. Pictures must be readable by the page (this site, Google Drive, Dropbox). Text cards need Chrome or Edge. With compare photospheres, merged spots only show on the main photo.
+
 ### What works where
 
 **Sounds and videos on Google Drive.** This site has a Google Drive key (in `js/settings.js`), so Drive sounds and videos (see-through ones included) are downloaded whole when the tour opens, then play like any other file: by themselves, when looked at, looping, hidden or see-through. A small "Downloading 40%" label shows on the spot meanwhile. Share each file as **Anyone with the link**, and keep it small (under about 20 MB) so it's quick on phones. The key only works on this website (evandevon.github.io), so Drive downloads fail when testing on your own computer.
@@ -256,7 +277,7 @@ Dragging, sound, video, text, links and look-to-reveal dots all work inside an e
 
 Each spot is written as `link~yaw~pitch~flags~label~width°~corners~turn~delay~plan`. Delay (optional) is how many seconds after the viewer starts the spot appears. Plan (pictures only) makes it a floor plan: `across,down,turn` = where the photo was taken on the picture (in %) and the turn (in degrees) that lines the plan up with the photo; viewers see a dot and a cone showing which way they're facing. Text spots use `t:` followed by the text instead of a link. Corners (only for pinned spots) are eight whole-degree offsets from the centre: top-left, top-right, bottom-right, bottom-left, each as yaw,pitch. Turn (only for 3D models) is `turn,tilt,roll` in whole degrees. `mb` is only included when it isn't 1 (normal). The flags are `l` (plays/shows when looked at), `s` (plays at start), `h` (hidden), `r` (loop), `d` (appears after the dot), `o` (3D model spins), `f` (3D model in bright, flat colours), `x` (see-through video), `w` (with `x`: a WebM with its own transparency rather than a stencil MP4), `u` (masks don't hide this spot), `e` (a video disappears when it ends), `g` (floats on the screen: yaw and pitch are then 0–100 across and down the screen, and width is a % of the screen's shorter side), and `a` / `v` / `i` / `k` / `m` / `p` (sound / video / picture / link / 3D model / document), used when the kind can't be told from the link.
 
-**Then and now** adds `p2` (a second 360 photo), and optionally `y2` (its turn in degrees, to line it up), `n1` and `n2` (names shown beside the bar for the main photo, on the right, and the second photo, on the left). Viewers drag a bar to wipe between the two photos.
+**Compare photospheres** (called "then and now" in older notes) adds `p2` (a second 360 photo), and optionally `y2` (its turn in degrees, to line it up), `n1` and `n2` (names shown beside the bar for the main photo, on the right, and the second photo, on the left). Viewers drag a bar to wipe between the two photos.
 
 Each mask (`f=`) is a list of `yaw,pitch` pairs in degrees, to the nearest half degree, for example `f=0,15,-20,15,-20,-15,0,-15`. (The viewer also understands a mask starting with `w`, which works the other way round, like a window: everything except inside it hides spots. The maker doesn't offer it.)
 

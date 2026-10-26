@@ -472,7 +472,7 @@ body.windowed .yt-wrap { left: calc(var(--wx) + 12px); top: calc(var(--wy) + 12p
 .spots-layer.editing .spot.gone * { pointer-events: auto !important; }
 @media (prefers-reduced-motion: reduce) { .spot.gone { transition: none; } }
 
-/* ---------- Then and now: a bar to drag between two photos ---------- */
+/* ---------- Compare photospheres: a bar to drag between two photos ---------- */
 .compare { --split: 50vw; position: fixed; inset: 0; z-index: 4; pointer-events: none; }
 .compare[hidden] { display: none; }
 body.aligning .compare { display: none; }

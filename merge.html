@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Export merged photosphere · 360° QR Experience Maker</title>
+  <meta name="description" content="Paint a tour's pictures, text cards and 3D models into its 360° photo, so its QR code gets simpler.">
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="css/create.css?v=20261026g">
+  <script src="vendor/qrcode.js"></script>
+  <script src="vendor/aframe-v1.8.0.min.js"></script>
+  <script src="js/settings.js?v=20261026g"></script>
+  <script src="js/sources.js?v=20261026g"></script>
+  <script src="js/spots.js?v=20261026g"></script>
+  <script src="js/layers.js?v=20261026g"></script>
+</head>
+<body class="merge-page">
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow">360° QR Experience Maker</p>
+    <h1>Export merged photosphere</h1>
+    <p class="lede">Paint the pictures, text cards and 3D models that sit still in your tour into the 360° photo itself. They look the same, but the QR code no longer has to carry them, so it gets simpler and easier to scan.</p>
+  </div>
+</header>
+
+<main class="wrap grid merge-grid">
+  <div class="merge-steps">
+    <section class="panel" aria-labelledby="m1-h">
+      <h2 id="m1-h"><span class="num" aria-hidden="true">1</span> Choose what to merge</h2>
+      <p class="status" id="m-status" role="status" aria-live="polite"></p>
+      <ul class="merge-list" id="m-list" aria-label="Spots that can be merged"></ul>
+      <p class="help" id="m-text-note" hidden>Merged text can’t be read aloud by screen readers or opened full screen, so text cards start unticked.</p>
+      <p class="help" id="m-compare-note" hidden>This tour compares two photospheres: merged spots will only show on the main photo, not the second one.</p>
+      <details class="howto" id="m-stay-box" hidden>
+        <summary>Spots that stay as they are (<span id="m-stay-n"></span>)</summary>
+        <ul class="merge-stay" id="m-stay"></ul>
+      </details>
+      <div class="merge-qr" id="m-qr" aria-live="polite"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="m2-h">
+      <h2 id="m2-h"><span class="num" aria-hidden="true">2</span> Make the merged photo</h2>
+      <button type="button" class="btn" id="m-make" disabled>Make the merged photo</button>
+      <div class="merge-progress" id="m-progress" hidden><div></div></div>
+      <p class="status" id="m-make-status" role="status" aria-live="polite"></p>
+      <a class="btn" id="m-download" hidden download>⬇ Download the merged photo</a>
+      <p class="help" id="m-download-help" hidden>Then put it in Google Drive (shared as <b>Anyone with the link</b>) or in your GitHub site, and copy its link.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="m3-h">
+      <h2 id="m3-h"><span class="num" aria-hidden="true">3</span> Use it in your tour</h2>
+      <label for="m-link">Link to the merged photo</label>
+      <input type="url" id="m-link" placeholder="Paste its share link" aria-describedby="m-link-help">
+      <p class="help" id="m-link-help">The merged spots are taken out of the tour, and the photo is swapped for this one.</p>
+      <p class="status" id="m-link-status" role="status" aria-live="polite"></p>
+      <a class="btn" id="m-open" aria-disabled="true">Open it in the tour maker</a>
+      <div class="merge-keep">
+        <p><b>Keep the editable version.</b> Merged spots can’t be moved or changed any more. To change them later, open this link (it’s also remembered in this browser):</p>
+        <div class="actions"><button type="button" class="btn small ghost" id="m-copy-orig">Copy the editable version’s link</button>
+          <a class="btn small ghost" id="m-orig" target="_blank" rel="noopener">Open it</a></div>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel merge-view" aria-labelledby="mv-h">
+    <h2 id="mv-h">Preview</h2>
+    <div class="merge-canvas"><canvas id="m-preview" width="1200" height="600" role="img" aria-label="The whole 360° photo, laid out flat"></canvas>
+      <p class="merge-empty" id="m-empty">The merged photo will appear here.</p></div>
+    <p class="help">The whole 360° photo, laid out flat: the middle is straight ahead, and the left and right edges meet behind you.</p>
+  </section>
+</main>
+
+<!-- Where the merging happens: off screen. A small 3D scene draws the models; a frame lays out text cards. -->
+<div class="merge-work" aria-hidden="true" inert>
+  <a-scene id="m-scene" embedded vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false"
+           loading-screen="enabled: false" renderer="colorManagement: true; alpha: true">
+    <a-entity><a-camera position="0 0 0" fov="75" wasd-controls-enabled="false" look-controls="enabled: false"></a-camera></a-entity>
+  </a-scene>
+  <div id="m-layer"></div><div id="m-back"></div><div id="m-off"></div>
+</div>
+
+<footer class="wrap foot"><p><a href="make.html">← Back to the tour maker</a></p></footer>
+<script src="js/merge.js?v=20261026g"></script>
+</body>
+</html>

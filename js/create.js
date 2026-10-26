@@ -43,7 +43,7 @@
       title: $('in-title').value.trim(),
       align: $('in-align').checked,
       bright: Number($('in-bright').value) || 1,
-      pano2: $('in-pano2').value.trim(),            // then and now: a second photo, its turn, and the two names
+      pano2: $('in-pano2').value.trim(),            // compare photospheres: a second photo, its turn, and the two names
       yaw2: Number($('in-yaw2').value) || 0,
       n1: $('in-n1').value.trim(),
       n2: $('in-n2').value.trim()
@@ -104,7 +104,7 @@
     return here.href + '?' + q.map(([k, v]) => k + '=' + enc(String(v))).join('&');
   }
 
-  // Then and now: only when there's a second photo (a turn or names alone mean nothing)
+  // Compare photospheres: only when there's a second photo (a turn or names alone mean nothing)
   function compareParams(f, short) {
     if (!f.pano2) return [];
     const q = [['p2', short ? Media.shorten(f.pano2) : f.pano2]];
@@ -1101,6 +1101,7 @@
       $('link-out').textContent = '';
       $('open').removeAttribute('href');
       $('warn').hidden = true;
+      $('merge').hidden = true;
       return;
     }
 
@@ -1109,7 +1110,13 @@
     try {
       qr = qrcode(0, 'M'); qr.addData(qrUrl); qr.make();
     } catch (e) {
-      $('qr').innerHTML = '<div class="qr-empty">These links are too long to fit in a QR code. Try a shorter link (Google Drive and YouTube links are shortened automatically).</div>';
+      const m = mergeable();
+      $('qr').innerHTML = '<div class="qr-empty">These links are too long to fit in a QR code. ' + (m.n
+        ? 'Use <b>Export merged photosphere</b> (below) to paint ' + m.what + ' into the photo, or use shorter links.'
+        : 'Try a shorter link (Google Drive and YouTube links are shortened automatically).') + '</div>';
+      $('merge').hidden = !m.n;
+      $('merge').href = new URL('merge.html' + location.search, location.href).href;
+      qrModules = 999;
       return;
     }
     $('qr').innerHTML = qr.createSvgTag({ cellSize: 8, margin: 2, scalable: true });
@@ -1120,7 +1127,16 @@
 
     if (/^(file:|https?:\/\/(localhost|127\.|192\.168\.|10\.))/i.test(qrUrl)) warns.push('This page is running from your own computer, so phones can’t open this link. Use the version on GitHub Pages to make codes.');
     if (panoOk === null) warns.push('Still checking the photo in the preview…');
-    if (qr.getModuleCount() > 65) warns.push('This code is quite detailed because the links are long. Print it at least 6 cm wide so phones can read it.');
+    // QR size: up to 65 squares across scans easily; up to 97 (version 20) is fine printed 6 cm wide; beyond that, phone
+    // cameras need good light and a steady hand, so suggest making it simpler (Export merged photosphere)
+    const n = qr.getModuleCount(), m = mergeable();
+    const offer = m.n ? ' <b>Export merged photosphere</b> can paint ' + m.what + ' into the photo, making the code about ' + m.pct + '% shorter.' : '';
+    if (n > 117) warns.push('<b>This code is very crowded</b> (' + qrUrl.length.toLocaleString() + ' characters): older phones may not scan it. Print it at least 10 cm wide.' + offer);
+    else if (n > 97) warns.push('This code is getting crowded. Print it at least 8 cm wide.' + offer);
+    else if (n > 65) warns.push('This code is quite detailed because the links are long. Print it at least 6 cm wide so phones can read it.');
+    qrModules = n;
+    $('merge').hidden = !m.n;
+    $('merge').href = new URL('merge.html' + location.search, location.href).href;
     $('warn').innerHTML = warns.join('<br>');
     $('warn').hidden = !warns.length;
   }
@@ -1129,7 +1145,32 @@
     try { await navigator.clipboard.writeText(qrUrl); flash($('copy'), 'Copied ✓'); }
     catch (e) { prompt('Copy this link:', qrUrl); }
   });
-  $('print').addEventListener('click', () => window.print());
+  // Export merged photosphere: which spots could be painted into the photo, and how much shorter the link would get
+  let qrModules = 0;
+  function mergeable() {
+    const can = spots.filter(sp => sp.src.trim() && HotSpots.mergeInfo(sp).ok);
+    if (!can.length || !qrUrl) return { n: 0 };
+    const saved = can.reduce((t, sp) => t + 3 + encodeURIComponent(HotSpots.encode(sp, true)).length, 0);
+    const kinds = {};
+    can.forEach(sp => { const k = HotSpots.kindOf(sp); kinds[k] = (kinds[k] || 0) + 1; });
+    const NAMES = { image: ['picture', 'pictures'], text: ['text card', 'text cards'], model: ['3D model', '3D models'] };
+    const parts = Object.keys(kinds).map(k => kinds[k] + ' ' + NAMES[k][kinds[k] === 1 ? 0 : 1]);
+    const what = parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0];
+    return { n: can.length, what: what, pct: Math.max(1, Math.min(95, Math.round(saved / qrUrl.length * 100))) };
+  }
+  // Printing a very crowded code: check first
+  $('print').addEventListener('click', () => {
+    const m = mergeable();
+    if (qrModules <= 117 || !$('print-ask').showModal) return window.print();
+    $('print-ask-n').textContent = qrUrl.length.toLocaleString();
+    $('print-ask-merge').innerHTML = m.n ? '<b>Export merged photosphere</b> can paint ' + m.what + ' into the photo, making it about ' + m.pct + '% shorter.' : 'Fewer or shorter spots would make it simpler.';
+    $('print-ask-smaller').hidden = !m.n;
+    $('print-ask-smaller').href = $('merge').href;
+    $('print-ask').showModal();
+    (m.n ? $('print-ask-smaller') : $('print-ask-go')).focus();
+  });
+  $('print-ask-go').addEventListener('click', () => { $('print-ask').close(); setTimeout(() => window.print(), 50); });
+  $('print-ask-smaller').addEventListener('click', () => $('print-ask').close());
 
   // Embed code for other websites
   function updateEmbed() {
@@ -1180,7 +1221,7 @@
   }
 
   // ------------------------------------------------------------- wiring
-  // then and now: the turn and the names change the preview straight away
+  // compare photospheres: the turn and the names change the preview straight away
   function syncCompare() {
     const f = readForm();
     $('yaw2-out').textContent = f.yaw2 + '°';
@@ -1278,6 +1319,15 @@
   $('shape-wide').addEventListener('click', () => setShape(false));
 
   loadFromAddress();
+  // A merged photo (from Export merged photosphere): offer the editable version it was made from
+  function mergedNote() {
+    let orig = null;
+    try { orig = localStorage.getItem('tour-merged:' + Media.shorten($('in-pano').value.trim())); } catch (e) {}
+    $('merged-note').hidden = !orig;
+    if (orig) $('merged-orig').href = 'make.html' + orig;
+  }
+  mergedNote();
+  $('in-pano').addEventListener('change', mergedNote);
   if (layers.length) $('layers-box').open = true;
   renderLayers();
   updateFacing();
