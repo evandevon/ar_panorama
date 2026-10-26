@@ -163,6 +163,10 @@
   }
   // Settings that need the player rebuilt when they change (moving, resizing and relabelling don't)
   const rebuildKey = d => [d.src, kindOf(d), d.play, !!d.hidden, !!d.loop, !!d.dwell, !!d.stacked, !!d.alpha, !!d.noMask, !!d.vanish, !!d.float, kindOf(d) === 'link' ? d.label : ''].join('|');
+  // Flat spots in the room are drawn as real flat cards facing the viewer, in the same perspective as the photo, so they
+  // stay on the same spot of the photo (and its masks) wherever they are on the screen. Width w degrees = a card whose
+  // half-width is tan = (w/2)/FLAT_K: exactly w·(pixels per degree) wide when looked at straight on, on a phone (75°).
+  const FLAT_K = 75 / (2 * Math.tan(75 / 2 * Math.PI / 180));
   const MODEL_DIST = 8;            // 3D models sit this far from the viewer (the 360 photo is much further away)
   const BEHIND_DIST = 60;          // …or this far, when they're behind the front layer (a cut-out copy of the photo, nearer than this)
   const distOf = s => s.behind ? BEHIND_DIST : MODEL_DIST;
@@ -1236,6 +1240,7 @@
     }
 
     // ---------------------------------------------------------- pinned corners
+    const _r = new THREE.Vector3(), _u = new THREE.Vector3(), _cd = new THREE.Vector3();
     const PIN_W = 400;                 // pinned spots are laid out at this width, then warped onto their corners
     const wrap180 = a => ((a % 360) + 540) % 360 - 180;
 
@@ -1475,15 +1480,39 @@
           return;
         }
         s.quad = null;
-        if (s.frame && s.frame.style.transform) s.frame.style.transform = '';
+        const card = s.frame && !s.float && !s.yt && !s.drivePlayer && !s.isModel && !s.isStacked;   // a flat card in the room
+        s.el.classList.toggle('card3d', !!card);
+        if (!card && s.frame && s.frame.style.transform) s.frame.style.transform = '';
         if (s.frame) {
           const fw = Math.round(frameWidth(s));
           if (fw !== s.lastW) {
             s.frame.style.width = fw + 'px';
             s.lastW = fw;
+            s.cardH = 0;
             if (s.isText) s.frame.style.fontSize = Math.max(9, Math.min(40, fw * 0.075)).toFixed(1) + 'px';
             if (s.isLink || s.isDoc) s.frame.style.fontSize = Math.max(9, Math.min(36, fw * (s.isDoc ? 0.075 : 0.09))).toFixed(1) + 'px';
             if (s.driveFrame) s.driveFrame.style.transform = 'scale(' + (fw / s.driveSize[0]).toFixed(4) + ')';
+          }
+          if (card) {
+            // its four corners, on a flat card facing the viewer (kept level), projected like the photo
+            // (measured only when its width or shape changes: measuring every frame would slow phones down)
+            if (!s.cardH || s.cardAspect !== s.aspect || s.cardText !== s.frame.textContent.length) {
+              s.cardH = s.frame.offsetHeight; s.cardAspect = s.aspect; s.cardText = s.frame.textContent.length;
+            }
+            const fh = s.cardH || fw / (s.aspect || 1.78);
+            const hw = (fw / ppd / 2) / FLAT_K, hh = hw * fh / fw;
+            _r.set(-s.dir.z, 0, s.dir.x);
+            if (_r.lengthSq() < 1e-8) _r.set(1, 0, 0); else _r.normalize();
+            _u.crossVectors(_r, s.dir);
+            const q = [];
+            for (const [a, b] of [[-1, 1], [1, 1], [1, -1], [-1, -1]]) {
+              const cd = _cd.copy(s.dir).addScaledVector(_r, a * hw).addScaledVector(_u, b * hh).normalize();
+              if (fwd.dot(cd) < 0.12) { s.el.style.visibility = 'hidden'; return; }
+              tmp.copy(cd).multiplyScalar(50).project(camera);
+              q.push([(tmp.x + 1) / 2 * w, (1 - tmp.y) / 2 * h]);
+            }
+            s.quad = q;
+            s.frame.style.transform = quadMatrix(fw, fh, q.map(([px, py]) => [px - x, py - y]));
           }
           if (s.isModel || s.isStacked) {
             s.frame.style.height = Math.round(s.boxH || 40) + 'px';

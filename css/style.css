@@ -523,3 +523,7 @@ body:has(#mode-toggle:not([hidden])) .cmp-name { top: calc(max(10px, env(safe-ar
 .spots-layer.editing .spot.flash .spot-edit, .spots-layer.editing .spot.flash .spot-dot { animation: spot-flash .8s ease-out 2; }
 @keyframes spot-flash { 0% { box-shadow: 0 0 0 0 rgba(111,199,184,.95); } 100% { box-shadow: 0 0 0 18px rgba(111,199,184,0); } }
 @media (prefers-reduced-motion: reduce) { .spots-layer.editing .spot.flash .spot-edit, .spots-layer.editing .spot.flash .spot-dot { animation: none; } }
+
+/* Flat spots in the room are warped onto their four projected corners (spots.js "card"), like pinned ones */
+.spot.card3d .spot-frame { transform-origin: 0 0; }
+.spot.card3d.appear > .spot-frame, .spot.card3d.dwell.revealed > .spot-frame { animation-name: spot-fade; }
