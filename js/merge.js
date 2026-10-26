@@ -445,7 +445,8 @@
         step++;
       }
       if (engine) engine.set([]);
-      for (const group of [page.filter(behind), page.filter(it => !behind(it))]) {
+      const byZ = (a, b) => (a.d.z || 0) - (b.d.z || 0);              // layer order: lower first, so higher paints over it
+      for (const group of [page.filter(behind).sort(byZ), page.filter(it => !behind(it)).sort(byZ)]) {
         for (const it of group) {
           progress(0.1 + 0.8 * step / steps, 'Painting in ' + nameOf(it) + '…');
           await new Promise(r => setTimeout(r, 30));

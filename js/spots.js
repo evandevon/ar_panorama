@@ -119,7 +119,8 @@
     const rot = Array.isArray(s.rot) && s.rot.some(n => Math.round(n)) ? s.rot.map(n => Math.round(n)).join(',') : '';
     const delay = s.delay > 0 ? +(+s.delay).toFixed(1) : '';
     const plan = validPlan(s.plan) && kind === 'image' ? s.plan.map(n => Math.round(n)).join(',') : '';
-    return [escField(src), Math.round(s.yaw), Math.round(s.pitch), flags, escField(label), w, pin, rot, delay, plan].join('~').replace(/~+$/, '');
+    const z = clampZ(s.z) || '';                               // layer order among overlapping things (0 = as placed)
+    return [escField(src), Math.round(s.yaw), Math.round(s.pitch), flags, escField(label), w, pin, rot, delay, plan, z].join('~').replace(/~+$/, '');
   }
   function decodeSpot(str) {
     str = String(str || '');
@@ -149,10 +150,13 @@
       float: flags.includes('g'),      // floats on the screen: yaw / pitch are then 0–100 across / down it, w is % of its shorter side
       delay: Math.max(0, Math.min(3600, Number(parts[8]) || 0)),   // seconds after the viewer starts before it appears
       plan: (() => { const n = String(parts[9] || '').split(',').map(Number); return validPlan(n) ? n : null; })(),   // floor plan: you-are-here x, y (%), turn (°)
-      rot: (() => { const r = String(parts[7] || '').split(',').map(Number); return r.length === 3 && r.every(Number.isFinite) ? r : [0, 0, 0]; })()
+      rot: (() => { const r = String(parts[7] || '').split(',').map(Number); return r.length === 3 && r.every(Number.isFinite) ? r : [0, 0, 0]; })(),
+      z: old ? 0 : clampZ(parts[10])   // layer order: + in front of overlapping things, − behind them
     };
   }
   const validPlan = p => Array.isArray(p) && p.length === 3 && p.every(Number.isFinite);
+  const Z_MAX = 3;
+  const clampZ = v => { const n = Math.round(Number(v) || 0); return Math.max(-Z_MAX, Math.min(Z_MAX, n)); };
   function validPin(p) {
     return Array.isArray(p) && p.length === 4 && p.every(c => Array.isArray(c) && c.length === 2 && c.every(Number.isFinite));
   }
@@ -169,7 +173,8 @@
   const FLAT_K = 75 / (2 * Math.tan(75 / 2 * Math.PI / 180));
   const MODEL_DIST = 8;            // 3D models sit this far from the viewer (the 360 photo is much further away)
   const BEHIND_DIST = 60;          // …or this far, when they're behind the front layer (a cut-out copy of the photo, nearer than this)
-  const distOf = s => s.behind ? BEHIND_DIST : MODEL_DIST;
+  const baseDist = s => s.behind ? BEHIND_DIST : MODEL_DIST;
+  const distOf = s => (!s.float && s.zDist) || baseDist(s);
 
   function el(tag, cls, html) {
     const e = document.createElement(tag);
@@ -214,7 +219,8 @@
           old.used = true;
           Object.assign(old, { yaw: d.yaw, pitch: d.pitch, w: d.w || DEFAULT_W, label: d.label, dir: dirFrom(d.yaw, d.pitch),
             pin: validPin(d.pin) ? d.pin.map(c => c.slice()) : null, lastW: null,
-            rot: Array.isArray(d.rot) ? d.rot.slice() : [0, 0, 0], spin: !!d.spin, delay: d.delay || 0 });
+            rot: Array.isArray(d.rot) ? d.rot.slice() : [0, 0, 0], spin: !!d.spin, delay: d.delay || 0, z: clampZ(d.z) });
+          applyZ(old);
           if (old.isModel && !!d.flat !== !!old.flat) { old.flat = !!d.flat; applyLook(old); }
           if (old.isImage) setPlan(old, d.plan);
           if (old.labelEl) { old.labelEl.textContent = labelText(old); old.labelEl.hidden = !labelText(old); }
@@ -290,6 +296,7 @@
       else if (visible) buildMarker(s);
       if (s.dwell && s.el) addDwell(s);
       if (s.float && s.el) s.el.classList.add('floating');
+      s.z = clampZ(def.z); applyZ(s);
 
       if (s.isStill) return s;
       if (!s.mediaHost) {                                       // sound only / hidden: the player lives off screen
@@ -1290,13 +1297,13 @@
     }
     function reportEdit(s) {
       if (s.float) {                         // floating: across / down the screen (0–100), and size as % of it
-        opts.onEdit(s.index, { yaw: Math.round(s.yaw), pitch: Math.round(s.pitch), w: Math.round(s.w), pin: null,
+        opts.onEdit(s.index, { yaw: Math.round(s.yaw), pitch: Math.round(s.pitch), w: Math.round(s.w), pin: null, z: s.z || 0,
           rot: s.isModel ? s.rot.map(n => Math.round(n)) : undefined });
         return;
       }
       const a = anglesFrom(s.dir);
       s.yaw = a.yaw; s.pitch = a.pitch;
-      opts.onEdit(s.index, { yaw: Math.round(a.yaw), pitch: Math.round(a.pitch), w: Math.round(s.w),
+      opts.onEdit(s.index, { yaw: Math.round(a.yaw), pitch: Math.round(a.pitch), w: Math.round(s.w), z: s.z || 0,
         pin: s.pin ? s.pin.map(c => c.map(n => Math.round(n))) : null,
         rot: s.isModel ? s.rot.map(n => Math.round(n)) : undefined });
     }
@@ -1357,6 +1364,8 @@
     function update() {
       const camera = opts.sceneEl.camera;
       if (!camera || !spots.length) return;
+      orderDepths();
+      if (opts.editable && ++orderTick % 8 === 0) showOrder();
       camera.getWorldDirection(fwd);
       const canvas = opts.sceneEl.canvas;
       const w = canvas.clientWidth, h = canvas.clientHeight;
@@ -1754,6 +1763,15 @@
       s.frame.appendChild(edit);
       s.testBtn = test;
       s.edit = edit;
+      // in front / behind (shown only while it overlaps something it can be ordered against)
+      const order = el('span', 'spot-order');
+      order.hidden = true;
+      order.innerHTML = '<button type="button" data-z="1" title="Bring in front of what it overlaps" aria-label="Bring in front">▲</button>' +
+        '<button type="button" data-z="-1" title="Send behind what it overlaps" aria-label="Send behind">▼</button>';
+      order.addEventListener('pointerdown', e => e.stopPropagation());
+      order.addEventListener('click', e => { const b = e.target.closest('button'); if (b) { e.stopPropagation(); moveZ(s, +b.dataset.z); } });
+      edit.appendChild(order);
+      s.orderEl = order;
 
       edit.addEventListener('pointerdown', e => {
         e.stopPropagation(); e.preventDefault();
@@ -1883,6 +1901,73 @@
     }
 
     // flash: briefly pulse its outline (chosen from the list, so the author can see which one it is)
+    // ---------------------------------------------------------- layer order (what's in front where things overlap)
+    // Each spot has z (−3…3, 0 = as placed). Pictures, text, links, documents and ordinary videos are page elements,
+    // stacked by z-index. 3D models and see-through videos are in the 3D scene, where nearer hides further, so their
+    // distance from the viewer is set instead: a spot with a higher z is moved just in front of every overlapping 3D
+    // thing with a lower z (keeping how big it looks, as its size grows with its distance), and a lower z just behind.
+    // (Page elements always sit in front of the 3D scene: those two can't be reordered.)
+    const is3D = s => s.isModel || s.isStacked;
+    function applyZ(s) { if (s.el) s.el.style.zIndex = String(10 + (s.z || 0)); }
+    // how far it reaches towards or away from the viewer, as a share of its distance (its bounding sphere)
+    function depthShare(s) {
+      if (s.isStacked) return 0.02;
+      if (!s.localBox || !s.maxDim) return 0.5;
+      const half = s.localBox.getSize(new THREE.Vector3()).length() / 2;
+      return Math.min(0.9, 2 * Math.tan(s.w * Math.PI / 360) * half / s.maxDim);
+    }
+    // how far from its centre it reaches across the view, in degrees
+    const reachDeg = s => is3D(s) && s.isModel ? Math.atan(depthShare(s)) * 180 / Math.PI + 2 : (s.w / 2) * Math.max(1, 1 / (s.vAspect || s.aspect || 1)) + 2;
+    const overlap3D = (a, b) => a.dir.angleTo(b.dir) * 180 / Math.PI < reachDeg(a) + reachDeg(b);
+    function orderDepths() {
+      const list = spots.filter(s => is3D(s) && !s.float);
+      list.forEach(s => { s.zDist = 0; });
+      if (!list.some(s => s.z)) return;
+      const band = s => s.behind ? [22, 95] : [1.5, 18];        // stay on the right side of the masks' cut-out photo (radius 20)
+      const D = s => s.zDist || baseDist(s);
+      list.filter(s => s.z > 0).sort((a, b) => a.z - b.z).forEach(a => {
+        let d = baseDist(a);
+        list.forEach(b => { if (b !== a && b.z < a.z && overlap3D(a, b)) d = Math.min(d, D(b) * (1 - depthShare(b)) * 0.97 / (1 + depthShare(a))); });
+        a.zDist = Math.max(band(a)[0], Math.min(band(a)[1], d));
+      });
+      list.filter(s => s.z < 0).sort((a, b) => b.z - a.z).forEach(a => {
+        let d = baseDist(a);
+        list.forEach(b => { if (b !== a && b.z > a.z && overlap3D(a, b)) d = Math.max(d, D(b) * (1 + depthShare(b)) * 1.03 / Math.max(0.1, 1 - depthShare(a))); });
+        a.zDist = Math.max(band(a)[0], Math.min(band(a)[1], d));
+      });
+    }
+    // The author's preview: up / down buttons on the chosen spot when it overlaps something it can be ordered against
+    function overlapsOf(s) {
+      if (!s || !s.el || !s.frame || s.float) return [];
+      const r = s.frame.getBoundingClientRect();
+      if (!r.width) return [];
+      return spots.filter(o => {
+        if (o === s || !o.frame || o.float || is3D(o) !== is3D(s) || o.el.style.visibility !== 'visible') return false;
+        const q = o.frame.getBoundingClientRect();
+        const w = Math.min(r.right, q.right) - Math.max(r.left, q.left), h = Math.min(r.bottom, q.bottom) - Math.max(r.top, q.top);
+        return w > 4 && h > 4 && w * h > 0.04 * Math.min(r.width * r.height, q.width * q.height);
+      });
+    }
+    let orderTick = 0;
+    function showOrder() {
+      spots.forEach(o => { if (o.orderEl) o.orderEl.hidden = true; });
+      const s = spots.find(o => o.index === selected);
+      if (!s || !s.orderEl || s.dragging) return;
+      const over = overlapsOf(s);
+      if (!over.length) return;
+      s.orderEl.hidden = false;
+      const top = over.every(o => (o.z || 0) < (s.z || 0)) || (s.z || 0) >= Z_MAX, bottom = over.every(o => (o.z || 0) > (s.z || 0)) || (s.z || 0) <= -Z_MAX;
+      s.orderEl.querySelector('[data-z="1"]').disabled = top;
+      s.orderEl.querySelector('[data-z="-1"]').disabled = bottom;
+    }
+    function moveZ(s, dir) {
+      const over = overlapsOf(s), zs = over.map(o => o.z || 0);
+      if (!zs.length) return;
+      s.z = clampZ(dir > 0 ? Math.max(...zs) + 1 : Math.min(...zs) - 1);
+      applyZ(s); orderDepths(); showOrder();
+      reportEdit(s);
+    }
+
     // ---------------------------------------------------------- stats (viewer.js, &stats=1)
     const debugHide = {};
     function setDebugHide(kind, on) { debugHide[kind] = !!on; }

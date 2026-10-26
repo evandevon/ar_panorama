@@ -177,6 +177,13 @@ a-scene { position: fixed !important; inset: 0; width: 100% !important; height: 
   background: rgba(22,19,18,.85); color: var(--chalk); font: 600 .8rem var(--sans); cursor: pointer;
 }
 .spots-layer.editing .spot-marker { cursor: move; touch-action: none; }
+.spot-order { position: absolute; left: 100%; top: 50%; transform: translate(10px, -50%); display: flex; flex-direction: column; gap: 6px; z-index: 3; }
+.spot-order[hidden] { display: none; }
+.spot-order button { width: 36px; height: 36px; padding: 0; border: 2px solid var(--select); border-radius: 8px; background: var(--slate); color: var(--chalk);
+  font: 700 1rem/1 var(--sans); cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.45); }
+.spot-order button:hover:not(:disabled) { background: var(--slate-2); }
+.spot-order button:focus-visible { outline: 3px solid var(--chalk); outline-offset: 2px; }
+.spot-order button:disabled { opacity: .4; cursor: default; }
 .spot.selected .spot-dot { border-color: var(--select); box-shadow: 0 0 0 4px rgba(111,199,184,.5); }
 
 /* Sound-only and hidden spots: the player still exists, just off screen */
@@ -516,7 +523,6 @@ body:has(#mode-toggle:not([hidden])) .cmp-name { top: calc(max(10px, env(safe-ar
   font-variant-numeric: tabular-nums; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,.4); }
 
 /* ---------- Author's preview: which spot is which, where they overlap ---------- */
-.spots-layer.editing .spot.selected { z-index: 3; }                          /* the chosen one sits on top */
 .spots-layer.editing .spot.hover:not(.selected) .spot-edit { border-style: solid; border-color: var(--chalk); box-shadow: 0 0 0 3px rgba(243,237,233,.35); }
 .spots-layer.editing .spot.hover .spot-dot { box-shadow: 0 0 0 5px rgba(243,237,233,.45); }
 .spots-layer.editing .spot.hover.selected .spot-edit { box-shadow: 0 0 0 4px rgba(111,199,184,.55); }

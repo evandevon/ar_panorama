@@ -178,6 +178,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 .sc-more { margin-top: 6px; }
 .sc-more > summary { cursor: pointer; min-height: 36px; display: inline-flex; align-items: center; gap: 6px; color: var(--brass-dark); font-weight: 600; font-size: .9rem; }
 .sc-more-n { font-weight: 400; color: var(--ink-soft); }
+.sp-z-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; margin-top: 8px; font-size: .9rem; }
+.sp-z-row[hidden] { display: none; }
 .sc-more > .check:first-of-type { margin-top: 4px; }
 
 /* ---------------------------------------------------------------- share */

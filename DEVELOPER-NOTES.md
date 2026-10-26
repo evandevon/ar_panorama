@@ -50,7 +50,8 @@ A-Frame 1.8.0 (THREE is `AFRAME.THREE`), qrcode.js, PDF.js, gifenc (ESM, lazy-im
 
 ## Link format essentials (full table in README)
 
-- One `s=` per spot: `link~yaw~pitch~flags~label~width°~corners~turn`.
+- One `s=` per spot: `link~yaw~pitch~flags~label~width°~corners~turn~delay~plan~z`.
+  - z (field 10, added 27 Oct): layer order −3…3. Page spots → CSS z-index 10+z. 3D spots (models, stacked videos) → `orderDepths()` in spots.js moves overlapping ones to distances (s.zDist) so higher z is nearer; bands 1.5–18 unmasked, 22–95 masked (stays inside/outside the FRONT_R 20 cut-out sphere). ▲/▼ (`.spot-order`) show on the chosen spot only while it overlaps one of the same group (`overlapsOf`). merge.js paints page spots in z order. The editing "chosen spot on top" CSS rule was removed, since it would hide the real order; pressOverlap still lets the chosen one be dragged where covered.
   - Flags: l s h r d o f x w u e (+ kind letters a v i k m p; b is legacy and ignored).
   - Never change what an existing letter means: printed QR codes depend on it.
 - `f=` per mask; `p t y al mb v=2` for the rest.
@@ -86,7 +87,7 @@ The keying runs in a WebGL fragment shader (`FRAG` in videomaker.js):
 - **Teacher-facing words:** plain English, no jargon. Say "see-through" not "alpha" and "stencil" not "matte". Australian spelling: colour, centre.
 - **Accessibility:** labels on everything, keyboard paths, focus styles, and the WCAG AA contrast ratios we checked. The timeline trim dots are role=slider. axe-core showed no violations on all pages; keep it that way.
 - **Privacy:** nothing is uploaded and nothing stored except in the link. Never put student media in the repo or deliverables.
-- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261027a**.
+- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261027b**.
 - **Dragging the view:** `bindDrag` (viewer.js) calls preventDefault on mouse pointerdown, clears any text selection, and blocks `dragstart`. Without this, a drag on the dimmed area round the phone frame selected spot labels, and a later press on that selection started a browser text-drag that cancelled the look-around drag after a moment.
 - **Colours: "Ember and slate" (dark).** Use the tokens, never raw hex:
 

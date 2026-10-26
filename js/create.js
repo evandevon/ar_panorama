@@ -311,6 +311,7 @@
       if (!sp) return;
       sp.yaw = m.yaw; sp.pitch = m.pitch; sp.w = m.w;
       if ('pin' in m) sp.pin = m.pin;
+      if ('z' in m) { sp.z = m.z; const li = $('spot-list').children[m.index]; if (li) syncCard(li, sp, m.index); }
       if (Array.isArray(m.rot)) sp.rot = m.rot;
       const box = $('spot-list').children[m.index] && $('spot-list').children[m.index].querySelector('.sp-pin');
       if (box) box.checked = !!sp.pin;
@@ -595,6 +596,10 @@
             '<label class="check sp-pin-row"><input type="checkbox" class="sp-pin"><span>Pin corners <span class="help-inline">— drag each corner onto the matching point in the photo, e.g. a picture frame or window</span></span></label>' +
             '<label class="check sp-vanish-row"><input type="checkbox" class="sp-vanish"><span>Disappear when it ends <span class="help-inline">— instead of staying on its last frame</span></span></label>' +
             '<label class="check sp-mask-row" hidden><input type="checkbox" class="sp-mask"><span>Hidden by masks <span class="help-inline">— untick to keep it in front of every mask</span></span></label>' +
+            '<div class="sp-z-row" role="group" aria-label="Layer order where it overlaps other things">' +
+              '<span>Where it overlaps: <b class="sp-z-out"></b></span>' +
+              '<span class="sp-place-btns"><button type="button" class="btn small ghost sp-z" data-z="-1">▼ Further back</button>' +
+              '<button type="button" class="btn small ghost sp-z" data-z="1">▲ Further forward</button></span></div>' +
           '</details>' +
         '</div>' +
         '<div class="sp-floatpos" role="group" aria-label="Where it sits on the screen" hidden>' +
@@ -783,6 +788,10 @@
     q('.sp-show').addEventListener('click', () => post({ type: 'lookAt', yaw: sp.yaw, pitch: sp.pitch }));
     q('.sp-remove').addEventListener('click', () => removeSpot(i));
     q('.sc-more').addEventListener('change', () => syncCard(li, sp, i));     // keeps "(n on)" up to date
+    li.querySelectorAll('.sp-z').forEach(b => b.addEventListener('click', () => {
+      sp.z = Math.max(-3, Math.min(3, (sp.z || 0) + (+b.dataset.z)));
+      syncCard(li, sp, i); updateSummary(li, sp); spotsChanged(true);
+    }));
 
     syncCard(li, sp, i);
     if (i === openIndex) {
@@ -839,6 +848,7 @@
       if (sp.plan && kind === 'image') bits.push('floor plan');
       if (sp.delay > 0 && !sp.dwell) bits.push('appears after ' + sp.delay + ' s');
       if (sp.pin && !sp.float) bits.push('pinned');
+      if (sp.z && !sp.float) bits.push(sp.z > 0 ? 'in front' : 'behind');
       if (layers.length && isMaskable(sp) && !sp.float) bits.push(sp.noMask ? 'in front of masks' : 'hidden by masks');
     }
     bits.push(sp.float ? 'floats ' + (floatPlace(sp.yaw, sp.pitch) === 'middle' ? 'in the middle' : floatPlace(sp.yaw, sp.pitch)) + ' of the screen' : describePlace(sp.yaw, sp.pitch));
@@ -966,8 +976,14 @@
     // More options: hidden if none apply; says how many are switched on (and opens if any are, so nothing's hidden away)
     const main = [...li.querySelectorAll('.sc-checks > .check')], more = [...li.querySelectorAll('.sc-more > .check')];
     const moreBox = q('.sc-more');
-    moreBox.hidden = more.every(c => c.hidden);
-    const on = more.filter(c => !c.hidden && (c.classList.contains('sp-mask-row') ? !c.querySelector('input').checked : c.querySelector('input').checked)).length;
+    moreBox.hidden = more.every(c => c.hidden) && q('.sp-z-row').hidden;
+    // layer order: for anything that sits in the room (not floating), saying where it is in the stack
+    const zRow = q('.sp-z-row'), z = sp.z || 0;
+    zRow.hidden = !sp.src.trim() || !!sp.float || (sp.hidden && !sp.stacked) || kind === 'audio';
+    q('.sp-z-out').textContent = z > 0 ? 'in front' + (z > 1 ? ' (' + z + ' steps)' : '') : z < 0 ? 'behind' + (z < -1 ? ' (' + -z + ' steps)' : '') : 'as placed';
+    li.querySelector('.sp-z[data-z="-1"]').disabled = z <= -3;
+    li.querySelector('.sp-z[data-z="1"]').disabled = z >= 3;
+    const on = more.filter(c => !c.hidden && (c.classList.contains('sp-mask-row') ? !c.querySelector('input').checked : c.querySelector('input').checked)).length + (!zRow.hidden && z ? 1 : 0);
     q('.sc-more-n').textContent = on ? '(' + on + ' on)' : '';
     if (on && !moreBox.dataset.seen) moreBox.open = true;
     moreBox.dataset.seen = '1';
