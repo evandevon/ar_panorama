@@ -63,7 +63,7 @@ body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 va
 /* ---------------------------------------------------------------- fields */
 label { display: block; font-weight: 600; font-size: .92rem; margin: 0 0 6px; }
 label .opt { font-weight: 400; }
-input[type=url], input[type=text], select, textarea {
+input[type=url], input[type=text], input[type=number], select, textarea {
   width: 100%; min-height: var(--control); padding: 10px 12px; font: inherit; font-size: .95rem;
   border: 1px solid var(--line-strong); border-radius: 6px; background: var(--field); color: var(--ink);
 }
@@ -356,6 +356,15 @@ textarea + .field-err { top: 8px; transform: none; }
 .dt-howto code, .dt-msg code { font-size: .85em; }
 @media (min-width: 900px) { .masthead .wrap, .foot { max-width: 760px; } }
 
+  /* ---------------------------------------------------------------- the repeat test */
+  .dt-warnbox { margin: 10px 0 0; padding: 10px 12px; border-left: 4px solid var(--note); background: var(--warn-bg); border-radius: 0 6px 6px 0; font-size: .88rem; line-height: 1.45; }
+  .dt-reprow { display: grid; gap: 0 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .dt-repsum { margin: 12px 0 0; font-size: .92rem; line-height: 1.5; }
+  .dt-repsum:empty { display: none; }
+  .dt-strip { display: block; width: 100%; height: 18px; margin-top: 8px; border-radius: 4px; background: var(--field); }
+  .dt-replog { margin: 8px 0 0; padding-left: 1.2em; font-size: .85rem; color: var(--ink-soft); }
+  .dt-replog li { margin: 3px 0; }
+  .dt-replog b { color: var(--ink); }
   </style>
 </head>
 <body>
@@ -410,8 +419,26 @@ textarea + .field-err { top: 8px; transform: none; }
     </div>
   </section>
 
+  <section class="panel" aria-labelledby="h-rep">
+    <h2 id="h-rep"><span class="num" aria-hidden="true">3</span> Repeat test: download it many times <span class="opt">optional</span></h2>
+    <p class="help flush">Downloads the file from step 1 again and again with your key, as lots of viewers opening a tour would, to see whether (and when) Google starts refusing it. Every download is fresh: nothing is reused from the browser.</p>
+    <p class="dt-warnbox"><b>Use a copy of the file, not one your tours use.</b> If Google's limit is reached, that file stops downloading for everyone for up to a day. In Drive: right-click the file → <b>Make a copy</b>, share the copy as <b>Anyone with the link</b>, and paste the copy's link in step 1. It also uses data: the file's size × the number of downloads.</p>
+    <div class="dt-reprow">
+      <div><label for="dt-n">How many downloads</label><input id="dt-n" type="number" min="1" max="5000" step="1" value="100"></div>
+      <div><label for="dt-par">At the same time</label><select id="dt-par"><option value="1">1 (one after another)</option><option value="2">2</option><option value="4" selected>4</option><option value="8">8 (a class all at once)</option></select></div>
+      <div><label for="dt-gap">Pause between (seconds)</label><input id="dt-gap" type="number" min="0" max="600" step="0.5" value="0"></div>
+    </div>
+    <label class="check"><input type="checkbox" id="dt-stopfirst" checked> Stop at the first refusal <span class="help-inline">(so the file isn't hammered once Google has said no)</span></label>
+    <button type="button" class="btn" id="dt-rep-run">Start the repeat test</button>
+    <button type="button" class="btn ghost" id="dt-rep-stop" hidden>Stop</button>
+    <p class="dt-repsum" id="dt-rep-sum" role="status" aria-live="polite"></p>
+    <canvas class="dt-strip" id="dt-strip" width="600" height="18" hidden role="img" aria-label="Each download: green worked, red refused"></canvas>
+    <ul class="dt-replog" id="dt-rep-log"></ul>
+    <button type="button" class="btn small ghost" id="dt-rep-copy" hidden>Copy the results</button>
+  </section>
+
   <section class="panel" aria-labelledby="h-how">
-    <h2 id="h-how"><span class="num" aria-hidden="true">3</span> How to make and lock an API key</h2>
+    <h2 id="h-how"><span class="num" aria-hidden="true">4</span> How to make and lock an API key</h2>
     <p class="help flush">It's free and takes about five minutes. You only do it once. Use a Google account you look after (a personal one is fine).</p>
     <ol class="dt-howto">
       <li>Go to <b>console.cloud.google.com</b> and sign in. Make a new project (top bar → project list → <b>New project</b>), and call it something like “360 tours”. Use this project only for the tours.</li>
@@ -440,7 +467,8 @@ textarea + .field-err { top: 8px; transform: none; }
  *   Google Drive API with a website-locked API key, downloaded whole, played from the downloaded copy (a blob: URL,
  *   which counts as this site's own), and have its pictures read (needed for see-through videos in tours).
  * Stand-alone: this one file holds the page, its styles and this script. Upload it anywhere on the website and open it there.
- * Sections (search for "// ---- <name>"): the page · reading the link · Google's answers · the test · the preview
+ * Sections (search for "// ---- <name>"): the page · reading the link · Google's answers · the test · the preview ·
+ *   the repeat test (downloads the file n times, some at once, to find Google's per-file download limit)
  * Gotchas: a key locked to "Websites" only works when the browser sends this page's address (Referer), so the page
  *   must be opened from the website itself (not a file on the computer). A resource key (older shared links) is sent
  *   as the X-Goog-Drive-Resource-Keys header.
@@ -642,6 +670,103 @@ textarea + .field-err { top: 8px; transform: none; }
       raf = requestAnimationFrame(frame);
     };
     frame();
+  }
+
+  // ---------------------------------------------------------------- the repeat test
+  // Like many viewers opening a tour: download the whole file n times (cache: no-store, so each one really goes to
+  // Google), a few at a time, and record what Google says each time. A refusal the browser hides (a TypeError: the
+  // answer had no CORS headers) is told apart by asking for the file's details, which don't count as a download.
+  let rep = null;
+  $('dt-rep-run').addEventListener('click', repeatTest);
+  $('dt-rep-stop').addEventListener('click', () => { if (rep) rep.stop = true; });
+  $('dt-rep-copy').addEventListener('click', () => {
+    navigator.clipboard.writeText(rep && rep.report || '').then(() => { $('dt-rep-copy').textContent = 'Copied ✓'; setTimeout(() => { $('dt-rep-copy').textContent = 'Copy the results'; }, 1500); }).catch(() => {});
+  });
+  async function oneDownload(id, key, headers) {
+    const t0 = performance.now();
+    try {
+      const r = await fetch(API + encodeURIComponent(id) + '?alt=media&supportsAllDrives=true&key=' + encodeURIComponent(key), { headers, cache: 'no-store' });
+      if (!r.ok) {
+        const body = await readError(r), e = body && body.error || {};
+        const reason = (e.errors && e.errors[0] && e.errors[0].reason) || (e.details && e.details[0] && e.details[0].reason) || e.status || '';
+        return { ok: false, ms: performance.now() - t0, status: r.status, reason: reason || 'error ' + r.status, why: explain(r.status, body) };
+      }
+      const b = await r.blob();
+      if (/^text\/html/.test(b.type)) return { ok: false, ms: performance.now() - t0, status: r.status, reason: 'sent a web page', why: 'Google sent back a web page instead of the file.' };
+      return { ok: true, ms: performance.now() - t0, bytes: b.size };
+    } catch (err) {
+      // the browser hid Google's answer: ask about the file (not a download) to see whether Google still knows it
+      let meta = false;
+      try { const m = await fetch(API + encodeURIComponent(id) + '?fields=id&supportsAllDrives=true&key=' + encodeURIComponent(key), { headers, cache: 'no-store' }); meta = m.ok; } catch (e) {}
+      return { ok: false, ms: performance.now() - t0, status: 0, reason: meta ? 'hidden refusal (details OK)' : 'unreachable',
+        why: meta ? 'Google still answers about the file, but wouldn’t send the file itself: the sign of a per-file download limit.' : 'Couldn’t reach Google at all (the network, a blocker, or the key).' };
+    }
+  }
+  function drawStrip(results, n) {
+    const c = $('dt-strip'), x = c.getContext('2d'), W = c.width = Math.max(300, Math.round(c.clientWidth * (devicePixelRatio || 1)) || 600), H = c.height;
+    x.clearRect(0, 0, W, H);
+    const w = W / n;
+    results.forEach((r, i) => { if (!r) return; x.fillStyle = r.ok ? '#86d6a0' : '#ff8c8c'; x.fillRect(Math.floor(i * w), 0, Math.max(1, Math.ceil(w) - (w > 4 ? 1 : 0)), H); });
+  }
+  async function repeatTest() {
+    if (rep && rep.running) return;
+    const link = readLink($('dt-link').value), key = $('dt-key').value.trim();
+    const sum = $('dt-rep-sum');
+    if (!link) { sum.textContent = 'Paste a Google Drive file link in step 1 first.'; return; }
+    if (!key) { sum.textContent = 'Paste your API key in step 1 first.'; return; }
+    if (!origin) { sum.textContent = 'Open this page from your website (not from a file on this computer): a locked key only works there.'; return; }
+    const n = Math.max(1, Math.min(5000, Math.round(Number($('dt-n').value) || 1)));
+    const par = Number($('dt-par').value) || 1, gap = Math.max(0, Number($('dt-gap').value) || 0) * 1000, stopFirst = $('dt-stopfirst').checked;
+    const headers = link.rk ? { 'X-Goog-Drive-Resource-Keys': link.id + '/' + link.rk } : {};
+    rep = { running: true, stop: false, results: new Array(n), started: Date.now(), report: '' };
+    $('dt-rep-run').disabled = true; $('dt-rep-stop').hidden = false; $('dt-strip').hidden = false; $('dt-rep-copy').hidden = true;
+    $('dt-rep-log').innerHTML = '';
+    let next = 0, done = 0, okN = 0, bytes = 0, firstFail = -1;
+    const reasons = {}, t0 = performance.now();
+    const show = () => {
+      const secs = (performance.now() - t0) / 1000, fails = done - okN;
+      const avg = okN ? rep.results.filter(r => r && r.ok).reduce((t, r) => t + r.ms, 0) / okN : 0;
+      sum.innerHTML = '<b>' + done + ' of ' + n + '</b> done in ' + secs.toFixed(0) + ' s · <b style="color:var(--ok)">' + okN + ' worked</b>' +
+        (fails ? ' · <b style="color:var(--danger)">' + fails + ' refused</b> (the first was download ' + (firstFail + 1) + ')' : '') +
+        ' · ' + mb(bytes) + ' downloaded' + (okN ? ' · ' + (avg / 1000).toFixed(1) + ' s each on average' : '');
+      drawStrip(rep.results, n);
+    };
+    const worker = async () => {
+      while (!rep.stop) {
+        const i = next++;
+        if (i >= n) return;
+        const r = await oneDownload(link.id, key, headers);
+        rep.results[i] = r; done++;
+        if (r.ok) { okN++; bytes += r.bytes; }
+        else {
+          if (firstFail < 0 || i < firstFail) firstFail = i;
+          if (!reasons[r.reason]) {
+            reasons[r.reason] = 0;
+            const li = document.createElement('li');
+            li.innerHTML = '<b>Download ' + (i + 1) + ':</b> ' + esc(r.reason) + (r.status ? ' (' + r.status + ')' : '') + '. ' + r.why;
+            $('dt-rep-log').appendChild(li);
+          }
+          reasons[r.reason]++;
+          if (stopFirst) rep.stop = true;
+        }
+        show();
+        if (gap) await new Promise(res => setTimeout(res, gap));
+      }
+    };
+    show();
+    await Promise.all(Array.from({ length: par }, worker));
+    rep.running = false;
+    $('dt-rep-run').disabled = false; $('dt-rep-stop').hidden = true; $('dt-rep-copy').hidden = false;
+    show();
+    const fails = done - okN;
+    const verdict = !fails ? 'All ' + done + ' downloads worked: Google didn’t refuse this file at that rate.' :
+      'Google started refusing after ' + firstFail + ' successful download' + (firstFail === 1 ? '' : 's') + '.';
+    const li = document.createElement('li'); li.innerHTML = '<b>' + verdict + '</b>' + (rep.stop && done < n ? ' (stopped early)' : '');
+    $('dt-rep-log').prepend(li);
+    const size = rep.results.find(r => r && r.ok);
+    rep.report = ['Google Drive repeat download test', 'When: ' + new Date(rep.started).toString(), 'File: ' + link.id + (size ? ' (' + mb(size.bytes) + ')' : ''),
+      'Planned: ' + n + ' downloads, ' + par + ' at a time, ' + (gap / 1000) + ' s between', 'Done: ' + done + ', worked: ' + okN + ', refused: ' + fails + (firstFail >= 0 ? ', first refusal at download ' + (firstFail + 1) : ''),
+      'Refusals: ' + (Object.keys(reasons).map(k => k + ' × ' + reasons[k]).join('; ') || 'none'), 'Data: ' + mb(bytes) + ' in ' + ((performance.now() - t0) / 1000).toFixed(0) + ' s', 'Page: ' + location.href.split('?')[0]].join('\n');
   }
 })();
 
