@@ -177,7 +177,7 @@ a-scene { position: fixed !important; inset: 0; width: 100% !important; height: 
   background: rgba(22,19,18,.85); color: var(--chalk); font: 600 .8rem var(--sans); cursor: pointer;
 }
 .spots-layer.editing .spot-marker { cursor: move; touch-action: none; }
-.spot-order { position: absolute; left: 100%; top: 50%; transform: translate(10px, -50%); display: flex; flex-direction: column; gap: 6px; z-index: 3; }
+.spot-order { position: absolute; left: 0; top: 0; transform: translate(10px, -50%); z-index: 50; pointer-events: auto; display: flex; flex-direction: column; gap: 6px; }
 .spot-order[hidden] { display: none; }
 .spot-order button { width: 36px; height: 36px; padding: 0; border: 2px solid var(--select); border-radius: 8px; background: var(--slate); color: var(--chalk);
   font: 700 1rem/1 var(--sans); cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.45); }
@@ -269,6 +269,10 @@ body.aligning .toolbar, body.aligning .hint { display: none !important; }
   animation: link-glow 2.4s ease-in-out infinite;
 }
 @keyframes link-glow { 50% { box-shadow: 0 0 0 1px rgba(255,255,255,.5), 0 0 20px 7px rgba(255,255,255,.75), 0 6px 16px rgba(0,0,0,.4); } }
+/* a pinned picture drawn into the 3D scene behind a model (spots.js pics3D): its page version stays, see-through, for tapping and handles */
+.spot.in3d .spot-img { opacity: 0; }
+/* no "preview this link" pop-up or text selection on a long press: a tap just opens it */
+.spot-a { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: none; }
 .spot-a-ico { display: grid; place-items: center; flex: none; }
 .spot-a-ico svg { width: 1.25em; height: 1.25em; }
 .spot-a-out { opacity: .85; }

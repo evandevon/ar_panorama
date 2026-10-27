@@ -952,6 +952,21 @@
       s.labelEl = a.querySelector('.spot-a-text');
       s.frame.appendChild(a);
       if (opts.editable) { addEditHandles(s); a.addEventListener('click', e => e.preventDefault()); }
+      else if (href) {
+        // A tap opens the page straight away in a new tab. Phones otherwise treat a press on a link as "show me
+        // this link" (a preview with the whole address, or a menu), which isn't what a tour button is for.
+        // A drag that starts on the button looks around instead of opening it.
+        let down = null;
+        a.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+        a.addEventListener('contextmenu', e => e.preventDefault());
+        a.addEventListener('click', e => {
+          e.preventDefault();
+          if (down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 10) return;
+          const w = window.open(href, '_blank');
+          if (w) { try { w.opener = null; } catch (er) { /* fine */ } }
+          else location.href = href;                       // a browser that blocks new tabs: open it here instead
+        });
+      }
       s.el.appendChild(s.frame);
       layerOf(s).appendChild(s.el);
     }
@@ -1059,6 +1074,7 @@
       if (s.dotEl) s.dotEl.remove();
       if (s.ent) s.ent.parentNode && s.ent.parentNode.removeChild(s.ent);
       if (s.stkTex) { s.stkTex.dispose(); s.mesh.material.dispose(); s.mesh.geometry.dispose(); }
+      dropPic3D(s);
       if (s.mediaHost && s.mediaHost.parentNode === opts.offscreen) s.mediaHost.remove();
       if (s.playing) { s.playing = false; activityChanged(); }
     }
@@ -1365,7 +1381,8 @@
       const camera = opts.sceneEl.camera;
       if (!camera || !spots.length) return;
       orderDepths();
-      if (opts.editable && ++orderTick % 8 === 0) showOrder();
+      pics3D();
+      if (opts.editable) { if (++orderTick % 8 === 0) showOrder(); else placeOrder(); }
       camera.getWorldDirection(fwd);
       const canvas = opts.sceneEl.canvas;
       const w = canvas.clientWidth, h = canvas.clientHeight;
@@ -1763,15 +1780,6 @@
       s.frame.appendChild(edit);
       s.testBtn = test;
       s.edit = edit;
-      // in front / behind (shown only while it overlaps something it can be ordered against)
-      const order = el('span', 'spot-order');
-      order.hidden = true;
-      order.innerHTML = '<button type="button" data-z="1" title="Bring in front of what it overlaps" aria-label="Bring in front">▲</button>' +
-        '<button type="button" data-z="-1" title="Send behind what it overlaps" aria-label="Send behind">▼</button>';
-      order.addEventListener('pointerdown', e => e.stopPropagation());
-      order.addEventListener('click', e => { const b = e.target.closest('button'); if (b) { e.stopPropagation(); moveZ(s, +b.dataset.z); } });
-      edit.appendChild(order);
-      s.orderEl = order;
 
       edit.addEventListener('pointerdown', e => {
         e.stopPropagation(); e.preventDefault();
@@ -1908,25 +1916,29 @@
     // thing with a lower z (keeping how big it looks, as its size grows with its distance), and a lower z just behind.
     // (Page elements always sit in front of the 3D scene: those two can't be reordered.)
     const is3D = s => s.isModel || s.isStacked;
+    const SKY_SAFE = 96;
     function applyZ(s) { if (s.el) s.el.style.zIndex = String(10 + (s.z || 0)); }
     // how far it reaches towards or away from the viewer, as a share of its distance (its bounding sphere)
-    function depthShare(s) {
+    function depthShare(s, uncapped) {
       if (s.isStacked) return 0.02;
       if (!s.localBox || !s.maxDim) return 0.5;
       const half = s.localBox.getSize(new THREE.Vector3()).length() / 2;
-      return Math.min(0.9, 2 * Math.tan(s.w * Math.PI / 360) * half / s.maxDim);
+      const share = 2 * Math.tan(Math.min(170, s.w) * Math.PI / 360) * half / s.maxDim;
+      return uncapped ? share : Math.min(0.9, share);
     }
     // how far from its centre it reaches across the view, in degrees
     const reachDeg = s => is3D(s) && s.isModel ? Math.atan(depthShare(s)) * 180 / Math.PI + 2 : (s.w / 2) * Math.max(1, 1 / (s.vAspect || s.aspect || 1)) + 2;
     const overlap3D = (a, b) => a.dir.angleTo(b.dir) * 180 / Math.PI < reachDeg(a) + reachDeg(b);
     function orderDepths() {
       const list = spots.filter(s => is3D(s) && !s.float);
-      list.forEach(s => { s.zDist = 0; });
+      // never so far that its back pokes through the 360° photo (radius 100; the compared photo is at 99)
+      const farthest = s => SKY_SAFE / (1 + depthShare(s, true));
+      list.forEach(s => { s.zDist = baseDist(s) > farthest(s) ? farthest(s) : 0; });
       if (!list.some(s => s.z)) return;
-      const band = s => s.behind ? [22, 95] : [1.5, 18];        // stay on the right side of the masks' cut-out photo (radius 20)
+      const band = s => s.behind ? [22, Math.min(95, farthest(s))] : [1.5, 18];   // stay on the right side of the masks' cut-out photo (radius 20)
       const D = s => s.zDist || baseDist(s);
       list.filter(s => s.z > 0).sort((a, b) => a.z - b.z).forEach(a => {
-        let d = baseDist(a);
+        let d = Math.min(baseDist(a), farthest(a));
         list.forEach(b => { if (b !== a && b.z < a.z && overlap3D(a, b)) d = Math.min(d, D(b) * (1 - depthShare(b)) * 0.97 / (1 + depthShare(a))); });
         a.zDist = Math.max(band(a)[0], Math.min(band(a)[1], d));
       });
@@ -1936,29 +1948,167 @@
         a.zDist = Math.max(band(a)[0], Math.min(band(a)[1], d));
       });
     }
+    // ---------------------------------------------------------- pinned pictures drawn into the 3D scene
+    // A pinned picture is normally a page element, so it sits in front of every 3D model. When it's put behind an
+    // overlapping 3D model or see-through video (a lower layer: a mat on a tabletop with a model standing on it), it's
+    // drawn into the 3D scene instead, as a flat sheet behind them. The sheet lies in a plane square on to the
+    // pinned area's centre, with the picture warped onto it exactly as the page version is, so it looks the same.
+    // Its page version stays (see-through) for tapping, the author's handles, and its caption.
+    const PIC_GRID = 16;
+    const canPic3D = s => s.isImage && !!s.pin && !s.float && !s.plan && !s.no3D;
+    function pinGeom(s) {                       // corner directions, centre, how wide; kept until it moves
+      const key = s.yaw + ',' + s.pitch + ',' + s.pin.join(',');
+      if (s.pg && s.pg.key === key) return s.pg;
+      const a = anglesFrom(s.dir), dirs = s.pin.map(([dy, dp]) => dirFrom(a.yaw + dy, a.pitch + dp));
+      const c = dirs.reduce((m, d) => m.add(d), new THREE.Vector3()).normalize();
+      const e1 = new THREE.Vector3().crossVectors(c, Math.abs(c.y) > 0.99 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0)).normalize();
+      const e2 = new THREE.Vector3().crossVectors(e1, c).normalize();
+      const minDot = Math.min(...dirs.map(d => d.dot(c)));
+      const radius = Math.max(...dirs.map(d => d.angleTo(c))) * 180 / Math.PI;
+      // corners on the plane one unit away (gnomonic), as the homography from the picture's unit square
+      const g = dirs.map(d => [d.dot(e1) / d.dot(c), d.dot(e2) / d.dot(c)]);
+      s.pg = { key, c, e1, e2, minDot, radius, H: minDot > 0.05 ? squareToQuad(g) : null, built: '' };
+      return s.pg;
+    }
+    function squareToQuad(p) {                  // (u, v) in the unit square, v down → the four corners TL, TR, BR, BL
+      const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = p;
+      const sx = x0 - x1 + x2 - x3, sy = y0 - y1 + y2 - y3;
+      if (Math.abs(sx) < 1e-9 && Math.abs(sy) < 1e-9) return [x1 - x0, x3 - x0, x0, y1 - y0, y3 - y0, y0, 0, 0];
+      const dx1 = x1 - x2, dx2 = x3 - x2, dy1 = y1 - y2, dy2 = y3 - y2, den = dx1 * dy2 - dx2 * dy1;
+      const G = (sx * dy2 - dx2 * sy) / den, Hh = (dx1 * sy - sx * dy1) / den;
+      return [x1 - x0 + G * x1, x3 - x0 + Hh * x3, x0, y1 - y0 + G * y1, y3 - y0 + Hh * y3, y0, G, Hh];
+    }
+    // 3D things this picture is behind: overlapping, on a higher layer
+    function above3D(s) {
+      const pg = pinGeom(s), pz = s.z || 0;
+      return spots.filter(t => is3D(t) && !t.float && (t.z || 0) > pz && t.dir.angleTo(pg.c) * 180 / Math.PI < pg.radius + reachDeg(t));
+    }
+    function pics3D() {
+      spots.forEach(s => {
+        const want = canPic3D(s) && !!s.el && !debugHide.image && above3D(s).length > 0;
+        if (!want) { if (s.pic3d) { s.pic3d.visible = false; } if (s.el) s.el.classList.remove('in3d'); return; }
+        if (!s.pic3d) { loadPic3D(s); if (!s.pic3d) return; }
+        const pg = pinGeom(s);
+        if (!pg.H) { s.pic3d.visible = false; s.el.classList.remove('in3d'); return; }
+        // as far as needed to be behind them, inside the photo, and on the same side of any masks as the page version
+        const far = Math.max(...above3D(s).map(t => distOf(t) * (1 + depthShare(t, true)) * 1.03));
+        const band = s.behind ? [FRONT_R_SAFE, SKY_SAFE * pg.minDot] : [1.5, 18];
+        const d = Math.max(band[0], Math.min(Math.max(band[0], band[1]), far));
+        const key = pg.key + '|' + d.toFixed(2);
+        if (pg.built !== key) { setPicGrid(s.pic3d.geometry, pg, d); pg.built = key; }
+        const show = s.el.style.visibility === 'visible' || !!s.pin;      // (the page version hides when a corner leaves the screen)
+        s.pic3d.visible = show && !waiting(s) && !(s.dwell && !s.revealed && !opts.editable) &&
+          !(s.play === 'look' && !opts.editable && !s.el.classList.contains('shown'));
+        s.pic3d.material.opacity = opts.editable && s.play === 'look' && !s.el.classList.contains('shown') ? 0.45
+          : s.appearAt ? Math.min(1, (performance.now() - s.appearAt) / 600) : 1;
+        s.el.classList.toggle('in3d', s.pic3d.visible);
+      });
+    }
+    const FRONT_R_SAFE = 22;                       // just behind the masks' cut-out photo (radius 20)
+    function setPicGrid(geo, pg, d) {
+      const pos = geo.attributes.position, uv = geo.attributes.uv, [a, b, c, dd, e, f, g, h] = pg.H, P = new THREE.Vector3();
+      for (let i = 0; i < pos.count; i++) {
+        const u = uv.getX(i), v = 1 - uv.getY(i), q = g * u + h * v + 1;
+        const x = (a * u + b * v + c) / q, y = (dd * u + e * v + f) / q;
+        P.copy(pg.c).addScaledVector(pg.e1, x).addScaledVector(pg.e2, y).multiplyScalar(d);
+        pos.setXYZ(i, P.x, P.y, P.z);
+      }
+      pos.needsUpdate = true;
+      geo.computeBoundingSphere();
+    }
+    function loadPic3D(s) {
+      if (s.pic3dLoading) return;
+      s.pic3dLoading = true;
+      const url = Media.resolveMediaUrl(s.src, 'image').url;
+      const done = src => {
+        const im = new Image();
+        im.crossOrigin = 'anonymous'; im.referrerPolicy = 'no-referrer'; im.decoding = 'async';
+        im.onload = () => {
+          if (!spots.includes(s)) return;
+          const tex = new THREE.Texture(im);
+          tex.colorSpace = THREE.SRGBColorSpace;
+          tex.anisotropy = Math.min(8, opts.sceneEl.renderer ? opts.sceneEl.renderer.capabilities.getMaxAnisotropy() : 1);
+          tex.needsUpdate = true;
+          const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
+          s.pic3d = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, PIC_GRID, PIC_GRID), mat);
+          s.pic3d.frustumCulled = false;
+          s.pic3d.visible = false;
+          opts.sceneEl.object3D.add(s.pic3d);
+        };
+        im.onerror = () => failed();
+        im.src = src;
+      };
+      const failed = () => {
+        if (!s.no3D && Media.driveFileId && Media.driveFileId(s.src) && Media.canDownloadDrive && Media.driveKey && Media.driveKey() && !s.pic3dDrive) {
+          s.pic3dDrive = true;                     // a Drive picture that won't share itself: download it with the site's key
+          Media.downloadDrive(s.src).then(r => { s.pic3dBlob = URL.createObjectURL(r.blob); done(s.pic3dBlob); }).catch(failed);
+          return;
+        }
+        s.no3D = true;
+        if (s.el) s.el.classList.remove('in3d');
+        if (opts.editable) opts.onError(s.index, 'This picture’s website doesn’t let it be drawn into the 3D scene, so it can’t go behind a 3D model (it stays in front). Keep the picture in your GitHub site or Google Drive instead.');
+      };
+      done(url);
+    }
+    function dropPic3D(s) {
+      if (!s.pic3d) return;
+      s.pic3d.parent && s.pic3d.parent.remove(s.pic3d);
+      s.pic3d.material.map && s.pic3d.material.map.dispose();
+      s.pic3d.material.dispose(); s.pic3d.geometry.dispose();
+      if (s.pic3dBlob) URL.revokeObjectURL(s.pic3dBlob);
+      s.pic3d = null;
+    }
+
     // The author's preview: up / down buttons on the chosen spot when it overlaps something it can be ordered against
     function overlapsOf(s) {
       if (!s || !s.el || !s.frame || s.float) return [];
       const r = s.frame.getBoundingClientRect();
       if (!r.width) return [];
       return spots.filter(o => {
-        if (o === s || !o.frame || o.float || is3D(o) !== is3D(s) || o.el.style.visibility !== 'visible') return false;
+        if (o === s || !o.frame || o.float || o.el.style.visibility !== 'visible') return false;
+        // like with like; and pinned pictures with 3D things (they can be drawn into the 3D scene, behind them)
+        if (is3D(o) !== is3D(s) && !(canPic3D(is3D(o) ? s : o))) return false;
         const q = o.frame.getBoundingClientRect();
         const w = Math.min(r.right, q.right) - Math.max(r.left, q.left), h = Math.min(r.bottom, q.bottom) - Math.max(r.top, q.top);
         return w > 4 && h > 4 && w * h > 0.04 * Math.min(r.width * r.height, q.width * q.height);
       });
     }
-    let orderTick = 0;
+    // One set of buttons, in the top layer above every spot: inside the spot they'd be covered when it's behind
+    // something (exactly when they're needed), and warped along with a pinned spot
+    let orderTick = 0, orderBox = null, orderFor = null;
+    function orderButtons() {
+      if (orderBox) return orderBox;
+      orderBox = el('span', 'spot-order');
+      orderBox.hidden = true;
+      orderBox.innerHTML = '<button type="button" data-z="1" title="Bring in front of what it overlaps" aria-label="Bring in front">▲</button>' +
+        '<button type="button" data-z="-1" title="Send behind what it overlaps" aria-label="Send behind">▼</button>';
+      orderBox.addEventListener('pointerdown', e => e.stopPropagation());
+      orderBox.addEventListener('click', e => { const b = e.target.closest('button'); if (b && orderFor) { e.stopPropagation(); moveZ(orderFor, +b.dataset.z); } });
+      opts.layer.appendChild(orderBox);
+      return orderBox;
+    }
     function showOrder() {
-      spots.forEach(o => { if (o.orderEl) o.orderEl.hidden = true; });
-      const s = spots.find(o => o.index === selected);
-      if (!s || !s.orderEl || s.dragging) return;
-      const over = overlapsOf(s);
-      if (!over.length) return;
-      s.orderEl.hidden = false;
+      const box = orderButtons(), s = spots.find(o => o.index === selected);
+      const over = s && !s.dragging ? overlapsOf(s) : [];
+      orderFor = over.length ? s : null;
+      box.hidden = !orderFor;
+      if (!orderFor) return;
       const top = over.every(o => (o.z || 0) < (s.z || 0)) || (s.z || 0) >= Z_MAX, bottom = over.every(o => (o.z || 0) > (s.z || 0)) || (s.z || 0) <= -Z_MAX;
-      s.orderEl.querySelector('[data-z="1"]').disabled = top;
-      s.orderEl.querySelector('[data-z="-1"]').disabled = bottom;
+      box.querySelector('[data-z="1"]').disabled = top;
+      box.querySelector('[data-z="-1"]').disabled = bottom;
+      placeOrder();
+    }
+    function placeOrder() {                           // beside the right edge of what's seen of the chosen spot
+      if (!orderBox || !orderFor || orderBox.hidden) return;
+      const r = orderFor.frame.getBoundingClientRect(), L = opts.layer.getBoundingClientRect();
+      const c = opts.sceneEl.canvas, v = viewRect(c.clientWidth, c.clientHeight), BW = 56, BH = 90;
+      // beside its right edge; or its left edge when that's off the phone's window; always kept inside the window
+      let x = r.right - L.left;
+      if (x + BW > v.x + v.w) x = Math.max(v.x + 4, r.left - L.left - BW - 4);
+      x = Math.max(v.x + 4, Math.min(v.x + v.w - BW, x));
+      const y = Math.max(v.y + BH / 2, Math.min(v.y + v.h - BH / 2, r.top + r.height / 2 - L.top));
+      orderBox.style.left = x + 'px';
+      orderBox.style.top = y + 'px';
     }
     function moveZ(s, dir) {
       const over = overlapsOf(s), zs = over.map(o => o.z || 0);

@@ -48,10 +48,18 @@ A-Frame 1.8.0 (THREE is `AFRAME.THREE`), qrcode.js, PDF.js, gifenc (ESM, lazy-im
 - **Maker ↔ preview:** postMessage. The message names are listed in the viewer.js file guide.
 - **Phone window:** the preview iframe fills the panel. The viewer gets `setWindow {w,h}`, sets the camera fov so the phone-sized window shows a real phone's view, and puts `.win-shade` panels outside it. Those panels allow dragging but not tapping.
 
+## Pinned pictures behind 3D models (spots.js `pics3D`)
+
+A pinned picture (image + pin, not floating, not a floor plan) with an overlapping 3D spot on a higher z is drawn as a WebGL sheet instead of relying on its page element (which gets `.in3d`: the img goes see-through, the frame stays for taps, handles and caption). The sheet is a 16×16 grid in a plane square on to the centre of the pinned corners, with vertex positions from the square-to-quad homography of the corners' gnomonic coordinates, so it matches the CSS warp exactly. Distance: just behind the 3D things it's under (far reach ×1.03), within [22, 96·min cos] for masked pictures (behind the masks' cut-out sphere) or [1.5, 18] for "not hidden by masks". Material: transparent, depthWrite false, so opaque models in front win on depth. Texture: CORS image load, then Drive download with the site's key, else `no3D` + maker message and it stays a page element. `overlapsOf` lets pinned pictures and 3D spots be ordered against each other; merge.js paints such pictures before the models.
+
+## Link buttons in the viewer
+
+A tap opens the page in a new tab from our own click handler (`window.open`, opener cut; falls back to opening in the same tab if new tabs are blocked). Long-press callout, text selection and the context menu are switched off on `.spot-a`, so phones don't show their link preview with the whole address, and a drag that starts on the button looks around instead of opening it.
+
 ## Link format essentials (full table in README)
 
 - One `s=` per spot: `link~yaw~pitch~flags~label~width°~corners~turn~delay~plan~z`.
-  - z (field 10, added 27 Oct): layer order −3…3. Page spots → CSS z-index 10+z. 3D spots (models, stacked videos) → `orderDepths()` in spots.js moves overlapping ones to distances (s.zDist) so higher z is nearer; bands 1.5–18 unmasked, 22–95 masked (stays inside/outside the FRONT_R 20 cut-out sphere). ▲/▼ (`.spot-order`) show on the chosen spot only while it overlaps one of the same group (`overlapsOf`). merge.js paints page spots in z order. The editing "chosen spot on top" CSS rule was removed, since it would hide the real order; pressOverlap still lets the chosen one be dragged where covered.
+  - z (field 10, added 27 Oct): layer order −3…3. Page spots → CSS z-index 10+z. 3D spots (models, stacked videos) → `orderDepths()` in spots.js moves overlapping ones to distances (s.zDist) so higher z is nearer; bands 1.5–18 unmasked, 22–95 masked (stays inside/outside the FRONT_R 20 cut-out sphere). ▲/▼ (`.spot-order`) show on the chosen spot only while it overlaps one of the same group (`overlapsOf`). merge.js paints page spots in z order. The ▲/▼ are one shared `.spot-order` in the top layer (not inside the spot, where a covered or pinned spot would hide or warp them), placed beside the chosen spot's frame every frame (`placeOrder`). Every 3D spot is kept close enough that its back stays inside the photo sphere: `farthest = 96 / (1 + uncapped depthShare)` (big models used to poke out through the photo). The editing "chosen spot on top" CSS rule was removed, since it would hide the real order; pressOverlap still lets the chosen one be dragged where covered.
   - Flags: l s h r d o f x w u e (+ kind letters a v i k m p; b is legacy and ignored).
   - Never change what an existing letter means: printed QR codes depend on it.
 - `f=` per mask; `p t y al mb v=2` for the rest.
@@ -87,7 +95,7 @@ The keying runs in a WebGL fragment shader (`FRAG` in videomaker.js):
 - **Teacher-facing words:** plain English, no jargon. Say "see-through" not "alpha" and "stencil" not "matte". Australian spelling: colour, centre.
 - **Accessibility:** labels on everything, keyboard paths, focus styles, and the WCAG AA contrast ratios we checked. The timeline trim dots are role=slider. axe-core showed no violations on all pages; keep it that way.
 - **Privacy:** nothing is uploaded and nothing stored except in the link. Never put student media in the repo or deliverables.
-- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261027b**.
+- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261027d**.
 - **Dragging the view:** `bindDrag` (viewer.js) calls preventDefault on mouse pointerdown, clears any text selection, and blocks `dragstart`. Without this, a drag on the dimmed area round the phone frame selected spot labels, and a later press on that selection started a browser text-drag that cancelled the look-around drag after a moment.
 - **Colours: "Ember and slate" (dark).** Use the tokens, never raw hex:
 
