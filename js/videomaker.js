@@ -34,7 +34,23 @@
   const video = $('src');
   const view = $('view');
   const overlay = $('overlay');
-  let fileName = 'video', fileLabel = '', fileType = '', loaded = false, making = null;
+  let fileName = 'video', fileLabel = '', fileType = '', loaded = false, making = null, srcFile = null;
+  // How many pictures a second the video has: measured while the preview plays (used when making a file frame by frame)
+  const fpsSeen = [];
+  if (video.requestVideoFrameCallback) {
+    let last = null;
+    const seen = (now, m) => {
+      if (!making && last != null && !video.paused) { const d = m.mediaTime - last; if (d > 0.004 && d < 0.2) { fpsSeen.push(d); if (fpsSeen.length > 90) fpsSeen.shift(); } }
+      last = m.mediaTime;
+      video.requestVideoFrameCallback(seen);
+    };
+    video.requestVideoFrameCallback(seen);
+  }
+  function sourceFps() {
+    if (fpsSeen.length < 8) return 30;
+    const d = fpsSeen.slice().sort((a, b) => a - b)[fpsSeen.length >> 1];
+    return Math.max(10, Math.min(30, Math.round(1 / d)));          // 60 a second is made at 30: plenty for a tour
+  }
   const key = { rgb: [0, 0.69, 0.25], picked: false };
   const extraKeys = [];                      // more background colours, for patchy screens (up to 4)
   const MAX_KEYS = 4;
@@ -471,7 +487,7 @@
     if (!/^video\//.test(file.type) && !/\.(mp4|mov|webm|m4v|mkv)$/i.test(file.name)) {
       return status('file-status', 'err', 'That doesn’t look like a video file.');
     }
-    fileLabel = file.name; fileType = file.type || '';
+    fileLabel = file.name; fileType = file.type || ''; srcFile = file; fpsSeen.length = 0;
     fileName = file.name.replace(/\.[^.]+$/, '').replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '') || 'video';
     if (video.src) URL.revokeObjectURL(video.src);
     loaded = false;
@@ -1226,13 +1242,18 @@
   }
 
   $('make').addEventListener('click', async () => {
-    if (!loaded || making) return;
+    if (!loaded || making || $('make').disabled) return;
     if (tool) setTool(null);
     const start = Math.max(0, trim.start);
     const end = Math.min(video.duration, trim.end);
     if (end - start < MIN_CLIP) return status('make-status', 'err', 'The clip is too short: drag the trim dots further apart.');
     const f = fmtNow();
     if (f === 'gif') return makeGif(start, end);
+    $('make').disabled = true;
+    status('make-status', '', 'Getting ready…');
+    const plan = await framePlan(f, $('sound').checked).catch(() => null);
+    $('make').disabled = false;
+    if (plan) return makeVideoFrames(f, start, end, plan);
     makeVideo(f, start, end);
   });
 
@@ -1338,8 +1359,223 @@
       deliver(blob, fileName + (stencil ? '.see-through.' : '.transparent.') + kind.ext, { err, text: notes.join(' ') });
     };
     making.finish = finish;
+    // A hidden tab gets almost no pictures drawn while the sound carries on: pause the recording until it's back
+    const hidden = () => {
+      if (!making || making.done) return document.removeEventListener('visibilitychange', hidden);
+      if (document.hidden) { video.pause(); try { rec.pause(); } catch (e) {} }
+      else { try { rec.resume(); } catch (e) {} video.play().catch(() => {}); requestAnimationFrame(frame); }
+    };
+    document.addEventListener('visibilitychange', hidden);
     try { await video.play(); } catch (e) { making.cancelled = true; finish(); return; }
     frame();
+  }
+
+  // ---------------------------------------------------------------- videos (frame by frame, where the browser can)
+  // Each picture is found, keyed and handed to the browser's video encoder (WebCodecs) one at a time, and the sound is
+  // taken straight from the file, so a busy computer or a hidden tab only makes it slower, never jerky or out of step.
+  // MP4 (H.264 + AAC) needs Chrome or Edge on Windows or Mac; the WebM (VP9/VP8 + Opus) keeps its transparency as a
+  // second, black-and-white video of the see-through parts (as browsers' own recorders do). Otherwise: makeVideo().
+  const loadScript = src => new Promise((res, rej) => {
+    if (document.querySelector('script[data-src="' + src + '"]')) return res();
+    const sc = document.createElement('script'); sc.src = src; sc.dataset.src = src;
+    sc.onload = () => res(); sc.onerror = () => rej(new Error('couldn’t load ' + src)); document.head.appendChild(sc);
+  });
+  const bitrate = (w, h, fps) => Math.round(Math.min(12e6, Math.max(2.5e6, w * h * fps * 0.12)));
+  async function framePlan(f, withSound) {
+    if (typeof VideoEncoder === 'undefined' || typeof VideoFrame === 'undefined' || !srcFile) return null;
+    if (withSound && typeof AudioEncoder === 'undefined') return null;
+    const [w, h] = outSize(f), H = f === 'stencil' ? h * 2 : h, fps = sourceFps();
+    const codecs = f === 'stencil' ? ['avc1.640033', 'avc1.4d0033', 'avc1.42e033', 'avc1.640028', 'avc1.4d0028', 'avc1.42e01f'] : ['vp09.00.41.08', 'vp8'];
+    let vcodec = null;
+    for (const codec of codecs) {
+      try {
+        const cfg = { codec, width: w, height: H, bitrate: bitrate(w, H, fps), framerate: fps };
+        if (f === 'stencil') cfg.avc = { format: 'avc' };
+        if ((await VideoEncoder.isConfigSupported(cfg)).supported) { vcodec = cfg; break; }
+      } catch (e) {}
+    }
+    if (!vcodec) return null;
+    let audio = null;
+    if (withSound) {
+      audio = await decodeSound();
+      if (audio) {
+        const acodec = f === 'stencil' ? 'mp4a.40.2' : 'opus';
+        const acfg = { codec: acodec, sampleRate: audio.sampleRate, numberOfChannels: audio.numberOfChannels, bitrate: 128000 };
+        try { if (!(await AudioEncoder.isConfigSupported(acfg)).supported) return null; } catch (e) { return null; }
+        audio.cfg = acfg;
+      }
+    }
+    return { w, h, H, fps, vcodec, audio };
+  }
+  // The file's sound, at 48 000 a second (what AAC and Opus both take); null if it has none
+  async function decodeSound() {
+    try {
+      const buf = await srcFile.arrayBuffer();
+      const ctx = new OfflineAudioContext(2, 1, 48000);
+      const a = await ctx.decodeAudioData(buf);
+      return a.length ? a : null;
+    } catch (e) { return null; }
+  }
+  async function makeVideoFrames(f, start, end, plan) {
+    const { w, h, H, fps, vcodec, audio } = plan, stencil = f === 'stencil';
+    making = { cancelled: false };
+    making.finish = () => {};
+    busy(true);
+    status('make-status', '', 'Making it picture by picture… a busy computer just makes this slower, not jerky.');
+    try {
+      await loadScript(new URL(stencil ? 'vendor/mp4-muxer/mp4-muxer.js' : 'vendor/webm-muxer/webm-muxer.js', document.baseURI).href);
+    } catch (e) { making = null; busy(false); return makeVideo(f, start, end); }
+
+    const out = canvas(w, H);
+    const og = makeGL(out, !stencil);
+    if (plateOn) og.setPlate(plateC);
+    const gl = og.gl;
+    const n = Math.max(1, Math.round((end - start) * fps)), us = 1e6 / fps;
+    const lib = stencil ? window.Mp4Muxer : window.WebMMuxer;
+    const target = new lib.ArrayBufferTarget();
+    const mux = new lib.Muxer(stencil ? {
+      target, fastStart: 'in-memory', firstTimestampBehavior: 'offset',
+      video: { codec: 'avc', width: w, height: H, frameRate: fps },
+      audio: audio ? { codec: 'aac', numberOfChannels: audio.numberOfChannels, sampleRate: audio.sampleRate } : undefined
+    } : {
+      target, firstTimestampBehavior: 'offset',
+      video: { codec: vcodec.codec === 'vp8' ? 'V_VP8' : 'V_VP9', width: w, height: H, frameRate: fps, alpha: true },
+      audio: audio ? { codec: 'A_OPUS', numberOfChannels: audio.numberOfChannels, sampleRate: audio.sampleRate } : undefined
+    });
+    let failed = null;
+    const fail = e => { failed = failed || e; };
+    // the transparent WebM: picture and see-through parts are encoded side by side and joined up by time
+    const colour = new Map(), alpha = new Map();
+    const pair = ts => {
+      if (!colour.has(ts) || !alpha.has(ts)) return;
+      const [chunk, meta] = colour.get(ts), a = alpha.get(ts);
+      colour.delete(ts); alpha.delete(ts);
+      const side = new Uint8Array(a.byteLength); a.copyTo(side);
+      mux.addVideoChunk(chunk, Object.assign({}, meta, { alphaSideData: side }));
+    };
+    const venc = new VideoEncoder({
+      output: (chunk, meta) => { if (stencil) mux.addVideoChunk(chunk, meta); else { colour.set(chunk.timestamp, [chunk, meta]); pair(chunk.timestamp); } },
+      error: fail
+    });
+    venc.configure(vcodec);
+    let aenc = null;
+    if (!stencil) {
+      aenc = new VideoEncoder({ output: chunk => { alpha.set(chunk.timestamp, chunk); pair(chunk.timestamp); }, error: fail });
+      aenc.configure(Object.assign({}, vcodec, { bitrate: Math.round(vcodec.bitrate / 3) }));
+    }
+    const px = stencil ? null : new Uint8Array(w * h * 4), rgbx = stencil ? null : new Uint8Array(w * h * 4);
+    const yuv = stencil ? null : new Uint8Array(w * h * 3 / 2);
+    if (yuv) yuv.fill(128, w * h);                          // the see-through video's colour: none
+    const room = async enc => { while (enc.encodeQueueSize > 4 && !failed) await new Promise(r => setTimeout(r, 5)); };
+
+    video.pause(); video.loop = false; speakers();
+    try {
+      await grabFrames(start, end, fps, n, () => making.cancelled || !!failed, async i => {
+        og.upload();
+        const key = i % (fps * 2) === 0, ts = Math.round(i * us);
+        if (stencil) {
+          og.draw(1, 0, h, w, h, true);              // top: the picture, on black
+          og.draw(2, 0, 0, w, h, true);              // bottom: the stencil
+          const vf = new VideoFrame(out, { timestamp: ts, duration: Math.round(us) });
+          await room(venc); venc.encode(vf, { keyFrame: key }); vf.close();
+        } else {
+          og.draw(3, 0, 0, w, h, true);
+          gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+          const row = w * 4;
+          for (let y = 0; y < h; y++) {               // WebGL reads bottom row first
+            const src = (h - 1 - y) * row, dst = y * row, ay = y * w;
+            for (let x = 0, k = 0; x < row; x += 4, k++) {
+              rgbx[dst + x] = px[src + x]; rgbx[dst + x + 1] = px[src + x + 1]; rgbx[dst + x + 2] = px[src + x + 2]; rgbx[dst + x + 3] = 255;
+              yuv[ay + k] = px[src + x + 3];
+            }
+          }
+          const cf = new VideoFrame(rgbx, { format: 'RGBX', codedWidth: w, codedHeight: h, timestamp: ts, duration: Math.round(us) });
+          const af = new VideoFrame(yuv, { format: 'I420', codedWidth: w, codedHeight: h, timestamp: ts, duration: Math.round(us),
+            colorSpace: { matrix: 'bt709', primaries: 'bt709', transfer: 'bt709', fullRange: true } });
+          await room(venc); await room(aenc);
+          venc.encode(cf, { keyFrame: key }); aenc.encode(af, { keyFrame: key });
+          cf.close(); af.close();
+        }
+        $('bar').style.width = ((i + 1) / n * (audio ? 90 : 100)) + '%';
+      });
+      if (!making.cancelled && !failed) {
+        await venc.flush(); if (aenc) await aenc.flush();
+        if (audio) await encodeSound(audio, start, end, mux, fail);
+      }
+    } catch (e) { fail(e); }
+    try { venc.close(); } catch (e) {} try { aenc && aenc.close(); } catch (e) {}
+    const cancelled = making.cancelled;
+    making = null;
+    video.loop = true; speakers();
+    busy(false); redraw();
+    if (cancelled) return status('make-status', '', 'Cancelled.');
+    if (failed) {
+      console.warn('Frame-by-frame making failed, recording in real time instead:', failed);
+      return makeVideo(f, start, end);
+    }
+    mux.finalize();
+    const blob = new Blob([target.buffer], { type: stencil ? 'video/mp4' : 'video/webm' });
+    const notes = [];
+    let err = false;
+    if (!stencil) {
+      status('make-status', '', 'Checking the transparency…');
+      const kept = await hasAlpha(blob);
+      if (kept === false) { err = true; notes.push('This browser didn’t keep the transparency in the file. Please make it in Chrome or Edge.'); }
+    }
+    deliver(blob, fileName + (stencil ? '.see-through.mp4' : '.transparent.webm'), { err, text: notes.join(' ') });
+  }
+  // Hands over each picture of the clip in order, n of them, fps a second (each one the picture showing at the middle
+  // of its slot). The video plays and is paused on every new picture (requestVideoFrameCallback), which is much
+  // quicker than seeking to each one; a picture the browser skipped is fetched by seeking back to it.
+  async function grabFrames(start, end, fps, n, stop, take) {
+    const T = i => Math.min(end - 0.001, start + (i + 0.5) / fps);
+    const rvfc = !!video.requestVideoFrameCallback;
+    // how long one picture of the source lasts: the shortest step seen (pictures the browser skips only make steps longer)
+    let dur = fpsSeen.length >= 8 ? Math.min(...fpsSeen) : 1 / 30;
+    let next = 0, lastM = null;
+    const frameAt = () => new Promise(res => {                    // the next picture shown while playing → its media time
+      let done = false;
+      const t = setTimeout(() => { if (!done) { done = true; video.pause(); res(null); } }, 3000);
+      video.requestVideoFrameCallback((now, m) => { if (done) return; done = true; clearTimeout(t); video.pause(); res(m.mediaTime); });
+      video.play().catch(() => { if (!done) { done = true; clearTimeout(t); res(null); } });
+    });
+    const timed = take;
+    const fill = async m => {                                     // every slot this picture covers
+      while (next < n && T(next) < m + dur * 0.999 && !stop()) { await timed(next); next++; }
+    };
+    const bySeek = async () => { await seekTo(T(next)); await take(next); next++; };
+    await seekTo(T(0));
+    if (!stop()) await bySeek();
+    let misses = 0;
+    while (next < n && !stop()) {
+      if (!rvfc || misses > 20) { await bySeek(); if (next % 4 === 0) await new Promise(r => setTimeout(r)); continue; }
+      const m = await frameAt();
+      if (m == null) { misses++; await bySeek(); continue; }
+      if (lastM != null && m - lastM > 1 / 130) dur = Math.min(dur, m - lastM);
+      lastM = m;
+      // paused just after it was shown: still the same picture? and not past a slot that's still waiting?
+      if (T(next) < m - 0.0005 || video.currentTime >= m + dur - 0.0005) { misses++; await bySeek(); lastM = null; continue; }
+      await fill(m);
+    }
+    video.pause();
+    window.__grab = { misses, dur };                              // (for the tests)
+  }
+  // The trimmed part of the sound, in chunks of 20 ms
+  async function encodeSound(audio, start, end, mux, fail) {
+    const enc = new AudioEncoder({ output: (chunk, meta) => mux.addAudioChunk(chunk, meta), error: fail });
+    enc.configure(audio.cfg);
+    const sr = audio.sampleRate, ch = audio.numberOfChannels, from = Math.floor(start * sr), to = Math.min(audio.length, Math.ceil(end * sr));
+    const step = Math.round(sr / 50), chans = [];
+    for (let c = 0; c < ch; c++) chans.push(audio.getChannelData(c));
+    for (let p = from; p < to; p += step) {
+      const len = Math.min(step, to - p), data = new Float32Array(len * ch);
+      for (let c = 0; c < ch; c++) data.set(chans[c].subarray(p, p + len), c * len);
+      const ad = new AudioData({ format: 'f32-planar', sampleRate: sr, numberOfFrames: len, numberOfChannels: ch, timestamp: Math.round((p - from) / sr * 1e6), data });
+      while (enc.encodeQueueSize > 8) await new Promise(r => setTimeout(r, 2));
+      enc.encode(ad); ad.close();
+      if ((p - from) % (step * 50) === 0) $('bar').style.width = (90 + 10 * (p - from) / Math.max(1, to - from)) + '%';
+    }
+    await enc.flush(); enc.close();
   }
 
   // Open the finished WebM and look for see-through pixels (true / false; null if this browser can't tell)

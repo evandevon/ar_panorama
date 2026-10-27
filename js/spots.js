@@ -1930,23 +1930,74 @@
     const reachDeg = s => is3D(s) && s.isModel ? Math.atan(depthShare(s)) * 180 / Math.PI + 2 : (s.w / 2) * Math.max(1, 1 / (s.vAspect || s.aspect || 1)) + 2;
     const overlap3D = (a, b) => a.dir.angleTo(b.dir) * 180 / Math.PI < reachDeg(a) + reachDeg(b);
     function orderDepths() {
-      const list = spots.filter(s => is3D(s) && !s.float);
       // never so far that its back pokes through the 360° photo (radius 100; the compared photo is at 99)
-      const farthest = s => SKY_SAFE / (1 + depthShare(s, true));
-      list.forEach(s => { s.zDist = baseDist(s) > farthest(s) ? farthest(s) : 0; });
-      if (!list.some(s => s.z)) return;
-      const band = s => s.behind ? [22, Math.min(95, farthest(s))] : [1.5, 18];   // stay on the right side of the masks' cut-out photo (radius 20)
-      const D = s => s.zDist || baseDist(s);
-      list.filter(s => s.z > 0).sort((a, b) => a.z - b.z).forEach(a => {
-        let d = Math.min(baseDist(a), farthest(a));
-        list.forEach(b => { if (b !== a && b.z < a.z && overlap3D(a, b)) d = Math.min(d, D(b) * (1 - depthShare(b)) * 0.97 / (1 + depthShare(a))); });
-        a.zDist = Math.max(band(a)[0], Math.min(band(a)[1], d));
+      spots.forEach(s => {
+        if (!is3D(s) || s.float) return;
+        const farthest = SKY_SAFE / (1 + depthShare(s, true));
+        s.zDist = baseDist(s) > farthest ? farthest : 0;
       });
-      list.filter(s => s.z < 0).sort((a, b) => b.z - a.z).forEach(a => {
-        let d = baseDist(a);
-        list.forEach(b => { if (b !== a && b.z > a.z && overlap3D(a, b)) d = Math.max(d, D(b) * (1 + depthShare(b)) * 1.03 / Math.max(0.1, 1 - depthShare(a))); });
-        a.zDist = Math.max(band(a)[0], Math.min(band(a)[1], d));
-      });
+      layer3D();
+    }
+
+    // ---------------------------------------------------------- layer order in the 3D scene: drawn in turn
+    // 3D things on a higher layer are wholly in front of those on a lower one, wherever they overlap, whatever their
+    // distance: each layer is drawn in its own pass, after the depth from the passes before has been cleared. (Placing
+    // them at different distances instead let a deep model poke through a flat see-through video.) The masks' cut-out
+    // photo is drawn into the depth again at the start of each pass, without colour, so masks still hide what's
+    // behind them. With everything on one layer (the usual case), the scene is drawn once, exactly as before.
+    // three.js layers: 0 = everything else; 1–7 = z −3…3; 8 = the masks, for the depth-only redraw.
+    const MASK_LAYER = 8, zLayer = z => clampZ(z) + 4;
+    let zPasses = null;                                      // the layers to draw in turn, lowest first (null: one pass)
+    function objectsOf(s) { return [s.ent && s.ent.object3D, s.pic3d].filter(Boolean); }
+    function setLayer(s, L) {
+      const objs = objectsOf(s);
+      let count = 0;
+      objs.forEach(o => o.traverse(() => count++));
+      const key = L + ':' + count;
+      if (s.layerKey === key) return;
+      s.layerKey = key;
+      objs.forEach(o => o.traverse(n => n.layers.set(L)));
+    }
+    function layer3D() {
+      const list = spots.filter(s => is3D(s) || s.pic3d);
+      const zs = [...new Set(list.map(s => clampZ(s.z)))].sort((a, b) => a - b);
+      zPasses = zs.length > 1 ? zs.map(zLayer) : null;
+      list.forEach(s => setLayer(s, zPasses ? zLayer(s.z) : 0));
+      patchRender();
+    }
+    let patched = false;
+    function patchRender() {
+      const r = opts.sceneEl.renderer, scene = opts.sceneEl.object3D;
+      if (patched || !r) return;
+      patched = true;
+      const render = r.render.bind(r);
+      r.render = function (sc, camera) {
+        if (sc !== scene || !zPasses || !camera || !camera.layers) return render(sc, camera);
+        const mask = camera.layers.mask, autoClear = r.autoClear, bg = sc.background;
+        const fronts = [];
+        sc.traverse(n => {
+          if (n.userData && n.userData.frontLayer && n.visible) fronts.push(n);
+          else if (n.isLight) n.layers.enableAll();          // lights only light the layers they're on
+        });
+        fronts.forEach(n => n.layers.enable(MASK_LAYER));
+        try {
+          camera.layers.mask = 1 | (1 << zPasses[0]);       // the photo, the masks, and the lowest layer
+          render(sc, camera);
+          r.autoClear = false; sc.background = null;
+          for (let k = 1; k < zPasses.length; k++) {
+            r.clearDepth();
+            fronts.forEach(n => { n.material.colorWrite = false; });
+            camera.layers.mask = (1 << MASK_LAYER);
+            render(sc, camera);                                // the masks, into the depth only
+            fronts.forEach(n => { n.material.colorWrite = true; });
+            camera.layers.mask = (1 << zPasses[k]);
+            render(sc, camera);
+          }
+        } finally {
+          camera.layers.mask = mask; r.autoClear = autoClear; sc.background = bg;
+          fronts.forEach(n => { n.material.colorWrite = true; n.layers.disable(MASK_LAYER); });
+        }
+      };
     }
     // ---------------------------------------------------------- pinned pictures drawn into the 3D scene
     // A pinned picture is normally a page element, so it sits in front of every 3D model. When it's put behind an
@@ -1991,9 +2042,9 @@
         const pg = pinGeom(s);
         if (!pg.H) { s.pic3d.visible = false; s.el.classList.remove('in3d'); return; }
         // as far as needed to be behind them, inside the photo, and on the same side of any masks as the page version
-        const far = Math.max(...above3D(s).map(t => distOf(t) * (1 + depthShare(t, true)) * 1.03));
-        const band = s.behind ? [FRONT_R_SAFE, SKY_SAFE * pg.minDot] : [1.5, 18];
-        const d = Math.max(band[0], Math.min(Math.max(band[0], band[1]), far));
+        // far back on its side of the masks (behind 3D things on its own layer; the layer passes do the rest)
+        const band = s.behind ? [FRONT_R_SAFE, SKY_SAFE * pg.minDot * 0.97] : [1.5, 18];
+        const d = Math.max(band[0], band[1]);
         const key = pg.key + '|' + d.toFixed(2);
         if (pg.built !== key) { setPicGrid(s.pic3d.geometry, pg, d); pg.built = key; }
         const show = s.el.style.visibility === 'visible' || !!s.pin;      // (the page version hides when a corner leaves the screen)

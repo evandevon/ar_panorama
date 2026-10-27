@@ -163,6 +163,7 @@
         const mat = sm.material.clone();             // the same picture and colour handling as the photo itself
         mat.alphaMap = maskTex; mat.alphaTest = 0.5; mat.transparent = false; mat.depthWrite = true;
         mesh = new THREE.Mesh(sm.geometry, mat);
+        mesh.userData.frontLayer = true;             // spots.js draws it again (depth only) for each layer of 3D things
         mesh.matrixAutoUpdate = false;
         mesh.frustumCulled = false;
         sceneEl.object3D.add(mesh);
