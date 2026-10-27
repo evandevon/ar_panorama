@@ -362,7 +362,7 @@
       // by the browser instead of the view, cancelling the drag after a moment
       if (e.pointerType === 'mouse') e.preventDefault();
       clearSelection();
-      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moving: false });
       if (pointers.size === 1) travelled = 0;
       cancelAnimationFrame(spin); vel = { x: 0, y: 0 };
       el.style.cursor = 'grabbing';
@@ -377,6 +377,9 @@
     window.addEventListener('pointermove', e => {
       const p = pointers.get(e.pointerId);
       if (!p) return;
+      // a press that hardly moves is a click (a dot for a mask, a tap on a spot), not a drag: the view stays put
+      if (!p.moving && pointers.size === 1 && Math.hypot(e.clientX - p.sx, e.clientY - p.sy) <= 6) return;
+      p.moving = true;
       const dx = e.clientX - p.x, dy = e.clientY - p.y;
       p.x = e.clientX; p.y = e.clientY;
       travelled += Math.abs(dx) + Math.abs(dy);
@@ -398,7 +401,7 @@
       if (pointers.size) return;
       setTimeout(() => { travelled = 0; }, 0);   // after any click this pointer-up causes
       el.style.cursor = 'grab';
-      if (!REDUCED_MOTION && performance.now() - lastMoveTime < 80) glide(); else reportView();
+      if (!REDUCED_MOTION && travelled > 20 && performance.now() - lastMoveTime < 80) glide(); else reportView();   // a flick, not a click
     };
     window.addEventListener('pointerup', end);
     window.addEventListener('pointercancel', end);

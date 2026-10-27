@@ -20,6 +20,7 @@
   let viewYaw = 0, viewPitch = 0;   // where the preview is currently looking
   let spots = [];           // spots: { src, type, yaw, pitch, w, play, hidden, loop, label }
   const MAX_SPOTS = 20;
+  const showW = w => w < 10 ? String(Math.round(w * 10) / 10) : String(Math.round(w));   // small sizes to a tenth
   // The longest link worth making: web servers (GitHub Pages included) refuse addresses much past 8 KB, and a link
   // shortener only redirects to the same long address, so it can't help past this
   const LINK_MAX = 8000;
@@ -770,7 +771,7 @@
       if (!e.target.checked) { updatePlaceText(i); spotsChanged(false); }
     });
     // Size and position without dragging (keyboard and switch users, or anyone who prefers buttons)
-    const resize = f => { sp.w = Math.max(sp.float ? 5 : 4, Math.min(sp.float ? 100 : 140, (sp.w || HotSpots.DEFAULT_W) * f)); updatePlaceText(i); spotsChanged(true); };
+    const resize = f => { sp.w = Math.max(1, Math.min(sp.float ? 100 : 140, Math.round((sp.w || HotSpots.DEFAULT_W) * f * 10) / 10)); updatePlaceText(i); spotsChanged(true); };
     q('.sp-smaller').addEventListener('click', () => resize(1 / 1.15));
     q('.sp-bigger').addEventListener('click', () => resize(1.15));
     q('.sp-move').addEventListener('click', () => {
@@ -1112,11 +1113,11 @@
     if (sp.float) {
       const where = floatPlace(sp.yaw, sp.pitch);
       li.querySelector('.sp-where').textContent = 'On the screen: ' + (where === 'middle' ? 'in the middle' : where) +
-        ' · ' + Math.round(sp.w || 30) + '% of the screen' + ' · drag it in the preview to fine-tune';
+        ' · ' + showW(sp.w || 30) + '% of the screen' + ' · drag it in the preview to fine-tune';
       li.querySelectorAll('.sp-fpos').forEach(b => b.setAttribute('aria-pressed', String(Math.abs(+b.dataset.x - sp.yaw) < 4 && Math.abs(+b.dataset.y - sp.pitch) < 4)));
     } else {
       li.querySelector('.sp-where').textContent = 'Placed ' + describePlace(sp.yaw, sp.pitch) +
-        (inRoom ? (sp.pin ? ' · corners pinned' : ' · ' + Math.round(sp.w || HotSpots.DEFAULT_W) + '° wide') : '');
+        (inRoom ? (sp.pin ? ' · corners pinned' : ' · ' + showW(sp.w || HotSpots.DEFAULT_W) + '° wide') : '');
     }
     li.querySelector('.sp-smaller').hidden = li.querySelector('.sp-bigger').hidden = (!inRoom && !sp.float) || (!!sp.pin && !sp.float);
     li.querySelector('.sp-move').hidden = li.querySelector('.sp-show').hidden = !!sp.float;   // not somewhere in the room

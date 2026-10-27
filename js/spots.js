@@ -32,6 +32,7 @@
   'use strict';
 
   const DEFAULT_W = 40;          // degrees
+  const roundW = w => w < 10 ? Math.round(w * 10) / 10 : Math.round(w);   // small spots keep a tenth of a degree
   const YT_MIN_PX = 356;         // YouTube's minimum player size is 200px tall → 356px wide at 16:9
 
   // ------------------------------------------------------------------ YouTube API, loaded once
@@ -117,7 +118,7 @@
     const flags = (s.play === 'look' ? 'l' : s.play === 'start' ? 's' : '') + kindFlag +
       (s.hidden ? 'h' : '') + (s.loop ? 'r' : '') + (s.dwell ? 'd' : '') + (s.spin ? 'o' : '') + (s.flat ? 'f' : '') + (s.stacked && kind === 'video' ? 'x' + (s.alpha ? 'w' : '') : '') + (s.noMask ? 'u' : '') + (s.vanish && kind === 'video' && !s.loop ? 'e' : '') + (s.float ? 'g' : '');
     const label = (s.label || '').trim();
-    const w = s.w && Math.round(s.w) !== DEFAULT_W ? Math.round(s.w) : '';
+    const w = s.w && roundW(s.w) !== DEFAULT_W ? roundW(s.w) : '';
     const src = kind === 'text' ? 't:' + s.src.trim() : shorten ? Media.shorten(s.src) : s.src.trim();
     const pin = validPin(s.pin) && !s.float ? s.pin.map(c => c.map(n => Math.round(n)).join(',')).join(',') : '';
     const rot = Array.isArray(s.rot) && s.rot.some(n => Math.round(n)) ? s.rot.map(n => Math.round(n)).join(',') : '';
@@ -177,6 +178,7 @@
   // Flat spots in the room are drawn as real flat cards facing the viewer, in the same perspective as the photo, so they
   // stay on the same spot of the photo (and its masks) wherever they are on the screen. Width w degrees = a card whose
   // half-width is tan = (w/2)/FLAT_K: exactly w·(pixels per degree) wide when looked at straight on, on a phone (75°).
+  const MIN_W = 1;                  // the smallest a spot can be made: 1° (or 1% of the screen when floating)
   const FLAT_K = 75 / (2 * Math.tan(75 / 2 * Math.PI / 180));
   const MODEL_DIST = 8;            // 3D models sit this far from the viewer (the 360 photo is much further away)
   const BEHIND_DIST = 60;          // …or this far, when they're behind the front layer (a cut-out copy of the photo, nearer than this)
@@ -1290,7 +1292,7 @@
       if (s.yt) return s.expanded ? Math.max(YT_MIN_PX, degW(s) * pxPerDegree()) : authoredWidth(s);
       if (s.isText || s.isLink || s.isDoc) return Math.max(60, degW(s) * pxPerDegree());
       if (s.isModel || s.isStacked) return s.boxW || 40;
-      return Math.max(s.isImage ? 24 : s.drivePlayer ? 240 : 120, degW(s) * pxPerDegree());
+      return Math.max(s.isImage ? 4 : s.drivePlayer ? 240 : 120, degW(s) * pxPerDegree());
     }
     // Screen point → direction in the room
     function directionAt(sx, sy) {
@@ -1351,13 +1353,13 @@
     }
     function reportEdit(s) {
       if (s.float) {                         // floating: across / down the screen (0–100), and size as % of it
-        opts.onEdit(s.index, { yaw: Math.round(s.yaw), pitch: Math.round(s.pitch), w: Math.round(s.w), pin: null, z: s.z || 0,
+        opts.onEdit(s.index, { yaw: Math.round(s.yaw), pitch: Math.round(s.pitch), w: roundW(s.w), pin: null, z: s.z || 0,
           rot: s.isModel ? s.rot.map(n => Math.round(n)) : undefined });
         return;
       }
       const a = anglesFrom(s.dir);
       s.yaw = a.yaw; s.pitch = a.pitch;
-      opts.onEdit(s.index, { yaw: Math.round(a.yaw), pitch: Math.round(a.pitch), w: Math.round(s.w), z: s.z || 0,
+      opts.onEdit(s.index, { yaw: Math.round(a.yaw), pitch: Math.round(a.pitch), w: roundW(s.w), z: s.z || 0,
         pin: s.pin ? s.pin.map(c => c.map(n => Math.round(n))) : null,
         rot: s.isModel ? s.rot.map(n => Math.round(n)) : undefined });
     }
@@ -1883,14 +1885,14 @@
           } else if (corner) {
             // Resize around the centre: width follows whichever direction you pull further
             const top = s.float ? 100 : 140;                                  // floating: % of the screen
-            if (s.isModel || s.isStacked) s.w = Math.max(5, Math.min(top, w0 * reach(ev) / reach0));
+            if (s.isModel || s.isStacked) s.w = Math.max(MIN_W, Math.min(top, w0 * reach(ev) / reach0));
             else if (s.float) {
               const c = opts.sceneEl.canvas.getBoundingClientRect(), vr = viewRect(c.width, c.height);
               const half = Math.max(Math.abs(ev.clientX - r.left), Math.abs(ev.clientY - r.top) * s.aspect);
-              s.w = Math.max(5, Math.min(100, half * 2 / Math.min(vr.w, vr.h) * 100));
+              s.w = Math.max(MIN_W, Math.min(100, half * 2 / Math.min(vr.w, vr.h) * 100));
             } else {
               const half = Math.max(Math.abs(ev.clientX - r.left), Math.abs(ev.clientY - r.top) * s.aspect);
-              s.w = Math.max(5, Math.min(140, (half * 2) / pxPerDegree()));
+              s.w = Math.max(MIN_W, Math.min(140, (half * 2) / pxPerDegree()));
             }
           } else if (s.float) {
             floatMoveTo(s, ev.clientX - grab.dx, ev.clientY - grab.dy);
@@ -2044,11 +2046,22 @@
     // pinned area's centre, with the picture warped onto it exactly as the page version is, so it looks the same.
     // Its page version stays (see-through) for tapping, the author's handles, and its caption.
     const PIC_GRID = 16;
-    const canPic3D = s => s.isImage && !!s.pin && !s.float && !s.plan && !s.no3D;
+    // (pinned pictures, and pictures standing in the room as flat cards)
+    const canPic3D = s => s.isImage && !s.float && !s.plan && !s.no3D;
     function pinGeom(s) {                       // corner directions, centre, how wide; kept until it moves
-      const key = s.yaw + ',' + s.pitch + ',' + s.pin.join(',');
+      const key = s.yaw + ',' + s.pitch + ',' + (s.pin ? s.pin.join(',') : 'card' + s.w + ',' + (s.aspect || 1).toFixed(4));
       if (s.pg && s.pg.key === key) return s.pg;
-      const a = anglesFrom(s.dir), dirs = s.pin.map(([dy, dp]) => dirFrom(a.yaw + dy, a.pitch + dp));
+      let dirs;
+      if (s.pin) {
+        const a = anglesFrom(s.dir);
+        dirs = s.pin.map(([dy, dp]) => dirFrom(a.yaw + dy, a.pitch + dp));
+      } else {                                  // the same flat, level card the page version is drawn on
+        const hw = (s.w / 2) / FLAT_K, hh = hw / (s.aspect || 1.78);
+        const r = new THREE.Vector3(-s.dir.z, 0, s.dir.x);
+        if (r.lengthSq() < 1e-8) r.set(1, 0, 0); else r.normalize();
+        const u = new THREE.Vector3().crossVectors(r, s.dir);
+        dirs = [[-1, 1], [1, 1], [1, -1], [-1, -1]].map(([x, y]) => s.dir.clone().addScaledVector(r, x * hw).addScaledVector(u, y * hh).normalize());
+      }
       const c = dirs.reduce((m, d) => m.add(d), new THREE.Vector3()).normalize();
       const e1 = new THREE.Vector3().crossVectors(c, Math.abs(c.y) > 0.99 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0)).normalize();
       const e2 = new THREE.Vector3().crossVectors(e1, c).normalize();

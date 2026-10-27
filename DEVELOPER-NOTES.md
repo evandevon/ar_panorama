@@ -48,13 +48,18 @@ A-Frame 1.8.0 (THREE is `AFRAME.THREE`), qrcode.js, PDF.js, gifenc (ESM, lazy-im
 - **Maker ↔ preview:** postMessage. The message names are listed in the viewer.js file guide.
 - **Phone window:** the preview iframe fills the panel. The viewer gets `setWindow {w,h}`, sets the camera fov so the phone-sized window shows a real phone's view, and puts `.win-shade` panels outside it. Those panels allow dragging but not tapping.
 
-## Pinned pictures behind 3D models (spots.js `pics3D`)
+## Pictures behind 3D models (spots.js `pics3D`)
 
-A pinned picture (image + pin, not floating, not a floor plan) with an overlapping 3D spot on a higher z is drawn as a WebGL sheet instead of relying on its page element (which gets `.in3d`: the img goes see-through, the frame stays for taps, handles and caption). The sheet is a 16×16 grid in a plane square on to the centre of the pinned corners, with vertex positions from the square-to-quad homography of the corners' gnomonic coordinates, so it matches the CSS warp exactly. Distance: just behind the 3D things it's under (far reach ×1.03), within [22, 96·min cos] for masked pictures (behind the masks' cut-out sphere) or [1.5, 18] for "not hidden by masks". Material: transparent, depthWrite false, so opaque models in front win on depth. Texture: CORS image load, then Drive download with the site's key, else `no3D` + maker message and it stays a page element. `overlapsOf` lets pinned pictures and 3D spots be ordered against each other; merge.js paints such pictures before the models.
+A picture (pinned, or a flat in-room card since 28 Oct — `pinGeom` then uses the same level-card corners as the CSS card3d: half-width tan (w/2)/FLAT_K; not floating, not a floor plan) with an overlapping 3D spot on a higher z is drawn as a WebGL sheet instead of relying on its page element (which gets `.in3d`: the img goes see-through, the frame stays for taps, handles and caption). The sheet is a 16×16 grid in a plane square on to the centre of the pinned corners, with vertex positions from the square-to-quad homography of the corners' gnomonic coordinates, so it matches the CSS warp exactly. Distance: just behind the 3D things it's under (far reach ×1.03), within [22, 96·min cos] for masked pictures (behind the masks' cut-out sphere) or [1.5, 18] for "not hidden by masks". Material: transparent, depthWrite false, so opaque models in front win on depth. Texture: CORS image load, then Drive download with the site's key, else `no3D` + maker message and it stays a page element. `overlapsOf` lets pinned pictures and 3D spots be ordered against each other; merge.js paints such pictures before the models.
 
 ## Volume (field 11, added 27 Oct)
 
 `vol` 0–100 per sound/video spot (left out when 100). `applyVolume` sets media.volume (no automatic ducking: removed 27 Oct at Ev's request, the author sets every volume) or YouTube setVolume. iOS ignores media.volume (`volumeWorks()` detects it): there the element is routed through a Web Audio GainNode (`gainFor`), but only for same-origin or blob (Drive download) sources, since cross-origin media without CORS would go silent; the AudioContext is started in the first tap (`unlock` → `startMixer`). YouTube volume doesn't work on iOS either.
+
+## Small things and steady clicks (28 Oct)
+
+- Spots can be made as small as `MIN_W` = 1° (1% of the screen floating); widths under 10 keep a tenth (`roundW`, written like `1.5` in the link — older viewers read it fine). Picture frames have a 4 px floor (was 24 px, which stopped small pictures shrinking).
+- viewer.js drag: a press that moves ≤ 6 px is a click and doesn't turn the view (it used to nudge it, and a quick click could start the glide, so the preview drifted while drawing masks); glide only after a real flick (> 20 px).
 
 ## How big a tour can be (28 Oct)
 
@@ -119,7 +124,7 @@ The keying runs in a WebGL fragment shader (`FRAG` in videomaker.js):
 - **Teacher-facing words:** plain English, no jargon. Say "see-through" not "alpha" and "stencil" not "matte". Australian spelling: colour, centre.
 - **Accessibility:** labels on everything, keyboard paths, focus styles, and the WCAG AA contrast ratios we checked. The timeline trim dots are role=slider. axe-core showed no violations on all pages; keep it that way.
 - **Privacy:** nothing is uploaded and nothing stored except in the link. Never put student media in the repo or deliverables.
-- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261028a**.
+- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261028c**.
 - **Dragging the view:** `bindDrag` (viewer.js) calls preventDefault on mouse pointerdown, clears any text selection, and blocks `dragstart`. Without this, a drag on the dimmed area round the phone frame selected spot labels, and a later press on that selection started a browser text-drag that cancelled the look-around drag after a moment.
 - **Colours: "Ember and slate" (dark).** Use the tokens, never raw hex:
 

@@ -440,8 +440,9 @@
       // pinned pictures put behind an overlapping 3D model (a lower layer) are painted before the models
       const angle = (a, b) => { const r = Math.PI / 180, A = [a.yaw * r, a.pitch * r], B = [b.yaw * r, b.pitch * r];
         return Math.acos(Math.max(-1, Math.min(1, Math.sin(A[1]) * Math.sin(B[1]) + Math.cos(A[1]) * Math.cos(B[1]) * Math.cos(A[0] - B[0])))) / r; };
-      const underModel = it => it.info.kind === 'image' && Array.isArray(it.d.pin) && models.some(m => (m.d.z || 0) > (it.d.z || 0) &&
-        angle(it.d, m.d) < Math.max(...it.d.pin.map(([dy, dp]) => Math.hypot(dy, dp))) + (m.d.w || 40) / 2 + 5);
+      const reach = d => Array.isArray(d.pin) ? Math.max(...d.pin.map(([dy, dp]) => Math.hypot(dy, dp))) : (d.w || 40) * 0.7;
+      const underModel = it => it.info.kind === 'image' && !it.d.float && models.some(m => (m.d.z || 0) > (it.d.z || 0) &&
+        angle(it.d, m.d) < reach(it.d) + (m.d.w || 40) / 2 + 5);
       for (const it of page.filter(underModel).sort((a, b) => (a.d.z || 0) - (b.d.z || 0))) {
         progress(0.1 + 0.8 * step / steps, 'Painting in ' + nameOf(it) + '…');
         try { paintSpot(out, await rasterSpot(it, W), it.d, behind(it) ? mask : null); }
