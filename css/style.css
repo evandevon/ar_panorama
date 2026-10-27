@@ -477,7 +477,7 @@ body.windowed .hint { bottom: calc(var(--wy) + 80px); max-width: calc(var(--ww) 
 body.windowed .yt-wrap { left: calc(var(--wx) + 12px); top: calc(var(--wy) + 12px); }
 
 /* a video that disappears when it ends (it fades away; the author's preview still shows it faintly, to edit) */
-.spot.gone { opacity: 0; pointer-events: none; transition: opacity .5s ease; }
+.spot.gone { opacity: 0; pointer-events: none; transition: opacity 1s ease; }   /* "hide after playing": a one-second fade */
 .spot.gone * { pointer-events: none !important; }
 .spots-layer.editing .spot.gone { opacity: .35; pointer-events: auto; }
 .spots-layer.editing .spot.gone * { pointer-events: auto !important; }

@@ -120,7 +120,8 @@
     const delay = s.delay > 0 ? +(+s.delay).toFixed(1) : '';
     const plan = validPlan(s.plan) && kind === 'image' ? s.plan.map(n => Math.round(n)).join(',') : '';
     const z = clampZ(s.z) || '';                               // layer order among overlapping things (0 = as placed)
-    return [escField(src), Math.round(s.yaw), Math.round(s.pitch), flags, escField(label), w, pin, rot, delay, plan, z].join('~').replace(/~+$/, '');
+    const vol = (kind === 'audio' || kind === 'video') && clampVol(s.vol) !== 100 ? String(clampVol(s.vol)) : '';   // 0–100; full is left out
+    return [escField(src), Math.round(s.yaw), Math.round(s.pitch), flags, escField(label), w, pin, rot, delay, plan, z, vol].join('~').replace(/~+$/, '');
   }
   function decodeSpot(str) {
     str = String(str || '');
@@ -151,11 +152,13 @@
       delay: Math.max(0, Math.min(3600, Number(parts[8]) || 0)),   // seconds after the viewer starts before it appears
       plan: (() => { const n = String(parts[9] || '').split(',').map(Number); return validPlan(n) ? n : null; })(),   // floor plan: you-are-here x, y (%), turn (°)
       rot: (() => { const r = String(parts[7] || '').split(',').map(Number); return r.length === 3 && r.every(Number.isFinite) ? r : [0, 0, 0]; })(),
-      z: old ? 0 : clampZ(parts[10])   // layer order: + in front of overlapping things, − behind them
+      z: old ? 0 : clampZ(parts[10]),   // layer order: + in front of overlapping things, − behind them
+      vol: old || parts[11] == null || parts[11] === '' ? 100 : clampVol(parts[11])   // sounds and videos: volume 0–100
     };
   }
   const validPlan = p => Array.isArray(p) && p.length === 3 && p.every(Number.isFinite);
   const Z_MAX = 3;
+  const clampVol = v => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 100; };
   const clampZ = v => { const n = Math.round(Number(v) || 0); return Math.max(-Z_MAX, Math.min(Z_MAX, n)); };
   function validPin(p) {
     return Array.isArray(p) && p.length === 4 && p.every(c => Array.isArray(c) && c.length === 2 && c.every(Number.isFinite));
@@ -219,8 +222,8 @@
           old.used = true;
           Object.assign(old, { yaw: d.yaw, pitch: d.pitch, w: d.w || DEFAULT_W, label: d.label, dir: dirFrom(d.yaw, d.pitch),
             pin: validPin(d.pin) ? d.pin.map(c => c.slice()) : null, lastW: null,
-            rot: Array.isArray(d.rot) ? d.rot.slice() : [0, 0, 0], spin: !!d.spin, delay: d.delay || 0, z: clampZ(d.z) });
-          applyZ(old);
+            rot: Array.isArray(d.rot) ? d.rot.slice() : [0, 0, 0], spin: !!d.spin, delay: d.delay || 0, z: clampZ(d.z), vol: d.vol == null ? 100 : clampVol(d.vol) });
+          applyZ(old); applyVolume(old);
           if (old.isModel && !!d.flat !== !!old.flat) { old.flat = !!d.flat; applyLook(old); }
           if (old.isImage) setPlan(old, d.plan);
           if (old.labelEl) { old.labelEl.textContent = labelText(old); old.labelEl.hidden = !labelText(old); }
@@ -297,6 +300,7 @@
       if (s.dwell && s.el) addDwell(s);
       if (s.float && s.el) s.el.classList.add('floating');
       s.z = clampZ(def.z); applyZ(s);
+      s.vol = def.vol == null ? 100 : clampVol(def.vol);
 
       if (s.isStill) return s;
       if (!s.mediaHost) {                                       // sound only / hidden: the player lives off screen
@@ -1126,6 +1130,7 @@
           : 'This file couldn’t be loaded. Check the link and that it’s shared as “Anyone with the link”.'), { once: true });
         s.mediaHost.appendChild(m);
         s.media = m;
+        applyVolume(s);
         s.ready = !s.driveFile;                                   // a Drive file is ready once it has downloaded
       }
     }
@@ -1160,9 +1165,12 @@
     // A video that disappears when it ends, and comes back when it's played again
     function vanishNow(s) {
       if (!s.vanish) return;
-      s.gone = true;
-      if (s.el) s.el.classList.add('gone');
+      s.gone = true; s.goneAt = performance.now();
+      if (s.el) s.el.classList.add('gone');                    // fades out over a second (style.css .spot.gone)
     }
+    const FADE_MS = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1000;
+    // a see-through video's picture is in the 3D scene: fade it out the same way (to faint, in the author's preview)
+    const goneFade = s => !s.gone ? 1 : Math.max(opts.editable ? 0.35 : 0, 1 - (FADE_MS ? (performance.now() - s.goneAt) / FADE_MS : 1));
     function unvanish(s) {
       if (!s.gone) return;
       s.gone = false;
@@ -1222,16 +1230,42 @@
       }
       activityChanged();
     }
-    // While a video is playing, background sounds drop to a quarter volume
     function activityChanged() {
       spots.forEach(applyVolume);
       opts.onActivity(spots.filter(x => x.playing && x.showsPicture).length);
     }
+    // Each sound or video plays at its own volume (0–100, set by the author); nothing is turned down automatically
     function applyVolume(s) {
-      const duck = !s.showsPicture && spots.some(x => x.playing && x.showsPicture);
-      const v = duck ? 0.25 : 1;
-      if (s.media) s.media.volume = v;
-      else if (s.player && s.ready && s.player.setVolume) s.player.setVolume(v * 100);
+      const v = (s.vol == null ? 100 : s.vol) / 100;
+      if (s.media) {
+        s.media.volume = v;
+        // iPhones and iPads ignore a video's own volume: there it goes through the browser's sound mixer instead
+        if (v < 1 && !volumeWorks()) gainFor(s);
+        if (s.gain) s.gain.gain.value = v;
+      } else if (s.player && s.ready && s.player.setVolume) s.player.setVolume(Math.round(v * 100));
+    }
+    let volOk = null, actx = null;
+    function volumeWorks() {
+      if (volOk === null) { const a = document.createElement('audio'); a.volume = 0.5; volOk = Math.abs(a.volume - 0.5) < 0.01; }
+      return volOk;
+    }
+    // Only for files this page may read (its own site, or a downloaded copy): any other would go silent this way
+    function gainFor(s) {
+      if (s.gain || !actx || actx.state !== 'running') return;
+      const src = s.media.currentSrc || s.media.src || '';
+      let same = /^blob:/.test(src);
+      try { same = same || new URL(src, location.href).origin === location.origin; } catch (e) {}
+      if (!same) return;
+      try {
+        const node = actx.createMediaElementSource(s.media);
+        s.gain = actx.createGain();
+        node.connect(s.gain).connect(actx.destination);
+      } catch (e) { /* leave it at full volume */ }
+    }
+    // Called from the first tap (the only time iPhones let a page start its sound mixer)
+    function startMixer() {
+      if (volumeWorks() || actx) return;
+      try { actx = new (window.AudioContext || window.webkitAudioContext)(); actx.resume().then(() => spots.forEach(applyVolume)).catch(() => {}); } catch (e) {}
     }
 
     // ---------------------------------------------------------- screen geometry
@@ -1713,9 +1747,9 @@
       }
       const height = width / (s.vAspect || 1);
       s.mesh.scale.set(width, height, 1);
-      s.mesh.visible = !!s.vAspect && !(s.dwell && !s.revealed && !opts.editable) && !(s.gone && !opts.editable);
-      s.mesh.material.uniforms.opacity.value = opts.editable && s.dwell && !s.revealed ? 0.4
-        : s.appearAt ? Math.min(1, (performance.now() - s.appearAt) / 600) : 1;        // fading in after its delay
+      s.mesh.visible = !!s.vAspect && !(s.dwell && !s.revealed && !opts.editable) && goneFade(s) > 0;
+      s.mesh.material.uniforms.opacity.value = (opts.editable && s.dwell && !s.revealed ? 0.4
+        : s.appearAt ? Math.min(1, (performance.now() - s.appearAt) / 600) : 1) * goneFade(s);   // fading in after its delay; out when it's gone
       if (!s.vAspect) { s.boxW = 0; return; }
       o.updateMatrixWorld(true);
       camera.updateMatrixWorld();
@@ -2244,6 +2278,7 @@
     function unlock() {
       if (unlocked) return;
       unlocked = true;
+      startMixer();
       spots.forEach(s => {
         if (s.media && !s.inScene) {
           // Play silently for a moment (that's what lets phones play it later), then stop, unless something really

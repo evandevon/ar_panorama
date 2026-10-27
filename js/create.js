@@ -585,6 +585,8 @@
         '<div class="sc-checks">' +
           '<label class="check sp-hide-row"><input type="checkbox" class="sp-hide"><span>Hidden <span class="help-inline sp-hide-note"></span></span></label>' +
           '<label class="check sp-loop-row"><input type="checkbox" class="sp-loop"><span>Loop <span class="help-inline">— start again when it ends</span></span></label>' +
+          '<label class="sp-vol-row">Volume <output class="sp-vol-out"></output>' +
+            '<input type="range" class="sp-vol" min="0" max="100" step="5"></label>' +
           '<label class="check sp-stk-row"><input type="checkbox" class="sp-stk"><span>See-through video <span class="help-inline">— the room shows around it (make one with the <a href="videomaker.html" target="_blank" rel="noopener">See-through Video Maker</a>)</span></span></label>' +
           '<div class="sp-stk-kind" role="radiogroup" aria-label="Kind of see-through video" hidden>' +
             '<label class="check"><input type="radio" class="sp-stk-mp4"><span>See-through MP4 <span class="help-inline">— from the Video Maker; plays on every phone</span></span></label>' +
@@ -752,6 +754,8 @@
     q('.sp-play').addEventListener('change', e => { sp.play = e.target.value; if (sp.play === 'tap') sp.hidden = false; syncCard(li, sp, i); spotsChanged(true); });
     q('.sp-hide').addEventListener('change', e => { sp.hidden = e.target.checked; syncCard(li, sp, i); spotsChanged(true); });
     q('.sp-loop').addEventListener('change', e => { sp.loop = e.target.checked; syncCard(li, sp, i); updateSummary(li, sp); spotsChanged(true); });
+    q('.sp-vol').addEventListener('input', e => { sp.vol = +e.target.value; syncCard(li, sp, i); });
+    q('.sp-vol').addEventListener('change', e => { sp.vol = +e.target.value; syncCard(li, sp, i); updateSummary(li, sp); spotsChanged(true); });
     q('.sp-pin').addEventListener('change', e => {
       // The preview works out the starting corners from the spot's current shape and reports them back
       if (!e.target.checked) sp.pin = null;
@@ -849,6 +853,7 @@
       if (sp.delay > 0 && !sp.dwell) bits.push('appears after ' + sp.delay + ' s');
       if (sp.pin && !sp.float) bits.push('pinned');
       if (sp.z && !sp.float) bits.push(sp.z > 0 ? 'in front' : 'behind');
+      if (sp.vol != null && sp.vol !== 100 && (kind === 'audio' || kind === 'video')) bits.push(sp.vol === 0 ? 'silent' : 'volume ' + sp.vol + '%');
       if (layers.length && isMaskable(sp) && !sp.float) bits.push(sp.noMask ? 'in front of masks' : 'hidden by masks');
     }
     bits.push(sp.float ? 'floats ' + (floatPlace(sp.yaw, sp.pitch) === 'middle' ? 'in the middle' : floatPlace(sp.yaw, sp.pitch)) + ' of the screen' : describePlace(sp.yaw, sp.pitch));
@@ -950,6 +955,12 @@
     q('.sp-turn').hidden = !isModel || !sp.src.trim();
     q('.sp-hide-row').hidden = isImage || still || drive || !!sp.dwell;
     q('.sp-loop-row').hidden = isImage || still || drive;
+    // Volume: sounds and videos that this page plays itself (Google Drive's own player can't be told)
+    const vol = sp.vol == null ? 100 : sp.vol;
+    q('.sp-vol-row').hidden = !(kind === 'audio' || kind === 'video') || !sp.src.trim() || drive;
+    q('.sp-vol').value = vol;
+    q('.sp-vol-out').textContent = vol === 0 ? 'Silent' : vol + '%';
+    q('.sp-vol').setAttribute('aria-valuetext', vol === 0 ? 'Silent' : vol + ' percent');
     // only for videos that end: not looping, not sound-only, not Google Drive's own player
     q('.sp-vanish-row').hidden = kind !== 'video' || !sp.src.trim() || drive || !!sp.loop || (!!sp.hidden && !sp.stacked);
     const inRoomKind = isImage || still || (kind === 'video' && !sp.hidden);

@@ -272,13 +272,6 @@
       else if (this.kind === 'video') { video.pause(); this.set(false); }
       else if (this.kind === 'yt' && this.ytReady) this.yt.pauseVideo();
     },
-    // Turn the background sound down while a video spot is playing
-    duck(on) {
-      const v = on ? 0.25 : 1;
-      if (this.kind === 'file') $('audio').volume = v;
-      else if (this.kind === 'video' || (this.kind === 'spots' && video)) video.volume = v;
-      else if (this.kind === 'yt' && this.ytReady) this.yt.setVolume(v * 100);
-    },
     set(on) {
       this.playing = on;
       setButton($('btn-sound'), on ? 'pause' : 'play', on ? 'Pause' : (this.kind === 'video' ? 'Play' : 'Play audio'));
@@ -643,7 +636,7 @@
     viewRect: floatArea,                               // floating spots stay inside it
     frontAt: (x, y) => front.hiddenAt(x, y),
     offscreen: $('spots-offscreen'),
-    onActivity: n => Sound.duck(n > 0),
+    onActivity: () => {},                    // (the background sound used to be turned down here; the author decides volumes now)
     onError: (i, msg) => { (Stats.problems = Stats.problems || {})[i] = msg; tell({ type: 'spotError', index: i, message: msg, src: spotDefs[i] ? spotDefs[i].src : null }); if (!PREVIEW) console.warn('Video spot ' + (i + 1) + ': ' + msg); },
     onNeedTap: (text, fix) => {
       hint(text, 6000);
