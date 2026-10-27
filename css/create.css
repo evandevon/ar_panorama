@@ -366,3 +366,7 @@ textarea + .field-err { top: 8px; transform: none; }
   .merge-page .masthead .wrap, .merge-page .grid, .merge-page .foot { max-width: 1280px; }
   .merge-page .grid.merge-grid { grid-template-columns: minmax(340px, 440px) minmax(0, 1fr); grid-template-areas: none; }
 }
+
+/* Share it: a short link (TinyURL…) for a simpler QR code */
+.short-box { margin-top: 10px; }
+.short-box input { width: 100%; }

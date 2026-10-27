@@ -48,7 +48,7 @@ The preview loads the photo exactly the way a phone will. If it shows a green ti
 
 ### Spots
 
-Spots place videos, sounds, pictures, text, links and 3D models around the room. You can add up to 8.
+Spots place videos, sounds, pictures, text, links and 3D models around the room. You can add up to 20, as long as the tour's link stays under about 8,000 characters (web servers refuse longer addresses).
 
 | Kind | What to put in |
 |---|---|
@@ -213,6 +213,8 @@ Paste a link to the document and **Type** becomes **Document** by itself (for Go
 Use **⤢ Open** on the card in the preview to see exactly what viewers will see.
 
 ### Export merged photosphere
+
+**A short link makes any QR code simple.** Under the QR code, *Make the QR code simpler with a short link*: copy the link, shorten it with TinyURL (or similar) and paste the short link in; the code is then made from that. It's remembered in this browser for that exact tour; change the tour and it goes back to the full link until you make a new short one. A link too long for any QR code still works this way.
 
 Every spot makes the QR code longer. When it gets crowded, the maker suggests **Export merged photosphere…** (beside Copy, Print and the rest; it's there whenever a spot can be merged):
 

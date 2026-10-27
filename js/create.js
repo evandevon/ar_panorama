@@ -19,7 +19,10 @@
   let yaw = 0;              // chosen starting direction (degrees)
   let viewYaw = 0, viewPitch = 0;   // where the preview is currently looking
   let spots = [];           // spots: { src, type, yaw, pitch, w, play, hidden, loop, label }
-  const MAX_SPOTS = 8;
+  const MAX_SPOTS = 20;
+  // The longest link worth making: web servers (GitHub Pages included) refuse addresses much past 8 KB, and a link
+  // shortener only redirects to the same long address, so it can't help past this
+  const LINK_MAX = 8000;
   let loadedKey = '';       // what the preview iframe is showing
   let panoOk = null;        // did the preview manage to load the photo?
   let qrUrl = '';
@@ -1138,17 +1141,19 @@
   // Adding: choose what kind of thing first (Picture, Video, Sound…); it's placed at the crosshair, and its card opens
   // ready for the link (or the words). The kind can still be changed on the card.
   function updateAdd() {
-    const full = spots.length >= MAX_SPOTS, ok = !!panoOk && !full;
+    const full = spots.length >= MAX_SPOTS, long = qrUrl.length > LINK_MAX, ok = !!panoOk && !full && !long;
     document.querySelectorAll('.add-kind').forEach(b => { b.disabled = !ok; });
     $('add-why').hidden = ok;
-    $('add-why').textContent = full ? 'That’s the most one tour can have (' + MAX_SPOTS + '). Remove one to add another.' : 'Choose a 360° photo in step 1 first.';
+    $('add-why').textContent = full ? 'That’s the most one tour can have (' + MAX_SPOTS + '). Remove one to add another.'
+      : long ? 'This tour’s link is as long as phones can open (' + qrUrl.length.toLocaleString() + ' characters). Use shorter links, or Export merged photosphere (step 4), before adding more.'
+      : 'Choose a 360° photo in step 1 first.';
   }
   document.querySelectorAll('.add-kind').forEach(b => {
     b.querySelector('.ak-ico').innerHTML = ICONS[b.dataset.kind];
     b.addEventListener('click', () => addSpot(b.dataset.kind));
   });
   function addSpot(kind) {
-    if (spots.length >= MAX_SPOTS) return;
+    if (spots.length >= MAX_SPOTS || qrUrl.length > LINK_MAX) return;
     spots.push({ src: '', yaw: viewYaw, pitch: viewPitch, w: kind === 'text' ? 30 : 20, play: 'tap', type: kind || '', hidden: false, loop: false, dwell: false, label: '', rot: [0, 0, 0], spin: false, flat: false });
     openIndex = spots.length - 1;
     renderSpots();
@@ -1176,32 +1181,42 @@
     }
 
     qrUrl = viewerUrl(f, false);
-    let qr;
-    try {
-      qr = qrcode(0, 'M'); qr.addData(qrUrl); qr.make();
-    } catch (e) {
-      const m = mergeable();
-      $('qr').innerHTML = '<div class="qr-empty">These links are too long to fit in a QR code. ' + (m.n
-        ? 'Use <b>Export merged photosphere</b> (below) to paint ' + m.what + ' into the photo, or use shorter links.'
-        : 'Try a shorter link (Google Drive and YouTube links are shortened automatically).') + '</div>';
-      $('merge').hidden = !m.n;
-      $('merge').href = new URL('merge.html' + location.search, location.href).href;
-      qrModules = 999;
-      return;
-    }
-    $('qr').innerHTML = qr.createSvgTag({ cellSize: 8, margin: 2, scalable: true });
     $('link-out').textContent = qrUrl;
     updateEmbed();
     $('open').href = qrUrl;
+    updateAdd();
+    // The QR code holds the short link when there is one for this exact tour (see "short link" below)
+    const short = shortFor(qrUrl);
+    const data = short || qrUrl;
+    syncShort();
+    let qr = null;
+    for (const level of ['M', 'L']) {             // M copes with a scuffed code; L holds more, for long links
+      try { qr = qrcode(0, level); qr.addData(data); qr.make(); break; } catch (e) { qr = null; }
+    }
+    const m = mergeable();
+    $('merge').hidden = !m.n;
+    $('merge').href = new URL('merge.html' + location.search, location.href).href;
+    if (qrUrl.length > LINK_MAX) warns.push('<b>This link is too long for phones to open</b> (' + qrUrl.length.toLocaleString() + ' characters; the most is about ' + LINK_MAX.toLocaleString() + '). A short link can’t fix this. Use shorter links (files in your GitHub site are shortest), remove a spot' + (m.n ? ', or use <b>Export merged photosphere</b>' : '') + '.');
+    if (!qr) {
+      $('qr').innerHTML = '<div class="qr-empty">This link is too long to fit in a QR code. Make a <b>short link</b> (below) and paste it in' +
+        (m.n ? ', or use <b>Export merged photosphere</b> to paint ' + m.what + ' into the photo' : '') + '.</div>';
+      $('short-box').open = true;
+      qrModules = 999;
+      $('warn').innerHTML = warns.join('<br>'); $('warn').hidden = !warns.length;
+      return;
+    }
+    $('qr').innerHTML = qr.createSvgTag({ cellSize: 8, margin: 2, scalable: true });
     $('qr-foot').textContent = spots.some(sp => sp.src) ? 'Turn your sound up 🔊' : 'Look around by moving your phone';
 
     if (/^(file:|https?:\/\/(localhost|127\.|192\.168\.|10\.))/i.test(qrUrl)) warns.push('This page is running from your own computer, so phones can’t open this link. Use the version on GitHub Pages to make codes.');
     if (panoOk === null) warns.push('Still checking the photo in the preview…');
     // QR size: up to 65 squares across scans easily; up to 97 (version 20) is fine printed 6 cm wide; beyond that, phone
     // cameras need good light and a steady hand, so suggest making it simpler (Export merged photosphere)
-    const n = qr.getModuleCount(), m = mergeable();
-    const offer = m.n ? ' <b>Export merged photosphere</b> can paint ' + m.what + ' into the photo, making the code about ' + m.pct + '% shorter.' : '';
-    if (n > 117) warns.push('<b>This code is very crowded</b> (' + qrUrl.length.toLocaleString() + ' characters): older phones may not scan it. Print it at least 10 cm wide.' + offer);
+    const n = qr.getModuleCount();
+    const offer = (m.n ? ' <b>Export merged photosphere</b> can paint ' + m.what + ' into the photo, making the code about ' + m.pct + '% shorter.' : '') +
+      ' Or make a <b>short link</b> (below).';
+    if (short) { /* made from the short link: always simple */ }
+    else if (n > 117) warns.push('<b>This code is very crowded</b> (' + qrUrl.length.toLocaleString() + ' characters): older phones may not scan it. Print it at least 10 cm wide.' + offer);
     else if (n > 97) warns.push('This code is getting crowded. Print it at least 8 cm wide.' + offer);
     else if (n > 65) warns.push('This code is quite detailed because the links are long. Print it at least 6 cm wide so phones can read it.');
     qrModules = n;
@@ -1210,6 +1225,32 @@
     $('warn').innerHTML = warns.join('<br>');
     $('warn').hidden = !warns.length;
   }
+
+  // ---- short link (TinyURL and the like): remembered in this browser for this exact tour link, so it's never
+  // used for a tour that has changed since it was made
+  const shortKey = url => { let h = 0; for (let i = 0; i < url.length; i++) h = (h * 31 + url.charCodeAt(i)) | 0; return 'qr-short:' + h + ':' + url.length; };
+  function shortFor(url) { try { return localStorage.getItem(shortKey(url)) || ''; } catch (e) { return ''; } }
+  let lastShort = '';                          // the short link last saved (or found), as shown in the box
+  function syncShort() {
+    const have = shortFor(qrUrl), typed = $('in-short').value.trim();
+    if (have) { if (!typed) $('in-short').value = have; lastShort = have; status('short-status', 'ok', 'The QR code is made from this short link.'); }
+    else if (typed && typed === lastShort) status('short-status', 'note', 'The tour has changed since this short link was made, so the QR code is back to the full link. Copy the new link and make a new short link.');
+    else if (!typed) status('short-status', '', '');
+  }
+  $('in-short').addEventListener('change', () => {
+    const v = $('in-short').value.trim();
+    try { Object.keys(localStorage).filter(k => k.startsWith('qr-short:') && localStorage.getItem(k) === v).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+    if (!v) { try { localStorage.removeItem(shortKey(qrUrl)); } catch (e) {} lastShort = ''; renderQr(readForm()); syncShort(); return; }
+    let u = null;
+    try { u = new URL(/^https?:\/\//i.test(v) ? v : 'https://' + v); } catch (e) {}
+    if (!u || !/\./.test(u.hostname)) return status('short-status', 'err', 'That doesn’t look like a link. Paste the whole short link, e.g. https://tinyurl.com/abc123');
+    if (u.href.length >= qrUrl.length) return status('short-status', 'err', 'That link isn’t shorter than the tour’s own link.');
+    $('in-short').value = u.href;
+    try { localStorage.setItem(shortKey(qrUrl), u.href); } catch (e) {}
+    lastShort = u.href;
+    renderQr(readForm());
+    syncShort();
+  });
 
   $('copy').addEventListener('click', async () => {
     try { await navigator.clipboard.writeText(qrUrl); flash($('copy'), 'Copied ✓'); }
