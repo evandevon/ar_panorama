@@ -61,6 +61,11 @@ A picture (pinned, or a flat in-room card since 28 Oct — `pinGeom` then uses t
 - Spots can be made as small as `MIN_W` = 1° (1% of the screen floating); widths under 10 keep a tenth (`roundW`, written like `1.5` in the link — older viewers read it fine). Picture frames have a 4 px floor (was 24 px, which stopped small pictures shrinking).
 - viewer.js drag: a press that moves ≤ 6 px is a click and doesn't turn the view (it used to nudge it, and a quick click could start the glide, so the preview drifted while drawing masks); glide only after a real flick (> 20 px).
 
+## Compare bar and ▲/▼ steadiness (28 Oct)
+
+- The compare bar's split is a share of what's *seen* (`seenRect()`: the canvas, or the phone window in the author's preview), and the shader's uSplit is worked out from that each frame; it used to be a share of the whole canvas, so in the preview it could be dragged under the shading and not grabbed again.
+- `overlapsOf` decides overlaps from each spot's place and size in degrees (`angularBox`: pin corners, or w and its shape), not from screen rectangles, so the ▲/▼ buttons no longer come and go as the preview zooms (cards leaving the screen used to hide them). They only hide when the chosen spot itself is off screen.
+
 ## How big a tour can be (28 Oct)
 
 `MAX_SPOTS = 20` (was 8, which had no technical basis). The real limit is the link: `LINK_MAX = 8000` characters (web servers, GitHub Pages included, refuse addresses much past 8 KB, and a shortener only redirects to the same address), past which adding is blocked and step 4 warns. QR: tried at level M, then L (holds ~2,950 bytes); too long for either → no code, but the link can still be copied, and the **short link** box (TinyURL etc.) makes the code from the short link. A short link is remembered in localStorage under a hash of the exact tour link (`shortKey`), so a changed tour falls back to the full link and says so.
@@ -124,7 +129,7 @@ The keying runs in a WebGL fragment shader (`FRAG` in videomaker.js):
 - **Teacher-facing words:** plain English, no jargon. Say "see-through" not "alpha" and "stencil" not "matte". Australian spelling: colour, centre.
 - **Accessibility:** labels on everything, keyboard paths, focus styles, and the WCAG AA contrast ratios we checked. The timeline trim dots are role=slider. axe-core showed no violations on all pages; keep it that way.
 - **Privacy:** nothing is uploaded and nothing stored except in the link. Never put student media in the repo or deliverables.
-- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261028c**.
+- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261028d**.
 - **Dragging the view:** `bindDrag` (viewer.js) calls preventDefault on mouse pointerdown, clears any text selection, and blocks `dragstart`. Without this, a drag on the dimmed area round the phone frame selected spot labels, and a later press on that selection started a browser text-drag that cancelled the look-around drag after a moment.
 - **Colours: "Ember and slate" (dark).** Use the tokens, never raw hex:
 

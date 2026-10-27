@@ -2162,17 +2162,30 @@
     }
 
     // The author's preview: up / down buttons on the chosen spot when it overlaps something it can be ordered against
+    // Where it sits in the room, as a box in degrees (centre yaw / pitch, half-width / half-height): worked out from
+    // its place and size, not from the screen, so whether two things overlap doesn't change as the preview zooms
+    function angularBox(s) {
+      if (s.pin) {
+        const xs = s.pin.map(c => c[0]), ys = s.pin.map(c => c[1]);
+        const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+        return { yaw: s.yaw + (x0 + x1) / 2, pitch: s.pitch + (y0 + y1) / 2, hw: (x1 - x0) / 2, hh: (y1 - y0) / 2 };
+      }
+      let aspect = s.isModel ? 1 : s.isStacked ? (s.vAspect || 1) : (s.aspect || 1.78);
+      if ((s.isText || s.isLink || s.isDoc) && s.frame && s.frame.offsetHeight) aspect = s.frame.offsetWidth / s.frame.offsetHeight;
+      return { yaw: s.yaw, pitch: s.pitch, hw: s.w / 2, hh: s.w / 2 / aspect };
+    }
     function overlapsOf(s) {
       if (!s || !s.el || !s.frame || s.float) return [];
-      const r = s.frame.getBoundingClientRect();
-      if (!r.width) return [];
+      const a = angularBox(s);
       return spots.filter(o => {
-        if (o === s || !o.frame || o.float || o.el.style.visibility !== 'visible') return false;
-        // like with like; and pinned pictures with 3D things (they can be drawn into the 3D scene, behind them)
+        if (o === s || !o.frame || o.float || (o.hidden && !o.isStacked) || o.el.classList.contains('waiting')) return false;
+        // like with like; and pictures with 3D things (they can be drawn into the 3D scene, behind them)
         if (is3D(o) !== is3D(s) && !(canPic3D(is3D(o) ? s : o))) return false;
-        const q = o.frame.getBoundingClientRect();
-        const w = Math.min(r.right, q.right) - Math.max(r.left, q.left), h = Math.min(r.bottom, q.bottom) - Math.max(r.top, q.top);
-        return w > 4 && h > 4 && w * h > 0.04 * Math.min(r.width * r.height, q.width * q.height);
+        const b = angularBox(o);
+        const cos = Math.max(0.2, Math.cos((a.pitch + b.pitch) / 2 * Math.PI / 180));   // yaw degrees shrink towards the poles
+        const dyaw = Math.abs(((a.yaw - b.yaw) % 360 + 540) % 360 - 180) * cos;
+        const ow = a.hw + b.hw - dyaw, oh = a.hh + b.hh - Math.abs(a.pitch - b.pitch);
+        return ow > 0.3 && oh > 0.3 && ow * oh > 0.04 * Math.min(4 * a.hw * a.hh, 4 * b.hw * b.hh);
       });
     }
     // One set of buttons, in the top layer above every spot: inside the spot they'd be covered when it's behind
@@ -2191,7 +2204,7 @@
     }
     function showOrder() {
       const box = orderButtons(), s = spots.find(o => o.index === selected);
-      const over = s && !s.dragging ? overlapsOf(s) : [];
+      const over = s && !s.dragging && s.el && s.el.style.visibility === 'visible' ? overlapsOf(s) : [];   // (off screen: nowhere to put them)
       orderFor = over.length ? s : null;
       box.hidden = !orderFor;
       if (!orderFor) return;

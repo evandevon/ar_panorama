@@ -330,6 +330,7 @@
     const W = innerWidth, H = innerHeight;
     document.body.classList.toggle('windowed', !!win);
     shades.forEach(d => { d.hidden = !win; });
+    try { if (cmp.ent || cmp.mat) setSplit(cmp.split); } catch (e) {}   // the compare bar stays inside what's seen
     if (!win) { cam.setAttribute('camera', 'fov', winFov); return; }
     const x = (W - win.w) / 2, y = (H - win.h) / 2;
     // a wider view all round, so the window's own height still covers the phone's view
@@ -757,9 +758,18 @@
     $('cmp-n2').textContent = cmp.n2; $('cmp-n2').hidden = !cmp.n2;
     setSplit(cmp.split);
   }
+  // The part of the screen the viewer sees: the whole canvas, or the phone-shaped window in the author's preview.
+  // The bar is placed across that part, so it can never be dragged out of sight (under the shading)
+  function seenRect() {
+    const c = sceneEl.canvas, r = c && c.getBoundingClientRect();
+    if (!r) return null;
+    if (!win) return { left: r.left, width: r.width, canvas: r };
+    const left = r.left + (r.width - Math.min(win.w, r.width)) / 2;
+    return { left, width: Math.min(win.w, r.width), canvas: r };
+  }
   function setSplit(f) {
     cmp.split = Math.max(0, Math.min(1, f));
-    const c = sceneEl.canvas, r = c && c.getBoundingClientRect();
+    const r = seenRect();
     if (r) $('compare').style.setProperty('--split', (r.left + cmp.split * r.width) + 'px');
     const pct = Math.round(cmp.split * 100), a = cmp.n2 || 'the second photo', b = cmp.n1 || 'the main photo';
     const g = $('cmp-grip');
@@ -775,12 +785,13 @@
     const c = sceneEl.canvas;
     cmp.mat.uniforms.uW.value = c.width;
     cmp.mat.uniforms.uX.value = 0;
-    cmp.mat.uniforms.uSplit.value = cmp.split;
+    const r = seenRect();
+    cmp.mat.uniforms.uSplit.value = r && r.canvas.width ? (r.left - r.canvas.left + cmp.split * r.width) / r.canvas.width : cmp.split;
   }
   {
     const bar = $('cmp-bar'), grip = $('cmp-grip');
     let dragging = false;
-    const at = e => { const r = sceneEl.canvas.getBoundingClientRect(); setSplit((e.clientX - r.left) / r.width); };
+    const at = e => { const r = seenRect(); if (r) setSplit((e.clientX - r.left) / r.width); };
     bar.addEventListener('pointerdown', e => { dragging = true; bar.setPointerCapture(e.pointerId); e.stopPropagation(); e.preventDefault(); at(e); $('compare').classList.add('dragging'); });
     bar.addEventListener('pointermove', e => { if (dragging) { e.stopPropagation(); at(e); } });
     const end = e => { dragging = false; $('compare').classList.remove('dragging'); e.stopPropagation(); };
