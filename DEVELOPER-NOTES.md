@@ -56,6 +56,10 @@ A pinned picture (image + pin, not floating, not a floor plan) with an overlappi
 
 `vol` 0–100 per sound/video spot (left out when 100). `applyVolume` sets media.volume (no automatic ducking: removed 27 Oct at Ev's request, the author sets every volume) or YouTube setVolume. iOS ignores media.volume (`volumeWorks()` detects it): there the element is routed through a Web Audio GainNode (`gainFor`), but only for same-origin or blob (Drive download) sources, since cross-origin media without CORS would go silent; the AudioContext is started in the first tap (`unlock` → `startMixer`). YouTube volume doesn't work on iOS either.
 
+## Start again (viewer toolbar, 27 Oct)
+
+`#btn-restart` → `restartTour()` in viewer.js: background sound/360 video back to 0 and played, `spots.restart()` (every spot paused and rewound, vanished ones back, dot-revealed ones concealed, delayed ones waiting again, then `start()` with a new start time), and `recentre()` unless lined up with the room. Shown only when something can change (`spots.canRestart`, or a background sound/video). Runs inside the tap, so phones allow the sound.
+
 ## Link buttons in the viewer
 
 **Links to other tours on this site** (fixed 27 Oct): the QR link shortens `https://…/ar_panorama/?p=…` to `?p=…`, which `guessKind` used to read as text, so phones showed the whole address on a card while the maker showed a button. Now `?…=…` / `page.html?…=…` is guessed as a link (before the file-type checks, so already-printed codes also work), `kindOf` trusts an author-chosen Link without spaces, and `encodeSpot` decides whether the kind letter is needed from the link as written (shortened).
@@ -107,7 +111,7 @@ The keying runs in a WebGL fragment shader (`FRAG` in videomaker.js):
 - **Teacher-facing words:** plain English, no jargon. Say "see-through" not "alpha" and "stencil" not "matte". Australian spelling: colour, centre.
 - **Accessibility:** labels on everything, keyboard paths, focus styles, and the WCAG AA contrast ratios we checked. The timeline trim dots are role=slider. axe-core showed no violations on all pages; keep it that way.
 - **Privacy:** nothing is uploaded and nothing stored except in the link. Never put student media in the repo or deliverables.
-- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261027j**.
+- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261027l**.
 - **Dragging the view:** `bindDrag` (viewer.js) calls preventDefault on mouse pointerdown, clears any text selection, and blocks `dragstart`. Without this, a drag on the dimmed area round the phone frame selected spot labels, and a later press on that selection started a browser text-drag that cancelled the look-around drag after a moment.
 - **Colours: "Ember and slate" (dark).** Use the tokens, never raw hex:
 

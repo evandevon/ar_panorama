@@ -27,6 +27,7 @@
     pause: SVG('<path d="M8 4v16M16 4v16"/>'),
     soundOn: SVG('<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>'),
     soundOff: SVG('<path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6M16 9l6 6"/>'),
+    restart: SVG('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>'),
     lineUp: SVG('<path d="M4 7h3l2-3h6l2 3h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="4"/>')
   };
   // Every toolbar button keeps a spoken name, even when its words are hidden on small screens
@@ -484,7 +485,7 @@
       setTimeout(() => {
         window.removeEventListener('deviceorientation', on);
         if (!seen) { setMode('drag'); $('mode-toggle').hidden = true; hint('This device has no motion sensor — drag to look around.', 5000); }
-        else hint('Turn around to look. You can still drag left and right.');
+        // (motion working: no message — it only covered the view)
       }, 1200);
     }).catch(() => { setMode('drag'); hint('Motion isn’t available — drag to look around.', 5000); });
   }
@@ -506,10 +507,23 @@
     if (how === 'motion') startMotion(); else hint(matchMedia('(pointer: coarse)').matches ? 'Drag to look around' : 'Drag to look around · scroll to zoom');
 
     $('start').classList.add('gone');
-    $('toolbar').hidden = false;
+    $('toolbar').hidden = false; showRestart();
     $('mode-toggle').hidden = !motionPossible();
     setTimeout(() => { $('start').hidden = true; }, 500);
   }
+
+  // "Start again": every video and sound back to the beginning, hidden and delayed things hidden again, and the
+  // view facing the start, without reloading (which would mean the start screen, and asking for motion, again)
+  function restartTour() {
+    if (Sound.kind === 'file') { const a = $('audio'); try { a.currentTime = 0; } catch (e) {} Sound.play(); }
+    else if (Sound.kind === 'yt' && Sound.ytReady) { try { Sound.yt.seekTo(0, true); } catch (e) {} Sound.play(); }
+    if (video) { try { video.currentTime = 0; } catch (e) {} if (Sound.kind === 'video') Sound.play(); else video.play().catch(() => {}); }
+    spots.restart();
+    if (!aligned) recentre();
+    hint('Started again');
+  }
+  $('btn-restart').addEventListener('click', restartTour);
+  function showRestart() { $('btn-restart').hidden = !(spots.canRestart || Sound.kind === 'file' || Sound.kind === 'yt' || !!video); }
   // Tapping anywhere on the start screen starts too (the usual way, without aiming for a button)
   $('start').addEventListener('click', e => {
     if (e.target.closest('button, a') || $('tap-any').hidden || !document.querySelector('.card.ready') || $('start').classList.contains('gone')) return;
@@ -523,16 +537,16 @@
     getLook: () => lc,
     panoSource: () => document.getElementById('pano-src') || document.getElementById('pano-video'),
     onDone: () => afterAlign('Lined up! Look around the room.'),
-    onSkip: () => afterAlign(mode === 'motion' ? 'Turn around to look.' : 'Drag to look around.')
+    onSkip: () => afterAlign(mode === 'motion' ? '' : 'Drag to look around.')
   });
   function afterAlign(msg) {
     aligned = true;
     spots.start();
-    $('toolbar').hidden = false;
+    $('toolbar').hidden = false; showRestart();
     $('mode-toggle').hidden = !motionPossible();
     setButton($('btn-centre'), 'lineUp', 'Line up');
     $('btn-centre').title = 'Line the photo up with the room again';
-    hint(msg);
+    if (msg) hint(msg);
   }
   function enterAlign() {
     // Inside the tap: unlock sound for later, and ask for motion (iPhones only ask from a tap)
