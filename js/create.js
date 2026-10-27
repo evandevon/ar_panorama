@@ -42,6 +42,7 @@
       pano: $('in-pano').value.trim(),
       title: $('in-title').value.trim(),
       align: $('in-align').checked,
+      bg: $('in-bg').checked,                       // keep sounds playing with the screen off
       bright: Number($('in-bright').value) || 1,
       pano2: $('in-pano2').value.trim(),            // compare photospheres: a second photo, its turn, and the two names
       yaw2: Number($('in-yaw2').value) || 0,
@@ -58,6 +59,7 @@
     if (f.title) q.set('t', f.title);
     if (yaw) q.set('y', yaw);
     if (f.align) q.set('al', '1');
+    if (f.bg) q.set('bg', '1');
     if (f.bright !== 1 && hasModels()) q.set('mb', f.bright);
     compareParams(f, false).forEach(([k, v]) => q.set(k, v));
     spots.filter(sp => sp.src.trim()).forEach(sp => q.append('s', HotSpots.encode(sp, false)));
@@ -70,6 +72,7 @@
     $('in-pano').value = q.get('p') || '';
     $('in-title').value = q.get('t') || '';
     $('in-align').checked = q.get('al') === '1';
+    $('in-bg').checked = q.get('bg') === '1';
     $('in-bright').value = Number(q.get('mb')) || 1;
     $('in-pano2').value = q.get('p2') || '';
     $('in-yaw2').value = Number(q.get('y2')) || 0;
@@ -95,6 +98,7 @@
     if (f.title) q.push(['t', f.title]);
     if (yaw) q.push(['y', yaw]);
     if (f.align && !preview) q.push(['al', '1']);
+    if (f.bg && !preview) q.push(['bg', '1']);
     if (f.bright !== 1 && hasModels()) q.push(['mb', f.bright]);
     compareParams(f, true).forEach(p => q.push(p));
     if (!preview) spots.filter(sp => sp.src.trim()).forEach(sp => q.push(['s', HotSpots.encode(sp, true)]));

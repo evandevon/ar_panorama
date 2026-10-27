@@ -50,6 +50,7 @@
     yaw: Number(params.get('y')) || 0,
     loop: params.get('l') === '1',
     align: params.get('al') === '1',         // offer "line up with this room" (camera overlay)
+    keepPlaying: params.get('bg') === '1',   // sounds carry on with the screen off (a listening tour)
     bright: Number(params.get('mb')) || 1     // brightness of 3D models (1 = normal)
   };
 
@@ -510,6 +511,32 @@
     $('toolbar').hidden = false; showRestart();
     $('mode-toggle').hidden = !motionPossible();
     setTimeout(() => { $('start').hidden = true; }, 500);
+  }
+
+  // Screen off, or another app or tab: sounds pause (phones would otherwise play audio on with the screen off),
+  // and carry on when the tour is back, unless the author chose "Keep sounds playing when the screen is off".
+  let bgWas = null;
+  document.addEventListener('visibilitychange', () => {
+    if (PREVIEW || cfg.keepPlaying || !$('start').hidden) return;
+    if (document.hidden) {
+      bgWas = { sound: Sound.playing && Sound.kind !== 'spots', video: !!(video && !video.paused) };
+      if (bgWas.sound) Sound.pause();
+      if (bgWas.video) video.pause();
+      spots.suspend();
+    } else if (bgWas) {
+      if (bgWas.sound) Sound.play();
+      if (bgWas.video) video.play().catch(() => {});
+      spots.resume();
+      bgWas = null;
+    }
+  });
+  // A listening tour: the phone's lock screen shows the tour's name, with pause and play
+  if (cfg.keepPlaying && !PREVIEW && 'mediaSession' in navigator) {
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({ title: cfg.title, artist: '360° tour' });
+      navigator.mediaSession.setActionHandler('pause', () => { spots.suspend(); if (Sound.playing) Sound.pause(); });
+      navigator.mediaSession.setActionHandler('play', () => { spots.resume(); });
+    } catch (e) {}
   }
 
   // "Start again": every video and sound back to the beginning, hidden and delayed things hidden again, and the

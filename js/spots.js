@@ -2308,11 +2308,18 @@
       });
     }
     function stopAll() { spots.forEach(s => { s.userPaused = true; pause(s); }); }
+    // The phone's screen goes off or another app comes up: pause what's playing, and carry on from there when it's back
+    function suspend() {
+      spots.forEach(s => { if (s.playing || s.wantPlay) { s.suspended = true; pause(s); } });
+    }
+    function resume() {
+      spots.forEach(s => { if (s.suspended) { s.suspended = false; if (!s.userPaused) play(s); } });
+    }
     // "Start again" (the viewer's toolbar): everything back to how it was when the tour opened, then started again.
     // Call from inside a tap, so phones let the sound play.
     function restart() {
       spots.forEach(s => {
-        s.userPaused = false; s.lookStarted = false;
+        s.userPaused = false; s.lookStarted = false; s.suspended = false;
         pause(s);
         if (s.media) { try { s.media.currentTime = 0; } catch (e) {} }
         else if (s.player && s.ready && s.player.seekTo) { try { s.player.seekTo((s.yt && s.yt.start) || 0, true); s.player.pauseVideo(); } catch (e) {} }
@@ -2327,7 +2334,7 @@
     }
 
     return {
-      set, update, start, unlock, stopAll, restart, setMuted, setSelected, setHover, pinSpot, setBrightness, stats, setDebugHide,
+      set, update, start, unlock, stopAll, restart, suspend, resume, setMuted, setSelected, setHover, pinSpot, setBrightness, stats, setDebugHide,
       get count() { return spots.length; },
       get hasLook() { return spots.some(s => s.play === 'look' || s.dwell); },
       // anything that changes as the tour goes on (plays, appears, is revealed), so "Start again" means something
