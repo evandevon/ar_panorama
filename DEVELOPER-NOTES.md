@@ -58,6 +58,8 @@ A pinned picture (image + pin, not floating, not a floor plan) with an overlappi
 
 ## Link buttons in the viewer
 
+**Links to other tours on this site** (fixed 27 Oct): the QR link shortens `https://…/ar_panorama/?p=…` to `?p=…`, which `guessKind` used to read as text, so phones showed the whole address on a card while the maker showed a button. Now `?…=…` / `page.html?…=…` is guessed as a link (before the file-type checks, so already-printed codes also work), `kindOf` trusts an author-chosen Link without spaces, and `encodeSpot` decides whether the kind letter is needed from the link as written (shortened).
+
 A tap opens the page in a new tab from our own click handler (`window.open`, opener cut; falls back to opening in the same tab if new tabs are blocked). Long-press callout, text selection and the context menu are switched off on `.spot-a`, so phones don't show their link preview with the whole address, and a drag that starts on the button looks around instead of opening it.
 
 ## Link format essentials (full table in README)
@@ -105,7 +107,7 @@ The keying runs in a WebGL fragment shader (`FRAG` in videomaker.js):
 - **Teacher-facing words:** plain English, no jargon. Say "see-through" not "alpha" and "stencil" not "matte". Australian spelling: colour, centre.
 - **Accessibility:** labels on everything, keyboard paths, focus styles, and the WCAG AA contrast ratios we checked. The timeline trim dots are role=slider. axe-core showed no violations on all pages; keep it that way.
 - **Privacy:** nothing is uploaded and nothing stored except in the link. Never put student media in the repo or deliverables.
-- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261027i**.
+- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261027j**.
 - **Dragging the view:** `bindDrag` (viewer.js) calls preventDefault on mouse pointerdown, clears any text selection, and blocks `dragstart`. Without this, a drag on the dimmed area round the phone frame selected spot labels, and a later press on that selection started a browser text-drag that cancelled the look-around drag after a moment.
 - **Colours: "Ember and slate" (dark).** Use the tokens, never raw hex:
 

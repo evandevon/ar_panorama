@@ -64,6 +64,8 @@
     src = Media.expand(src);
     if (!src || /^gd:/.test(src)) return '';
     if (/^blob:/i.test(src)) return '';                                // a file made in this browser (the video maker's "try it")
+    // another tour on this same site: links shorten it to "?p=…" (or "index.html?p=…"), which isn't words to show
+    if (/^([\w.\/-]*\.html)?\?[\w%.-]+=\S*$/.test(src)) return 'link';
     if (Media.youTube(src) || Media.looksLikeVideo(src)) return 'video';
     if (Media.looksLikeImage(src)) return 'image';
     if (Media.looksLikeAudio(src)) return 'audio';
@@ -77,6 +79,7 @@
   function kindOf(d) {
     const t = d.type || (d.audioOnly ? 'audio' : '');
     const guess = guessKind(d.src);
+    if (t === 'link' && !/\s/.test(String(d.src || '').trim())) return 'link';   // the author said it's a link
     if (t === 'text' || guess === 'text') return 'text';
     if (t === 'link') return 'link';
     if (t === 'doc') return 'doc';                 // a document, shown full screen (always chosen by the author)
@@ -107,7 +110,8 @@
 
   // ------------------------------------------------------------------ link format
   function encodeSpot(s, shorten) {
-    const kind = kindOf(s), guess = guessKind(s.src);
+    // the kind letter is left out only when the link as written (shortened or not) shows the kind by itself
+    const kind = kindOf(s), guess = guessKind(kind === 'text' ? s.src : shorten ? Media.shorten(s.src) : s.src.trim());
     const kindFlag = kind === 'text' || kind === guess || (kind === 'video' && Media.youTube(s.src)) ? ''
       : { audio: 'a', video: 'v', image: 'i', link: 'k', model: 'm', doc: 'p' }[kind];
     const flags = (s.play === 'look' ? 'l' : s.play === 'start' ? 's' : '') + kindFlag +
