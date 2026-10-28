@@ -66,9 +66,17 @@ A picture (pinned, or a flat in-room card since 28 Oct — `pinGeom` then uses t
 - The compare bar's split is a share of what's *seen* (`seenRect()`: the canvas, or the phone window in the author's preview), and the shader's uSplit is worked out from that each frame; it used to be a share of the whole canvas, so in the preview it could be dragged under the shading and not grabbed again.
 - `overlapsOf` decides overlaps from each spot's place and size in degrees (`angularBox`: pin corners, or w and its shape), not from screen rectangles, so the ▲/▼ buttons no longer come and go as the preview zooms (cards leaving the screen used to hide them). They only hide when the chosen spot itself is off screen.
 
+## Step colours (28 Oct)
+
+Each numbered maker step sets `--step` (create.css): 1 sky #7fb2f0, 2 ember #ee8b5c, 3 violet #b9a0f2, 4 gold #f0c35a. Used for the number badge, a 4 px top stripe, a faint top wash and a tint on the heading only; buttons stay ember and teal still means selected. Passes axe colour contrast.
+
 ## How big a tour can be (28 Oct)
 
 `MAX_SPOTS = 20` (was 8, which had no technical basis). The real limit is the link: `LINK_MAX = 8000` characters (web servers, GitHub Pages included, refuse addresses much past 8 KB, and a shortener only redirects to the same address), past which adding is blocked and step 4 warns. QR: tried at level M, then L (holds ~2,950 bytes); too long for either → no code, but the link can still be copied, and the **short link** box (TinyURL etc.) makes the code from the short link. A short link is remembered in localStorage under a hash of the exact tour link (`shortKey`), so a changed tour falls back to the full link and says so.
+
+## Pause (viewer toolbar, 28 Oct)
+
+`#btn-pause` → `setPaused()` in viewer.js: background sound/360 video paused and `spots.suspend()`; pressed again (now "Resume", aria-pressed) → carried on with `spots.resume()`. While paused, turning the screen off and on doesn't restart anything; Start again clears it. Shown when there's something to play (`spots.hasMedia`, or a background sound/video).
 
 ## Screen off / another tab (27 Oct)
 
@@ -129,7 +137,7 @@ The keying runs in a WebGL fragment shader (`FRAG` in videomaker.js):
 - **Teacher-facing words:** plain English, no jargon. Say "see-through" not "alpha" and "stencil" not "matte". Australian spelling: colour, centre.
 - **Accessibility:** labels on everything, keyboard paths, focus styles, and the WCAG AA contrast ratios we checked. The timeline trim dots are role=slider. axe-core showed no violations on all pages; keep it that way.
 - **Privacy:** nothing is uploaded and nothing stored except in the link. Never put student media in the repo or deliverables.
-- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261028d**.
+- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261028h**.
 - **Dragging the view:** `bindDrag` (viewer.js) calls preventDefault on mouse pointerdown, clears any text selection, and blocks `dragstart`. Without this, a drag on the dimmed area round the phone frame selected spot labels, and a later press on that selection started a browser text-drag that cancelled the look-around drag after a moment.
 - **Colours: "Ember and slate" (dark).** Use the tokens, never raw hex:
 

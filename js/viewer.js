@@ -521,7 +521,7 @@
   // and carry on when the tour is back, unless the author chose "Keep sounds playing when the screen is off".
   let bgWas = null;
   document.addEventListener('visibilitychange', () => {
-    if (PREVIEW || cfg.keepPlaying || !$('start').hidden) return;
+    if (PREVIEW || cfg.keepPlaying || !$('start').hidden || paused) return;   // (paused by the viewer: stays paused)
     if (document.hidden) {
       bgWas = { sound: Sound.playing && Sound.kind !== 'spots', video: !!(video && !video.paused) };
       if (bgWas.sound) Sound.pause();
@@ -543,9 +543,32 @@
     } catch (e) {}
   }
 
+  // Pause (toolbar): everything that's playing stops where it is; Resume carries on from there
+  let paused = false, pausedWas = null;
+  function setPaused(on) {
+    if (on === paused) return;
+    paused = on;
+    if (on) {
+      pausedWas = { sound: Sound.playing && Sound.kind !== 'spots', video: !!(video && !video.paused) };
+      if (pausedWas.sound) Sound.pause();
+      if (pausedWas.video) video.pause();
+      spots.suspend();
+    } else {
+      if (pausedWas && pausedWas.sound) Sound.play();
+      if (pausedWas && pausedWas.video) video.play().catch(() => {});
+      spots.resume();
+      pausedWas = null;
+    }
+    setButton($('btn-pause'), on ? 'play' : 'pause', on ? 'Resume' : 'Pause');
+    $('btn-pause').title = on ? 'Carry on playing' : 'Pause every video and sound';
+    $('btn-pause').setAttribute('aria-pressed', String(on));
+  }
+  $('btn-pause').addEventListener('click', () => setPaused(!paused));
+
   // "Start again": every video and sound back to the beginning, hidden and delayed things hidden again, and the
   // view facing the start, without reloading (which would mean the start screen, and asking for motion, again)
   function restartTour() {
+    if (paused) { paused = false; pausedWas = null; setButton($('btn-pause'), 'pause', 'Pause'); $('btn-pause').setAttribute('aria-pressed', 'false'); }
     if (Sound.kind === 'file') { const a = $('audio'); try { a.currentTime = 0; } catch (e) {} Sound.play(); }
     else if (Sound.kind === 'yt' && Sound.ytReady) { try { Sound.yt.seekTo(0, true); } catch (e) {} Sound.play(); }
     if (video) { try { video.currentTime = 0; } catch (e) {} if (Sound.kind === 'video') Sound.play(); else video.play().catch(() => {}); }
@@ -554,7 +577,10 @@
     hint('Started again');
   }
   $('btn-restart').addEventListener('click', restartTour);
-  function showRestart() { $('btn-restart').hidden = !(spots.canRestart || Sound.kind === 'file' || Sound.kind === 'yt' || !!video); }
+  function showRestart() {
+    $('btn-restart').hidden = !(spots.canRestart || Sound.kind === 'file' || Sound.kind === 'yt' || !!video);
+    $('btn-pause').hidden = !(spots.hasMedia || Sound.kind === 'file' || Sound.kind === 'yt' || !!video);
+  }
   // Tapping anywhere on the start screen starts too (the usual way, without aiming for a button)
   $('start').addEventListener('click', e => {
     if (e.target.closest('button, a') || $('tap-any').hidden || !document.querySelector('.card.ready') || $('start').classList.contains('gone')) return;

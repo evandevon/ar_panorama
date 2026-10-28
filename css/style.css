@@ -88,7 +88,18 @@ a-scene { position: fixed !important; inset: 0; width: 100% !important; height: 
   display: flex; align-items: center; gap: 2px; padding: 4px;
   background: rgba(22,19,18,.82); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   border-radius: 16px; white-space: nowrap; max-width: calc(100% - 16px);
+  border: 1.5px solid rgba(255,255,255,.85);          /* a thin white outline, so it stands out on any photo */
+  box-shadow: 0 2px 12px rgba(0,0,0,.35);
 }
+/* When the tour opens, the bottom bar and the Motion switch each give a little "pop" (and a white glow that fades),
+   so viewers notice them. Animations start each time they go from hidden to shown. */
+.toolbar:not([hidden]) { animation: bar-pop .6s cubic-bezier(.3, 1.6, .5, 1) .2s both, ctl-glow 1.6s ease-out .3s; }
+.mode-toggle:not([hidden]) { animation: ctl-pop .6s cubic-bezier(.3, 1.6, .5, 1) .45s both, ctl-glow 1.6s ease-out .55s; }
+@keyframes bar-pop { from { opacity: 0; transform: translateX(-50%) scale(.6); } to { opacity: 1; transform: translateX(-50%) scale(1); } }
+@keyframes ctl-pop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: scale(1); } }
+@keyframes ctl-glow { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,.7), 0 2px 12px rgba(0,0,0,.35); }
+                      100% { box-shadow: 0 0 0 14px rgba(255,255,255,0), 0 2px 12px rgba(0,0,0,.35); } }
+@media (prefers-reduced-motion: reduce) { .toolbar:not([hidden]), .mode-toggle:not([hidden]) { animation: none; } }
 .toolbar button {
   display: flex; align-items: center; gap: 6px;
   min-height: 44px; min-width: 44px; padding: 0 12px; border: 0; border-radius: 12px;
@@ -366,7 +377,8 @@ body.embedded .go.secondary { min-height: 46px; }
 .mode-toggle {
   position: fixed; z-index: 5; top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right));
   display: flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 10px 0 9px;
-  border: 0; border-radius: 999px; background: rgba(22,19,18,.55); color: var(--chalk);
+  border: 1.5px solid rgba(255,255,255,.85); border-radius: 999px; background: rgba(22,19,18,.55); color: var(--chalk);
+  box-shadow: 0 2px 10px rgba(0,0,0,.35);
   font: 600 .8rem var(--sans); cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
 }
 .mode-toggle:hover { background: rgba(22,19,18,.75); }

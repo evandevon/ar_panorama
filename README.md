@@ -93,7 +93,7 @@ Use **📱 Phone** view when sizing videos. A phone held upright sees much less 
 
 Pictures keep their own shape. Transparent PNG, GIF and WebP images show the room through the see-through parts, so cut-out objects look like they're really there. Picture links don't need any special sharing permission beyond "Anyone with the link", so most hosts work.
 
-**Background sound:** add an MP3 spot and set it to *Sound only*, *Hidden*, *Plays as soon as it opens* and *Loop*. Set how loud it is with its **Volume** slider (nothing is turned down automatically). Viewers can mute everything with the **Sound** button, and **Start again** (in the bottom bar) plays every video and sound from the beginning, hides delayed and dot-revealed things again and faces the start — no need to refresh the page.
+**Background sound:** add an MP3 spot and set it to *Sound only*, *Hidden*, *Plays as soon as it opens* and *Loop*. Set how loud it is with its **Volume** slider (nothing is turned down automatically). Viewers can mute everything with the **Sound** button, **Pause** (in the bottom bar) stops every video and sound where it is until it's pressed again, and **Start again** plays every video and sound from the beginning, hides delayed and dot-revealed things again and faces the start — no need to refresh the page.
 
 Video sizes are stored as an angle (for example, "20° wide"), so a video stays the same size in the room on every screen.
 

@@ -2364,6 +2364,7 @@
       get count() { return spots.length; },
       get hasLook() { return spots.some(s => s.play === 'look' || s.dwell); },
       // anything that changes as the tour goes on (plays, appears, is revealed), so "Start again" means something
+      get hasMedia() { return spots.some(s => !s.isStill); },
       get canRestart() { return spots.some(s => !s.isStill || s.delay > 0 || s.dwell || s.play === 'look' || s.vanish); }
     };
   }
