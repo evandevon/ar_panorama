@@ -436,24 +436,37 @@
       const behind = it => !!mask && !it.d.noMask;
       const models = chosen.filter(it => it.info.kind === 'model'), page = chosen.filter(it => it.info.kind !== 'model');
       let step = 0;
-      const steps = (models.some(behind) ? 1 : 0) + (models.some(it => !behind(it)) ? 1 : 0) + page.length;
-      // pinned pictures put behind an overlapping 3D model (a lower layer) are painted before the models
-      const angle = (a, b) => { const r = Math.PI / 180, A = [a.yaw * r, a.pitch * r], B = [b.yaw * r, b.pitch * r];
-        return Math.acos(Math.max(-1, Math.min(1, Math.sin(A[1]) * Math.sin(B[1]) + Math.cos(A[1]) * Math.cos(B[1]) * Math.cos(A[0] - B[0])))) / r; };
-      const reach = d => Array.isArray(d.pin) ? Math.max(...d.pin.map(([dy, dp]) => Math.hypot(dy, dp))) : (d.w || 40) * 0.7;
-      const underModel = it => it.info.kind === 'image' && !it.d.float && models.some(m => (m.d.z || 0) > (it.d.z || 0) &&
-        angle(it.d, m.d) < reach(it.d) + (m.d.w || 40) / 2 + 5);
-      for (const it of page.filter(underModel).sort((a, b) => (a.d.z || 0) - (b.d.z || 0))) {
-        progress(0.1 + 0.8 * step / steps, 'Painting in ' + nameOf(it) + '…');
-        try { paintSpot(out, await rasterSpot(it, W), it.d, behind(it) ? mask : null); }
-        catch (e) { skipped.push(it); it.failed = nameOf(it) + ' ' + (e.message || 'couldn’t be painted in'); }
-        it.painted = true; step++;
+      // The 3D part is painted the way the tour draws it: layer by layer (lowest first), and within a layer, pictures that
+      // have gone behind a 3D model (drawn far back), then models behind the masks, then models in front of them.
+      // A picture goes behind when an overlapping 3D model is on a higher layer (HotSpots.angBox / angOverlap: the
+      // same test the tour uses). Everything else is a page element in the tour, so it's painted over all of that.
+      const zOf = it => it.d.z || 0;
+      const aspects = new Map();
+      for (const it of page.filter(it => it.info.kind === 'image' && !it.d.float && !it.d.plan && models.some(m => zOf(m) > zOf(it)))) {
+        try { aspects.set(it, (await imageDataUrl(it.d.src, 64)).aspect); } catch (e) { aspects.set(it, 1.78); }
       }
-      for (const group of [models.filter(behind), models.filter(it => !behind(it))]) {
-        if (!group.length) continue;
-        progress(0.1 + 0.8 * step / steps, 'Drawing ' + (group.length === 1 ? 'the 3D model' : group.length + ' 3D models') + '…');
-        await loadModels(group);
-        paintModels(out, behind(group[0]) ? mask : null);
+      const under = page.filter(it => aspects.has(it) && models.some(m => zOf(m) > zOf(it) &&
+        HotSpots.angOverlap(HotSpots.angBox(it.d, aspects.get(it)), HotSpots.angBox(m.d, 1), 0)));
+      const levels = [...new Set(models.concat(under).map(zOf))].sort((a, b) => a - b);
+      const passes = [];
+      levels.forEach(z => {
+        under.filter(it => zOf(it) === z).forEach(it => passes.push({ pic: it }));
+        [models.filter(it => zOf(it) === z && behind(it)), models.filter(it => zOf(it) === z && !behind(it))]
+          .forEach(g => { if (g.length) passes.push({ models: g }); });
+      });
+      const steps = passes.length + page.length - under.length;
+      for (const p of passes) {
+        if (p.pic) {
+          const it = p.pic;
+          progress(0.1 + 0.8 * step / steps, 'Painting in ' + nameOf(it) + '…');
+          try { paintSpot(out, await rasterSpot(it, W), it.d, behind(it) ? mask : null); }
+          catch (e) { skipped.push(it); it.failed = nameOf(it) + ' ' + (e.message || 'couldn’t be painted in'); }
+          it.painted = true;
+        } else {
+          progress(0.1 + 0.8 * step / steps, 'Drawing ' + (p.models.length === 1 ? 'the 3D model' : p.models.length + ' 3D models') + '…');
+          await loadModels(p.models);
+          paintModels(out, behind(p.models[0]) ? mask : null);
+        }
         step++;
       }
       if (engine) engine.set([]);

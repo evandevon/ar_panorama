@@ -70,6 +70,10 @@ A picture (pinned, or a flat in-room card since 28 Oct — `pinGeom` then uses t
 
 Each numbered maker step sets `--step` (create.css): 1 sky #7fb2f0, 2 ember #ee8b5c, 3 violet #b9a0f2, 4 gold #f0c35a. Used for the number badge, a 4 px top stripe, a faint top wash and a tint on the heading only; buttons stay ember and teal still means selected. Passes axe colour contrast.
 
+## Merged photo order = tour order (30 Oct)
+
+merge.js `make()` paints the 3D part as the tour draws it: z levels lowest first; within a level, pictures that have gone behind a 3D model (far back), then masked models, then unmasked models; then every other (page) spot, masked group then unmasked, each by z (stable, so spot order breaks ties, like the DOM). "Gone behind" uses `HotSpots.angBox` / `angOverlap` (module level in spots.js), the same test as the tour's `above3D` and the ▲/▼ buttons' `overlapsOf`, so all three agree. Before, merge used its own rough angle test and always painted masked models before unmasked ones whatever their layers.
+
 ## How big a tour can be (28 Oct)
 
 `MAX_SPOTS = 20` (was 8, which had no technical basis). The real limit is the link: `LINK_MAX = 8000` characters (web servers, GitHub Pages included, refuse addresses much past 8 KB, and a shortener only redirects to the same address), past which adding is blocked and step 4 warns. QR: tried at level M, then L (holds ~2,950 bytes); too long for either → no code, but the link can still be copied, and the **short link** box (TinyURL etc.) makes the code from the short link. A short link is remembered in localStorage under a hash of the exact tour link (`shortKey`), so a changed tour falls back to the full link and says so.
@@ -137,7 +141,7 @@ The keying runs in a WebGL fragment shader (`FRAG` in videomaker.js):
 - **Teacher-facing words:** plain English, no jargon. Say "see-through" not "alpha" and "stencil" not "matte". Australian spelling: colour, centre.
 - **Accessibility:** labels on everything, keyboard paths, focus styles, and the WCAG AA contrast ratios we checked. The timeline trim dots are role=slider. axe-core showed no violations on all pages; keep it that way.
 - **Privacy:** nothing is uploaded and nothing stored except in the link. Never put student media in the repo or deliverables.
-- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261028h**.
+- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261030a**.
 - **Dragging the view:** `bindDrag` (viewer.js) calls preventDefault on mouse pointerdown, clears any text selection, and blocks `dragstart`. Without this, a drag on the dimmed area round the phone frame selected spot labels, and a later press on that selection started a browser text-drag that cancelled the look-around drag after a moment.
 - **Colours: "Ember and slate" (dark).** Use the tokens, never raw hex:
 

@@ -2081,9 +2081,10 @@
       return [x1 - x0 + G * x1, x3 - x0 + Hh * x3, x0, y1 - y0 + G * y1, y3 - y0 + Hh * y3, y0, G, Hh];
     }
     // 3D things this picture is behind: overlapping, on a higher layer
+    // (the same test Export merged photosphere uses: HotSpots.angBox / angOverlap)
     function above3D(s) {
-      const pg = pinGeom(s), pz = s.z || 0;
-      return spots.filter(t => is3D(t) && !t.float && (t.z || 0) > pz && t.dir.angleTo(pg.c) * 180 / Math.PI < pg.radius + reachDeg(t));
+      const pz = s.z || 0, a = angularBox(s);
+      return spots.filter(t => is3D(t) && !t.float && (t.z || 0) > pz && angOverlap(a, angularBox(t), 0));
     }
     function pics3D() {
       spots.forEach(s => {
@@ -2165,14 +2166,9 @@
     // Where it sits in the room, as a box in degrees (centre yaw / pitch, half-width / half-height): worked out from
     // its place and size, not from the screen, so whether two things overlap doesn't change as the preview zooms
     function angularBox(s) {
-      if (s.pin) {
-        const xs = s.pin.map(c => c[0]), ys = s.pin.map(c => c[1]);
-        const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-        return { yaw: s.yaw + (x0 + x1) / 2, pitch: s.pitch + (y0 + y1) / 2, hw: (x1 - x0) / 2, hh: (y1 - y0) / 2 };
-      }
       let aspect = s.isModel ? 1 : s.isStacked ? (s.vAspect || 1) : (s.aspect || 1.78);
       if ((s.isText || s.isLink || s.isDoc) && s.frame && s.frame.offsetHeight) aspect = s.frame.offsetWidth / s.frame.offsetHeight;
-      return { yaw: s.yaw, pitch: s.pitch, hw: s.w / 2, hh: s.w / 2 / aspect };
+      return angBox(s, aspect);
     }
     function overlapsOf(s) {
       if (!s || !s.el || !s.frame || s.float) return [];
@@ -2181,11 +2177,7 @@
         if (o === s || !o.frame || o.float || (o.hidden && !o.isStacked) || o.el.classList.contains('waiting')) return false;
         // like with like; and pictures with 3D things (they can be drawn into the 3D scene, behind them)
         if (is3D(o) !== is3D(s) && !(canPic3D(is3D(o) ? s : o))) return false;
-        const b = angularBox(o);
-        const cos = Math.max(0.2, Math.cos((a.pitch + b.pitch) / 2 * Math.PI / 180));   // yaw degrees shrink towards the poles
-        const dyaw = Math.abs(((a.yaw - b.yaw) % 360 + 540) % 360 - 180) * cos;
-        const ow = a.hw + b.hw - dyaw, oh = a.hh + b.hh - Math.abs(a.pitch - b.pitch);
-        return ow > 0.3 && oh > 0.3 && ow * oh > 0.04 * Math.min(4 * a.hw * a.hh, 4 * b.hw * b.hh);
+        return angOverlap(a, angularBox(o), 0.04);
       });
     }
     // One set of buttons, in the top layer above every spot: inside the spot they'd be covered when it's behind
@@ -2369,7 +2361,29 @@
     };
   }
 
+  // Where a spot sits in the room, as a box in degrees (centre yaw / pitch, half-width / half-height), from its place
+  // and size (aspect = width ÷ height of what's shown; 3D models count as square), and whether two boxes overlap
+  // (by more than minShare of the smaller one). Shared by the ▲/▼ buttons, pictures going behind 3D things, and
+  // Export merged photosphere, so all three agree.
+  function angBox(d, aspect) {
+    if (validPin(d.pin) && !d.float) {
+      const xs = d.pin.map(c => c[0]), ys = d.pin.map(c => c[1]);
+      const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+      return { yaw: d.yaw + (x0 + x1) / 2, pitch: d.pitch + (y0 + y1) / 2, hw: (x1 - x0) / 2, hh: (y1 - y0) / 2 };
+    }
+    const w = d.w || DEFAULT_W;
+    return { yaw: d.yaw, pitch: d.pitch, hw: w / 2, hh: w / 2 / (aspect || 1.78) };
+  }
+  function angOverlap(a, b, minShare) {
+    const cos = Math.max(0.2, Math.cos((a.pitch + b.pitch) / 2 * Math.PI / 180));   // yaw degrees shrink towards the poles
+    const dyaw = Math.abs(((a.yaw - b.yaw) % 360 + 540) % 360 - 180) * cos;
+    const ow = Math.min(a.hw + b.hw - dyaw, 2 * Math.min(a.hw, b.hw)), oh = Math.min(a.hh + b.hh - Math.abs(a.pitch - b.pitch), 2 * Math.min(a.hh, b.hh));
+    return ow > 0.3 && oh > 0.3 && ow * oh > (minShare || 0) * Math.min(4 * a.hw * a.hh, 4 * b.hw * b.hh);
+  }
+
   global.HotSpots = HotSpots;
+  global.HotSpots.angBox = angBox;
+  global.HotSpots.angOverlap = angOverlap;
   global.HotSpots.encode = encodeSpot;
   global.HotSpots.decode = decodeSpot;
   global.HotSpots.DEFAULT_W = DEFAULT_W;
