@@ -565,6 +565,123 @@
   }
   $('btn-pause').addEventListener('click', () => setPaused(!paused));
 
+  // ------------------------------------------------------------- scanning another code
+  // Watching pupils move between QR codes, the hard part was leaving the tour, finding the camera app and scanning
+  // again. "Scan" (top right) shows the camera here, reads the next code and opens it in this tab. Codes for tours
+  // on this site open straight away; anything else is shown first, with a button to open it.
+  const canScan = !PREVIEW && !EMBEDDED && window.isSecureContext && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  const scan = { stream: null, timer: 0, detector: null, canvas: null, busy: false, wasPaused: false, back: null, open: false };
+  const scanStatus = t => { $('scan-status').textContent = t; };
+  function loadJsQR() {
+    if (window.jsQR) return Promise.resolve();
+    return new Promise((res, rej) => {
+      const sc = document.createElement('script');
+      sc.src = new URL('vendor/jsqr/jsQR.min.js', document.baseURI).href;
+      sc.onload = () => res(); sc.onerror = () => rej(new Error('the code reader couldn’t be loaded'));
+      document.head.appendChild(sc);
+    });
+  }
+  async function openScanner() {
+    if (scan.open) return;
+    scan.open = true;
+    scan.wasPaused = paused;
+    if (!paused) setPaused(true);                              // quiet while scanning
+    scan.back = document.activeElement;
+    const box = $('scanner');
+    box.hidden = false; box.classList.remove('found'); $('scan-found').hidden = true;
+    scanStatus('Starting the camera…');
+    $('scan-close').focus();
+    try {
+      scan.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+    } catch (e) {
+      scanStatus('The camera couldn’t start. Allow this website to use the camera (in the browser’s settings), or close this and use your camera app.');
+      return;
+    }
+    if (!scan.open) return stopCamera();                       // closed while waiting for permission
+    const v = $('scan-video');
+    v.srcObject = scan.stream;
+    try { await v.play(); } catch (e) {}
+    try {
+      if ('BarcodeDetector' in window && (await BarcodeDetector.getSupportedFormats()).includes('qr_code')) scan.detector = new BarcodeDetector({ formats: ['qr_code'] });
+    } catch (e) { scan.detector = null; }
+    if (!scan.detector) { try { await loadJsQR(); } catch (e) { scanStatus('The code reader couldn’t be loaded. Close this and use your camera app.'); return; } }
+    scanStatus('Hold the QR code inside the square');
+    scanLoop();
+  }
+  function scanLoop() {
+    clearTimeout(scan.timer);
+    if (!scan.open || !$('scan-found').hidden) return;
+    scan.timer = setTimeout(async () => {
+      const v = $('scan-video');
+      let text = '';
+      if (v.readyState >= 2 && v.videoWidth) {
+        try {
+          if (scan.detector) { const c = await scan.detector.detect(v); text = c[0] && c[0].rawValue || ''; }
+          else {
+            const k = Math.min(1, 720 / Math.max(v.videoWidth, v.videoHeight));
+            const w = Math.round(v.videoWidth * k), h = Math.round(v.videoHeight * k);
+            const c = scan.canvas || (scan.canvas = document.createElement('canvas'));
+            if (c.width !== w) { c.width = w; c.height = h; }
+            const x = c.getContext('2d', { willReadFrequently: true });
+            x.drawImage(v, 0, 0, w, h);
+            const r = window.jsQR(x.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' });
+            text = r && r.data || '';
+          }
+        } catch (e) {}
+      }
+      if (text) scanned(text); else scanLoop();
+    }, 120);
+  }
+  function scanned(text) {
+    let u = null;
+    try { u = new URL(text.trim(), location.href); } catch (e) {}
+    if (!u || !/^https?:$/.test(u.protocol)) { scanStatus('That QR code isn’t a link. Try another one.'); return setTimeout(scanLoop, 1200); }
+    const here = new URL('./', location.href);
+    $('scanner').classList.add('found');
+    if (u.origin === location.origin && u.pathname.startsWith(here.pathname)) {   // another tour (or page) on this site
+      scanStatus('Opening…');
+      stopCamera();
+      location.assign(u.href);
+      return;
+    }
+    // somewhere else (a short link, another website): say where, and let the viewer choose
+    $('scan-where').textContent = u.hostname.replace(/^www\./, '') + (u.pathname.length > 1 ? u.pathname.slice(0, 40) + (u.pathname.length > 40 ? '…' : '') : '');
+    $('scan-open').href = u.href;
+    $('scan-found').hidden = false;
+    scanStatus('');
+    $('scan-open').focus();
+  }
+  function stopCamera() {
+    clearTimeout(scan.timer);
+    if (scan.stream) scan.stream.getTracks().forEach(t => t.stop());
+    scan.stream = null;
+    $('scan-video').srcObject = null;
+  }
+  function closeScanner(keepPaused) {
+    if (!scan.open) return;
+    scan.open = false;
+    stopCamera();
+    $('scanner').hidden = true;
+    if (!scan.wasPaused && !keepPaused) setPaused(false);
+    if (scan.back && scan.back.focus) scan.back.focus();
+  }
+  $('btn-scan').addEventListener('click', openScanner);
+  $('scan-close').addEventListener('click', () => closeScanner());
+  $('scan-again').addEventListener('click', () => { $('scan-found').hidden = true; $('scanner').classList.remove('found'); scanStatus('Hold the QR code inside the square'); $('scan-close').focus(); scanLoop(); });
+  $('scan-open').addEventListener('click', () => stopCamera());
+  $('scanner').addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.preventDefault(); closeScanner(); }
+    if (e.key === 'Tab') {                                      // keep the keyboard inside the scanner
+      const f = [...$('scanner').querySelectorAll('button, a[href]')].filter(el => el.offsetParent);
+      if (!f.length) return;
+      const i = f.indexOf(document.activeElement);
+      if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); }
+      else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); }
+    }
+  });
+  // a tab that's hidden (or a phone that's locked) lets go of the camera
+  document.addEventListener('visibilitychange', () => { if (document.hidden && scan.open) closeScanner(true); });   // (stays paused: Resume carries on)
+
   // "Start again": every video and sound back to the beginning, hidden and delayed things hidden again, and the
   // view facing the start, without reloading (which would mean the start screen, and asking for motion, again)
   function restartTour() {
@@ -578,6 +695,7 @@
   }
   $('btn-restart').addEventListener('click', restartTour);
   function showRestart() {
+    $('btn-scan').hidden = !canScan;
     $('btn-restart').hidden = !(spots.canRestart || Sound.kind === 'file' || Sound.kind === 'yt' || !!video);
     $('btn-pause').hidden = !(spots.hasMedia || Sound.kind === 'file' || Sound.kind === 'yt' || !!video);
   }

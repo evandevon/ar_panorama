@@ -78,6 +78,10 @@ merge.js `make()` paints the 3D part as the tour draws it: z levels lowest first
 
 `MAX_SPOTS = 20` (was 8, which had no technical basis). The real limit is the link: `LINK_MAX = 8000` characters (web servers, GitHub Pages included, refuse addresses much past 8 KB, and a shortener only redirects to the same address), past which adding is blocked and step 4 warns. QR: tried at level M, then L (holds ~2,950 bytes); too long for either → no code, but the link can still be copied, and the **short link** box (TinyURL etc.) makes the code from the short link. A short link is remembered in localStorage under a hash of the exact tour link (`shortKey`), so a changed tour falls back to the full link and says so.
 
+## Scan another code (viewer, top right, 2 Nov)
+
+`#btn-scan` → `openScanner()` in viewer.js: the tour pauses, the back camera shows full screen (`#scanner`, a dialog: Esc and ✕ close it, Tab stays inside), and frames are read about 8 times a second — `BarcodeDetector` where the browser has it (Chrome on Android), otherwise `vendor/jsqr/jsQR.min.js` (jsQR 1.4.0, Apache-2.0, minified, loaded only when scanning). A link to this site (same origin, under this folder) opens straight away in the tab; anything else (short links, other websites) is shown first with **Open it** / **Scan again**. The camera stops when the scanner closes or the tab is hidden (the tour then stays paused). Not shown in the author's preview, inside another website, or without a secure page (camera needs https). The new tour still starts with its start screen: phones only allow motion and sound after a tap on each page.
+
 ## Pause (viewer toolbar, 28 Oct)
 
 `#btn-pause` → `setPaused()` in viewer.js: background sound/360 video paused and `spots.suspend()`; pressed again (now "Resume", aria-pressed) → carried on with `spots.resume()`. While paused, turning the screen off and on doesn't restart anything; Start again clears it. Shown when there's something to play (`spots.hasMedia`, or a background sound/video).
@@ -141,7 +145,7 @@ The keying runs in a WebGL fragment shader (`FRAG` in videomaker.js):
 - **Teacher-facing words:** plain English, no jargon. Say "see-through" not "alpha" and "stencil" not "matte". Australian spelling: colour, centre.
 - **Accessibility:** labels on everything, keyboard paths, focus styles, and the WCAG AA contrast ratios we checked. The timeline trim dots are role=slider. axe-core showed no violations on all pages; keep it that way.
 - **Privacy:** nothing is uploaded and nothing stored except in the link. Never put student media in the repo or deliverables.
-- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261030a**.
+- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261102a**.
 - **Dragging the view:** `bindDrag` (viewer.js) calls preventDefault on mouse pointerdown, clears any text selection, and blocks `dragstart`. Without this, a drag on the dimmed area round the phone frame selected spot labels, and a later press on that selection started a browser text-drag that cancelled the look-around drag after a moment.
 - **Colours: "Ember and slate" (dark).** Use the tokens, never raw hex:
 

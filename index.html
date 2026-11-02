@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#1f2a24">
   <title>360° experience</title>
-  <link rel="stylesheet" href="css/style.css?v=20261030a">
+  <link rel="stylesheet" href="css/style.css?v=20261102a">
   <script src="vendor/aframe-v1.8.0.min.js"></script>
-  <script src="js/settings.js?v=20261030a"></script>
-  <script src="js/sources.js?v=20261030a"></script>
-  <script src="js/spots.js?v=20261030a"></script>
-  <script src="js/layers.js?v=20261030a"></script>
-  <script src="js/align.js?v=20261030a"></script>
+  <script src="js/settings.js?v=20261102a"></script>
+  <script src="js/sources.js?v=20261102a"></script>
+  <script src="js/spots.js?v=20261102a"></script>
+  <script src="js/layers.js?v=20261102a"></script>
+  <script src="js/align.js?v=20261102a"></script>
 </head>
 <body>
   <!-- Live camera, shown under the faded 360 photo while lining up with the real room -->
@@ -79,6 +79,23 @@
   </button>
   </nav>
 
+  <!-- Scan the next QR code without leaving this tab (js/viewer.js "scanning another code") -->
+  <button id="btn-scan" class="scan-btn" hidden title="Scan another 360° QR code" aria-label="Scan another QR code">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/><rect x="7" y="7" width="4" height="4" rx=".5"/><rect x="13" y="7" width="4" height="4" rx=".5"/><rect x="7" y="13" width="4" height="4" rx=".5"/><path d="M13 13h1.5M17 13v1.5M13 17h4M15.5 15.5h0"/></svg>
+    <span class="scan-lbl">Scan</span>
+  </button>
+  <div id="scanner" class="scanner" role="dialog" aria-modal="true" aria-labelledby="scan-title" hidden>
+    <video id="scan-video" playsinline muted autoplay></video>
+    <div class="scan-frame" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+    <p class="scan-title" id="scan-title">Point at the next 360° QR code</p>
+    <p class="scan-status" id="scan-status" role="status" aria-live="polite"></p>
+    <div class="scan-found" id="scan-found" hidden>
+      <p>This code opens <b id="scan-where"></b></p>
+      <div class="scan-btns"><a class="go" id="scan-open">Open it</a><button type="button" class="go secondary" id="scan-again">Scan again</button></div>
+    </div>
+    <button type="button" class="scan-close" id="scan-close" aria-label="Close the scanner">✕</button>
+  </div>
+
   <!-- YouTube audio: YouTube's rules require its player to stay visible (at least 200×200) -->
   <div id="yt-wrap" class="yt-wrap" hidden><div id="yt"></div></div>
 
@@ -132,6 +149,6 @@
   </div>
 
   <audio id="audio" preload="auto" playsinline></audio>
-  <script src="js/viewer.js?v=20261030a"></script>
+  <script src="js/viewer.js?v=20261102a"></script>
 </body>
 </html>
