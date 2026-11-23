@@ -64,18 +64,63 @@
     return rows;
   }
   // a link (web address, site file, gd: id) rather than a number or a name
-  const looksLikeLink = c => /^(https?:\/\/|www\.|gd:)/i.test(c) || /^[\w.\/-]+\.[a-z0-9]{2,5}([?#].*)?$/i.test(c) && /[\/.]/.test(c) && !/^\d+(\.\d+)?$/.test(c);
-  /** @returns {{num: string, name: string, link: string, row: number}[]} */
+  const looksLikeLink = c => /^(https?:\/\/|www\.|gd:)/i.test(c) ||
+    /^((drive|docs)\.google\.com|youtu\.be|(m\.)?youtube\.com|(www\.)?dropbox\.com|1drv\.ms|onedrive\.live\.com)\//i.test(c) ||   // copied without https://
+    /^[\w.\/-]+\.[a-z0-9]{2,5}([?#].*)?$/i.test(c) && /[\/.]/.test(c) && !/^\d+(\.\d+)?$/.test(c) ||
+    /^[\w.-][\w .\/-]*\/[\w .-]*\.[a-z0-9]{2,5}$/i.test(c);          // a file in this site with spaces in its name (models/playground 1.glb)
+  // Words a teacher might put in the Type column → the maker's card types ('see-through' = a see-through video)
+  const TYPE_WORDS = [
+    ['see-through', /^(see[\s-]?through( video)?|green[\s-]?screen|transparent( video)?|cut[\s-]?out video)$/],
+    ['image', /^(pictures?|images?|photos?|pics?|drawings?|posters?|png|jpe?g|gif)$/],
+    ['video', /^(videos?|movies?|clips?|films?|mp4|youtube)$/],
+    ['audio', /^(sounds?|audio|music|songs?|sound effects?|sfx|noises?|narration|voice|mp3)$/],
+    ['model', /^(3d( models?| objects?)?|models?|objects?|glb|stl)$/],
+    ['link', /^(links?|web ?pages?|web ?sites?|sites?|pages?|urls?)$/],
+    ['doc', /^(documents?|docs?|pdfs?|slides?|worksheets?|presentations?|word|google docs?)$/]
+  ];
+  /** The card type for a Type cell: '' when empty, null when the word isn't understood */
+  function typeFrom(word) {
+    const w = String(word || '').trim().toLowerCase().replace(/[_.]+/g, ' ').replace(/\s+/g, ' ');
+    if (!w) return '';
+    const hit = TYPE_WORDS.find(([, re]) => re.test(w));
+    return hit ? hit[0] : null;
+  }
+  const HEAD = { num: /^(#|no\.?|num(ber)?|ref(erence)?|id|code)$/i, name: /^(name|title|label|what|description)$/i,
+    link: /^(link|links|url|address|web address|file|source)$/i, type: /^(type|kind|category|card|card type|sort)$/i };
+  /** @returns {{num: string, name: string, link: string, type: string, typeWord: string, row: number}[]}
+   *  type: the card type ('image', 'video', 'see-through', 'audio', 'model', 'link', 'doc'), '' for "any card",
+   *  or 'unknown' when the Type cell has a word that isn't understood (then it shows on every card too) */
   function entriesFrom(text) {
     const rows = parseCsv(text), out = [];
+    let cols = null;                                            // column positions, from a heading row if there is one
     rows.forEach((r, i) => {
-      const cells = r.map(c => String(c || '').trim()).filter(Boolean);
-      const link = cells.find(looksLikeLink);
-      if (!link) return;                                       // a heading, a note, or an empty row
-      const rest = cells.filter(c => c !== link);
-      const num = rest.find(c => /^#?\d{1,4}$/.test(c));
-      const name = rest.find(c => c !== num) || '';
-      out.push({ num: num ? num.replace(/^#/, '') : '', name, link, row: i + 1 });
+      const raw = r.map(c => String(c || '').trim());
+      const cells = raw.filter(Boolean);
+      // the Link column (when there's a heading row naming it), or whichever cell looks like a link
+      const link = cols && cols.link != null ? (raw[cols.link] || '') : cells.find(looksLikeLink);
+      if (cols && cols.link != null && !link) return;            // a row with no link
+      if (!link || (cols && cols.link != null && !looksLikeLink(link) && HEAD.link.test(link))) {
+        // a heading row: remember which column is which
+        const m = {};
+        raw.forEach((c, k) => Object.keys(HEAD).forEach(key => { if (m[key] == null && HEAD[key].test(c)) m[key] = k; }));
+        if (m.link != null || m.type != null) cols = m;
+        return;                                                  // (or a note, or an empty row)
+      }
+      let num, name, typeWord = '';
+      if (cols) {
+        num = cols.num != null ? raw[cols.num] : '';
+        name = cols.name != null ? raw[cols.name] : '';
+        typeWord = cols.type != null ? raw[cols.type] || '' : '';
+        if (!name) name = cells.find(c => c !== link && c !== num && c !== typeWord) || '';
+      } else {
+        const rest = cells.filter(c => c !== link);
+        typeWord = rest.find(c => typeFrom(c)) || '';
+        num = rest.find(c => /^#?\d{1,4}$/.test(c));
+        name = rest.find(c => c !== num && c !== typeWord) || '';
+      }
+      num = /^#?\d{1,4}$/.test(num || '') ? num.replace(/^#/, '') : '';
+      const t = typeFrom(typeWord);
+      out.push({ num, name, link, type: t === null ? 'unknown' : t, typeWord, row: i + 1 });
     });
     return out;
   }
@@ -140,5 +185,5 @@
     return missing;
   }
 
-  global.Library = { idFrom, sources, sheetUrl, parseCsv, entriesFrom, load, find, refFor, resolve, isRef };
+  global.Library = { typeFrom, idFrom, sources, sheetUrl, parseCsv, entriesFrom, load, find, refFor, resolve, isRef };
 })(window);

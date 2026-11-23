@@ -692,10 +692,14 @@
       const en = lib && lib.entries[+e.target.value];
       if (!en) return;
       sp.ref = Library.refFor(lib.entries, en);
+      // a card that hasn't got a type yet takes the library's (see-through = a video, ticked see-through)
+      const t = en.type === 'see-through' ? 'video' : en.type;
+      if (!sp.type && t && t !== 'unknown') { sp.type = t; q('.sp-type').value = t; }
       const ta = q('.sp-src');
       ta.value = en.link;
       if (!sp.label && (HotSpots.kindOf(sp) === 'link' || sp.type === 'link')) { sp.label = en.name; q('.sp-label').value = en.name; }
       ta.dispatchEvent(new Event('input', { bubbles: true }));
+      if (en.type === 'see-through' && !sp.stacked) { setSeeThrough(li, sp, true, /\.webm(\?|#|$)/i.test(en.link), true); syncCard(li, sp, i); spotsChanged(true); }
     });
 
     let typing = 0;
@@ -1052,8 +1056,10 @@
     const show = !!(lib && lib.entries.length) && kind !== 'text' && !(sp.type === 'text');
     row.hidden = !show;
     if (!show) return;
-    const want = sp.type || (decided ? kind : '');
-    const fits = en => { const g = HotSpots.guessKind(en.link); return !want || !g || g === want || (want === 'audio' && g === 'video'); };
+    // a link with a Type shows only on that kind of card (see-through videos on video cards); a link without one
+    // (or with a Type word that isn't understood) shows on every card; a card without a type yet shows them all
+    const want = sp.type || '';
+    const fits = en => !want || !en.type || en.type === 'unknown' || en.type === want || (en.type === 'see-through' && want === 'video');
     const cur = sp.ref ? lib.entries.indexOf(Library.find(lib.entries, sp.ref)) : -1;
     const key = want + '|' + cur + '|' + lib.entries.length;
     if (sel.dataset.key === key) return;
@@ -1061,7 +1067,12 @@
     const opt = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; return o; };
     sel.innerHTML = '';
     sel.appendChild(opt('', sp.ref && cur < 0 ? sp.ref + ' isn’t in the library any more' : 'Choose…'));
-    lib.entries.forEach((en, n) => { if (fits(en) || n === cur) sel.appendChild(opt(n, (en.num ? en.num + ' · ' : '') + (en.name || en.link))); });
+    const TYPE_NAME = { image: 'picture', video: 'video', 'see-through': 'see-through video', audio: 'sound', model: '3D model', link: 'web page', doc: 'document' };
+    lib.entries.forEach((en, n) => {
+      if (!fits(en) && n !== cur) return;
+      sel.appendChild(opt(n, (en.num ? en.num + ' · ' : '') + (en.name || en.link) + (!want && TYPE_NAME[en.type] ? ' (' + TYPE_NAME[en.type] + ')' : '')));
+    });
+    if (sel.options.length === 1) sel.options[0].textContent = 'Nothing in the library for this kind of card';
     sel.value = cur >= 0 ? String(cur) : '';
   }
 
@@ -1521,6 +1532,7 @@
   });
 
   // "Check every link": what each link is, and whether a phone will be able to use it, before any pupil does
+  const LIB_TYPE_NAME = { image: 'Picture', video: 'Video', 'see-through': 'See-through video', audio: 'Sound', model: '3D model', link: 'Web page', doc: 'Document' };
   const KIND_NAME = { image: 'Picture', video: 'Video', audio: 'Sound', model: '3D model', link: 'Web page', doc: 'Document', '': 'File' };
   const withTimeout = (p, ms) => Promise.race([p, new Promise(res => setTimeout(() => res({ state: 'unknown', msg: 'It took too long to answer. Try opening it.' }), ms))]);
   function loads(kind, url) {
@@ -1544,7 +1556,7 @@
     if (yt) {
       try {
         const r = await fetch('https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + yt.id));
-        if (r.ok) { const j = await r.json(); return { state: 'ok', kind: 'YouTube', msg: '“' + (j.title || 'video') + '”.' }; }
+        if (r.ok) { const j = await r.json(); return { state: 'ok', kind: 'YouTube', det: 'video', msg: '“' + (j.title || 'video') + '”.' }; }
         return { state: 'bad', kind: 'YouTube', msg: 'YouTube says it’s private, removed or can’t be embedded.' };
       } catch (e) { return { state: 'unknown', kind: 'YouTube', msg: 'Couldn’t ask YouTube. Try opening it.' }; }
     }
@@ -1552,7 +1564,7 @@
       const info = await Media.driveAccess(link);
       if (!info) return { state: 'bad', kind: 'Google Drive', msg: Media.driveKey() ? 'Google Drive won’t open it for viewers. Share it as “Anyone with the link” (Viewer).' : 'Can’t be checked here (no Google Drive key).' };
       const k = HotSpots.guessKind(info.name);
-      return { state: info.canEdit ? 'warn' : 'ok', kind: 'Drive ' + (KIND_NAME[k] || 'file').toLowerCase(),
+      return { state: info.canEdit ? 'warn' : 'ok', kind: 'Drive ' + (KIND_NAME[k] || 'file').toLowerCase(), det: k,
         msg: '“' + info.name + '”.' + (info.canEdit ? ' Shared so <b>anyone can edit it</b>: change it to Viewer.' : '') };
     }
     if (kind === 'link' || kind === 'doc') return { state: 'unknown', kind: KIND_NAME[kind], msg: 'A web page: open it to check it’s the right one.' };
@@ -1561,12 +1573,12 @@
       try {
         const r = await fetch(Media.resolveMediaUrl(link, 'model').url, { signal: ctl.signal });
         ctl.abort();
-        return r.ok ? { state: 'ok', kind: '3D model', msg: 'Opens.' } : { state: 'bad', kind: '3D model', msg: 'Not found (error ' + r.status + ').' };
+        return r.ok ? { state: 'ok', kind: '3D model', det: 'model', msg: 'Opens.' } : { state: 'bad', kind: '3D model', msg: 'Not found (error ' + r.status + ').' };
       } catch (e) { return { state: 'bad', kind: '3D model', msg: 'Its website doesn’t let tours load it. Put it in your GitHub site or Google Drive.' }; }
     }
     if (kind === 'image' || kind === 'video' || kind === 'audio') {
       const r = await loads(kind, Media.resolveMediaUrl(link, kind).url);
-      return Object.assign({ kind: KIND_NAME[kind] }, r);
+      return Object.assign({ kind: KIND_NAME[kind], det: kind }, r);
     }
     return { state: 'unknown', kind: 'Unknown', msg: 'Not sure what this is. Check it’s a link to a picture, video, sound, 3D model or web page.' };
   }
@@ -1585,19 +1597,35 @@
       $('lib-report').innerHTML = '<p class="status ' + (done.length < rows.length ? 'wait' : tally('bad') ? 'err' : tally('warn') ? 'note' : 'ok') + '">' +
         (done.length < rows.length ? 'Checking ' + (done.length + 1) + ' of ' + rows.length + '…' :
           'Checked ' + rows.length + ': ' + tally('ok') + ' OK' + (tally('warn') ? ', ' + tally('warn') + ' to check' : '') + (tally('bad') ? ', <b>' + tally('bad') + ' with a problem</b>' : '') + (tally('unknown') ? ', ' + tally('unknown') + ' to open and look at' : '') + '.') + '</p>' +
-        '<div class="lib-table-wrap"><table class="lib-table"><caption class="sr-only">Every link in the class link library</caption><thead><tr><th scope="col">#</th><th scope="col">Name</th><th scope="col">What it is</th><th scope="col">Result</th></tr></thead><tbody>' +
+        '<div class="lib-table-wrap"><table class="lib-table"><caption class="sr-only">Every link in the class link library</caption><thead><tr><th scope="col">#</th><th scope="col">Name</th><th scope="col">Shows on</th><th scope="col">What it is</th><th scope="col">Result</th></tr></thead><tbody>' +
         rows.map(r => {
           const dup = isDup(r.en);
           const res = r.res || { state: 'wait', kind: '…', msg: '' };
           const st = r.res ? stateOf(r) : 'wait';
-          return '<tr class="lr-' + st + '"><td>' + escapeHtml(r.en.num || '–') + '</td><td><a href="' + escapeHtml(Media.expand(r.en.link)) + '" target="_blank" rel="noopener">' + escapeHtml(r.en.name || 'Row ' + r.en.row) + '</a></td>' +
+          const shows = r.en.type && r.en.type !== 'unknown' ? LIB_TYPE_NAME[r.en.type] + ' cards' : 'Every card';
+          return '<tr class="lr-' + st + '"><td>' + escapeHtml(r.en.num || '–') + '</td><td><a href="' + escapeHtml(Media.expand(r.en.link)) + '" target="_blank" rel="noopener">' + escapeHtml(r.en.name || 'Row ' + r.en.row) + '</a></td><td>' + escapeHtml(shows) + '</td>' +
             '<td>' + escapeHtml(res.kind || '') + '</td><td><b>' + (STATE_WORD[st] || 'Checking…') + '</b> ' + (res.msg || '') +
             (dup ? ' <b>The same ' + (r.en.num && seen.get('n' + r.en.num) > 1 ? 'number' : 'name') + ' is used twice</b>, so pupils could get the wrong one.' : '') + '</td></tr>';
         }).join('') + '</tbody></table></div>';
     };
     draw();
     let next = 0;
-    const worker = async () => { while (next < rows.length) { const r = rows[next++]; r.res = await withTimeout(checkEntry(r.en).catch(() => ({ state: 'unknown', msg: 'Couldn’t be checked.' })), 15000); draw(); } };
+    // does the Type column agree with what the link turned out to be?
+    const typeNote = (en, res) => {
+      if (en.type === 'unknown') return { warn: true, text: 'Type “' + escapeHtml(en.typeWord) + '” isn’t one the maker knows, so it shows on every card. Use picture, video, see-through, sound, 3D, web page or document.' };
+      const said = en.type === 'see-through' ? 'video' : en.type, det = res && res.det;
+      const files = ['image', 'video', 'audio', 'model'];
+      if (said && det && files.includes(said) && files.includes(det) && said !== det && !(said === 'audio' && det === 'video'))
+        return { warn: true, text: 'Its Type says ' + LIB_TYPE_NAME[en.type].toLowerCase() + ', but it looks like a ' + (KIND_NAME[det] || 'file').toLowerCase() + ', so it may show on the wrong cards.' };
+      return null;
+    };
+    const worker = async () => { while (next < rows.length) {
+      const r = rows[next++];
+      r.res = await withTimeout(checkEntry(r.en).catch(() => ({ state: 'unknown', msg: 'Couldn’t be checked.' })), 15000);
+      const tn = typeNote(r.en, r.res);
+      if (tn) { r.res.msg = (r.res.msg || '') + ' ' + tn.text; if (tn.warn && (r.res.state === 'ok' || r.res.state === 'unknown')) r.res.state = 'warn'; }
+      draw();
+    } };
     await Promise.all([worker(), worker(), worker()]);
     btn.disabled = false;
   });

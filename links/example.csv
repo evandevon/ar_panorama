@@ -1,5 +1,6 @@
-Number,Name,Link
-1,Candle video,videos/sample-candle.mp4
-2,Slate picture,panoramas/sample-slate.png
-3,Floor plan,panoramas/sample-plan.png
-4,Inkwell (3D),models/sample-inkwell.glb
+Number,Name,Link,Type
+1,Candle (see-through),videos/sample-candle.mp4,see-through
+2,Slate,panoramas/sample-slate.png,picture
+3,Floor plan,panoramas/sample-plan.png,picture
+4,Inkwell,models/sample-inkwell.glb,3D
+5,ABC Education,https://www.abc.net.au/education,web page
