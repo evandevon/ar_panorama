@@ -26,7 +26,22 @@
     m = s.match(/docs\.google\.com\/spreadsheets\/d\/([\w-]{20,})/);
     if (m) return m[1] + (gid && gid !== '0' ? '.' + gid : '');
     if (/^(e:)?[\w-]{25,}(\.\d+)?$/.test(s)) return s;        // already an id
-    return s;                                                  // a CSV or text file (on this site, or anywhere)
+    // A GitHub page for a file (github.com/…/blob/…) is a web page about the file, which browsers can't read:
+    // use the file itself. A file in this site's own folder becomes its short address (links/class.csv).
+    m = s.match(/^(?:https?:\/\/)?(?:www\.)?github\.com\/([\w.-]+)\/([\w.-]+)\/(?:blob|raw)\/([^\/]+)\/([^?#]+)/i);
+    if (m) {
+      const [, owner, repo, branch, path] = m;
+      const here = location.hostname.toLowerCase() === owner.toLowerCase() + '.github.io' &&
+        location.pathname.split('/')[1].toLowerCase() === repo.toLowerCase();
+      return here ? path : 'https://raw.githubusercontent.com/' + owner + '/' + repo + '/' + branch + '/' + path;
+    }
+    m = s.match(/^https?:\/\/raw\.githubusercontent\.com\/([\w.-]+)\/([\w.-]+)\/(?:refs\/heads\/)?([^\/]+)\/([^?#]+)/i);
+    if (m && location.hostname.toLowerCase() === m[1].toLowerCase() + '.github.io' &&
+      location.pathname.split('/')[1].toLowerCase() === m[2].toLowerCase()) return m[4];
+    // this site's own address for the file: keep just the path
+    const site = location.origin + location.pathname.replace(/[^\/]*$/, '');
+    if (s.startsWith(site) && location.protocol.startsWith('http')) return s.slice(site.length);
+    return s;                                                // a CSV or text file (on this site, or anywhere)
   }
   const isSheet = v => /^(e:)?[\w-]{25,}(\.\d+)?$/.test(v);
   // Where to read it from, best first

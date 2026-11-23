@@ -51,6 +51,7 @@ A-Frame 1.8.0 (THREE is `AFRAME.THREE`), qrcode.js, PDF.js, gifenc (ESM, lazy-im
 ## Class link library (js/library.js, 21 Nov)
 
 - Tour param `lib=`: a Google Sheet id (`<id>[.<gid>]`), a published sheet (`e:<id>[.<gid>]`), or a CSV/text file's address. (`l=` was already taken by the old background-sound loop flag.) A spot's link `#3` (or `#Name` when the sheet has no numbers) is looked up in it.
+- `idFrom` (24 Nov): a github.com `/blob/` or `/raw/` page address becomes the file itself (`raw.githubusercontent.com/…`, which allows CORS; github.com doesn't), and a file in this site's own repo (github.com, raw.githubusercontent.com or the site's full address) becomes its short site path (`links/class.csv`). Ev pasted the blob page of links/example.csv and got "Failed to fetch".
 - Reading: `gviz/tq?tqx=out:csv` (works for sheets shared "Anyone with the link"; no key), then the Drive API export with the site's key; a copy of the list is kept in localStorage (`link-library:<value>`) and used if the sheet can't be reached. Rows: the cell that looks like a link, the first number, the first other cell as the name; anything without a link is skipped (headings, notes).
 - Viewer: `Library.resolve` swaps refs for links before `spots.set`; unknown refs are dropped with a hint; a link button without a label takes the entry's name.
 - Maker: `lib` (loaded list) and `libValue`; a spot chosen from the library keeps `sp.src` = the full link (so every check and the preview work as before) and `sp.ref` = "#3". `HotSpots.encode(sp, true)` writes the ref (with its kind letter: `guessKind('#3')` is '') only when the share link includes `lib=`. The maker's own address keeps full links plus `lr=<index>:<ref>` and `lib=`. Typing over a library link drops its ref. Opening a QR link (refs only) in the maker resolves them when the library loads (`libPending`).
@@ -159,7 +160,7 @@ The keying runs in a WebGL fragment shader (`FRAG` in videomaker.js):
 - **Teacher-facing words:** plain English, no jargon. Say "see-through" not "alpha" and "stencil" not "matte". Australian spelling: colour, centre.
 - **Accessibility:** labels on everything, keyboard paths, focus styles, and the WCAG AA contrast ratios we checked. The timeline trim dots are role=slider. axe-core showed no violations on all pages; keep it that way.
 - **Privacy:** nothing is uploaded and nothing stored except in the link. Never put student media in the repo or deliverables.
-- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261124c**.
+- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261124d**.
 - **Dragging the view:** `bindDrag` (viewer.js) calls preventDefault on mouse pointerdown, clears any text selection, and blocks `dragstart`. Without this, a drag on the dimmed area round the phone frame selected spot labels, and a later press on that selection started a browser text-drag that cancelled the look-around drag after a moment.
 - **Colours: "Ember and slate" (dark).** Use the tokens, never raw hex:
 
