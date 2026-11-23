@@ -399,3 +399,100 @@ textarea + .field-err { top: 8px; transform: none; }
 .lr-bad td:last-child b { color: var(--danger); }
 .lr-bad { background: rgba(255,140,140,.06); }
 .sp-lib-row select { width: 100%; }
+
+/* ===================================================================== Grouping (24 Nov)
+   Things that belong together sit in a box. Box tints say what kind of setting it is:
+     sky     = when it shows and plays     violet = how it looks     gold = size and place
+     ember   = adding (the main action)    dashed = optional extras (fold-outs)
+   Tints only colour a thin top/left accent, the box heading and a faint wash, so text stays AA. */
+:root { --t-play: #7fb2f0; --t-look: #b9a0f2; --t-place: #f0c35a; }
+
+/* Small headings over a group of controls */
+.group-h { margin: 0 0 8px; font: 700 .74rem/1.2 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+
+/* ---- fold-outs: one look everywhere (a box with a title, a short line under it and a chevron) */
+.disc { margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card-2); }
+.disc > summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) 20px; column-gap: 10px; align-items: center;
+  min-height: 48px; padding: 8px 12px; border-radius: 8px; color: var(--ink); }
+.disc > summary::-webkit-details-marker { display: none; }
+.disc > summary::after { content: ""; grid-column: 2; grid-row: 1 / span 2; justify-self: center; width: 8px; height: 8px;
+  border-right: 2px solid var(--ink-soft); border-bottom: 2px solid var(--ink-soft); transform: translateY(-2px) rotate(45deg); transition: transform .2s; }
+.disc[open] > summary::after { transform: translateY(2px) rotate(-135deg); }
+.disc > summary:hover { background: var(--card-hover); }
+.disc[open] > summary { border-bottom: 1px solid var(--line); border-radius: 8px 8px 0 0; }
+.disc-t { grid-column: 1; font-weight: 650; font-size: .95rem; line-height: 1.3; }
+.disc-sub { grid-column: 1; font-weight: 400; font-size: .8rem; color: var(--ink-soft); line-height: 1.3; }
+.disc-body { padding: 4px 12px 12px; font-size: .92rem; }
+.disc-body > .help:first-child { margin-top: 8px; }
+ul.tips { margin: 8px 0 0; padding-left: 20px; color: var(--ink-soft); font-size: .87rem; } ul.tips li + li { margin-top: 4px; }
+/* the older fold-out rules are replaced by .disc */
+.compare-box.disc, .layers.disc, .short-box.disc, .link-details.disc { margin-top: 12px; padding-top: 0; border-top: 1px solid var(--line); }
+.layers.disc > summary, .compare-box.disc > summary { font-size: inherit; margin-bottom: 0; display: grid; }
+.layers.disc .ltool { width: 100%; margin: 10px 0 6px; }
+.compare-box.disc .disc-body > label { margin-top: 10px; }
+
+/* "How lining up works" and other little help links stay plain, with a chevron */
+.howto > summary { list-style: none; gap: 6px; }
+.howto > summary::-webkit-details-marker { display: none; }
+.howto > summary::before { content: ""; width: 6px; height: 6px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); margin-right: 4px; transition: transform .2s; }
+.howto[open] > summary::before { transform: rotate(45deg); }
+
+/* ---- step 2: adding is the main thing to do, so it's ember and solid */
+.add-row { margin-top: 14px; padding: 12px 12px 14px; border: 1px solid color-mix(in srgb, var(--brass) 60%, var(--line)); border-radius: 10px;
+  background: color-mix(in srgb, var(--brass) 8%, var(--card)); }
+.add-h { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-weight: 700; font-size: .95rem; color: var(--brass-dark); }
+.add-plus { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--brass); color: var(--on-brass); font-weight: 800; line-height: 1; }
+.add-kind { background: var(--card); }
+.add-kind:hover:not(:disabled) { background: color-mix(in srgb, var(--brass) 14%, var(--card)); }
+.spot-list:empty { margin: 0; }
+
+/* whole-tour tools sit together under one heading */
+.tools { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.tools > .disc:first-of-type, .tools > .group-h + * { margin-top: 0; }
+.tool-box { margin-top: 10px; padding: 10px 12px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--card-2); }
+.bright-row.tool-box { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.bright-row label { font-size: .95rem; }
+
+/* ---- spot cards: settings in tinted boxes */
+.sc-body { padding: 10px 12px 14px; }
+.sc-body > * + * { margin-top: 10px; }
+.sc-box { --tint: var(--line-strong); padding: 8px 12px 12px; border: 1px solid color-mix(in srgb, var(--tint) 35%, var(--line)); border-left: 3px solid var(--tint);
+  border-radius: 8px; background: color-mix(in srgb, var(--tint) 6%, var(--field)); }
+.sc-box-play { --tint: var(--t-play); } .sc-box-look { --tint: var(--t-look); } .sc-box-place { --tint: var(--t-place); }
+.sc-box-h { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; font: 700 .74rem/1.2 var(--sans); letter-spacing: .08em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--tint) 70%, var(--ink)); }
+.sc-box-ico { width: 15px; height: 15px; flex: none; }
+/* a box hides itself when nothing in it applies to this kind of thing */
+.sc-box:not(:has(> :not([hidden]):not(.sc-box-h))) { display: none; }
+.sc-checks:not(:has(> :not([hidden]))) { display: none; }
+.sc-box > .sc-checks { margin-top: 4px; }
+.sc-box .check:first-of-type { margin-top: 4px; }
+.sc-box .sp-place { color: var(--ink-soft); }
+.sc-box .sp-turn { margin-top: 10px; padding-top: 10px; }
+.sc-box .sp-z-row { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.sc-box .sp-floatpos { margin-top: 8px; }
+.sc-box .sp-stk-kind { margin-bottom: 2px; }
+/* More options on a card: an optional extra, so it's dashed and quieter */
+.sc-more.disc { margin-top: 10px; border-style: dashed; border-color: var(--line-strong); background: transparent; }
+.sc-more.disc > summary { min-height: 40px; color: var(--ink); font-size: .9rem; }
+.sc-more .disc-t { font-size: .9rem; }
+.sc-more-n { font-weight: 600; color: var(--select-text); }
+.sc-more .disc-body > .check:first-child { margin-top: 8px; }
+/* the field that matters most on a card */
+.spot-card .sc-field label { color: var(--ink); }
+.iconbtn:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); border-color: color-mix(in srgb, var(--danger) 50%, transparent); }
+
+/* ---- step 3: each option is its own box */
+.opt-box { margin-top: 12px; padding: 10px 12px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--card-2); }
+.opt-box > .check { margin-top: 0; font-weight: 650; }
+.opt-box > .help { margin-left: 30px; }
+.opt-box > .howto { margin: 4px 0 0 30px; }
+.opt-box:has(input:checked) { border-color: color-mix(in srgb, var(--step) 60%, var(--line)); background: color-mix(in srgb, var(--step) 7%, var(--card-2)); }
+
+/* ---- step 4: the main buttons, then the other ways to share */
+.share-group { margin-top: 16px; }
+.share-group > .actions { margin-top: 0; }
+.share-group + .share-group { padding-top: 14px; border-top: 1px solid var(--line); }
+.qr-panel .warn { margin-top: 14px; }
+
+@media (prefers-reduced-motion: reduce) { .disc > summary::after, .howto > summary::before { transition: none; } }

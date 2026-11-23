@@ -539,6 +539,13 @@
     none: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/></svg>'
   };
   const CHEVRON = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+  // Small icons for the boxes on a spot card (clock: timing; eye: looks; arrows: size and place)
+  const boxIcon = d => '<svg class="sc-box-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
+  const BOX_ICONS = {
+    play: boxIcon('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+    look: boxIcon('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
+    place: boxIcon('<path d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3"/>')
+  };
   const TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>';
   // Floating spots: nine places on the screen (across, down: 0–100), for choosing without dragging
   const FLOAT_SPOTS = [[0, 0, 'Top left'], [50, 0, 'Top middle'], [100, 0, 'Top right'], [0, 50, 'Middle left'], [50, 50, 'Middle'],
@@ -599,64 +606,76 @@
           '<span class="err-tip" id="' + id + '-err" role="tooltip" hidden></span></span></div>' +
         '<div class="sc-field"><label for="' + id + '-label">Label <span class="opt">optional</span></label>' +
           '<input id="' + id + '-label" type="text" class="sp-label" maxlength="40" placeholder="e.g. The teacher’s desk"></div>' +
-        '<div class="sc-grid">' +
-          '<label class="sp-row">Appears<select class="sp-dwell">' +
-            '<option value="0">Straight away</option><option value="delay">After a delay</option><option value="1">After looking at a dot</option></select></label>' +
-          '<label class="sp-row sp-delay-row" hidden>Seconds after the viewer starts<input type="number" class="sp-delay" min="1" max="3600" step="1" inputmode="numeric"></label>' +
-          '<label class="sp-row"><span class="sp-play-word">Plays</span><select class="sp-play"></select></label>' +
+        // Settings are grouped in boxes (each has its own tint; a box hides itself when nothing in it applies, see create.css .sc-box)
+        '<div class="sc-box sc-box-play" role="group" aria-labelledby="' + id + '-hplay">' +
+          '<p class="sc-box-h" id="' + id + '-hplay">' + BOX_ICONS.play + 'When it shows and plays</p>' +
+          '<div class="sc-grid">' +
+            '<label class="sp-row">Appears<select class="sp-dwell">' +
+              '<option value="0">Straight away</option><option value="delay">After a delay</option><option value="1">After looking at a dot</option></select></label>' +
+            '<label class="sp-row sp-delay-row" hidden>Seconds after the viewer starts<input type="number" class="sp-delay" min="1" max="3600" step="1" inputmode="numeric"></label>' +
+            '<label class="sp-row"><span class="sp-play-word">Plays</span><select class="sp-play"></select></label>' +
+          '</div>' +
+          '<div class="sc-checks">' +
+            '<label class="check sp-hide-row"><input type="checkbox" class="sp-hide"><span>Hidden <span class="help-inline sp-hide-note"></span></span></label>' +
+            '<label class="check sp-loop-row"><input type="checkbox" class="sp-loop"><span>Loop <span class="help-inline">— start again when it ends</span></span></label>' +
+            '<label class="sp-vol-row">Volume <output class="sp-vol-out"></output>' +
+              '<input type="range" class="sp-vol" min="0" max="100" step="5"></label>' +
+          '</div>' +
         '</div>' +
-        '<div class="sc-checks">' +
-          '<label class="check sp-hide-row"><input type="checkbox" class="sp-hide"><span>Hidden <span class="help-inline sp-hide-note"></span></span></label>' +
-          '<label class="check sp-loop-row"><input type="checkbox" class="sp-loop"><span>Loop <span class="help-inline">— start again when it ends</span></span></label>' +
-          '<label class="sp-vol-row">Volume <output class="sp-vol-out"></output>' +
-            '<input type="range" class="sp-vol" min="0" max="100" step="5"></label>' +
+        '<div class="sc-box sc-box-look" role="group" aria-labelledby="' + id + '-hlook">' +
+          '<p class="sc-box-h" id="' + id + '-hlook">' + BOX_ICONS.look + 'How it looks</p>' +
           '<label class="check sp-stk-row"><input type="checkbox" class="sp-stk"><span>See-through video <span class="help-inline">— the room shows around it (make one with the <a href="videomaker.html" target="_blank" rel="noopener">See-through Video Maker</a>)</span></span></label>' +
           '<div class="sp-stk-kind" role="radiogroup" aria-label="Kind of see-through video" hidden>' +
             '<label class="check"><input type="radio" class="sp-stk-mp4"><span>See-through MP4 <span class="help-inline">— from the Video Maker; plays on every phone</span></span></label>' +
             '<label class="check"><input type="radio" class="sp-stk-webm"><span>WebM with its own transparency <span class="help-inline">— iPhones and iPads can’t play these</span></span></label>' +
           '</div>' +
-          '<details class="sc-more"><summary>More options <span class="sc-more-n"></span></summary>' +
+          '<label class="check sp-spin-row"><input type="checkbox" class="sp-spin"><span>Spins slowly</span></label>' +
+          '<label class="check sp-flat-row"><input type="checkbox" class="sp-flat"><span>Bright, flat colours <span class="help-inline">— matte, with the colours as you picked them, like Tinkercad shows them. Untick for the file’s own materials (shinier, often paler).</span></span></label>' +
+        '</div>' +
+        '<div class="sc-box sc-box-place" role="group" aria-labelledby="' + id + '-hplace">' +
+          '<p class="sc-box-h" id="' + id + '-hplace">' + BOX_ICONS.place + 'Size and place</p>' +
+          '<div class="sp-place"><span class="sp-where"></span>' +
+            '<span class="sp-place-btns">' +
+              '<button type="button" class="btn small ghost sp-smaller" aria-label="Make smaller">− Smaller</button>' +
+              '<button type="button" class="btn small ghost sp-bigger" aria-label="Make bigger">+ Bigger</button>' +
+              '<button type="button" class="btn small ghost sp-move">Move to crosshair</button>' +
+              '<button type="button" class="btn small ghost sp-show">Show me</button>' +
+            '</span></div>' +
+          '<div class="sp-floatpos" role="group" aria-label="Where it sits on the screen" hidden>' +
+            FLOAT_SPOTS.map(([x, y, name]) => '<button type="button" class="sp-fpos" data-x="' + x + '" data-y="' + y + '" aria-label="' + name + '" title="' + name + '" aria-pressed="false"><span aria-hidden="true"></span></button>').join('') +
+          '</div>' +
+          '<div class="sp-turn" role="group" aria-label="Turn the 3D model"><span class="sp-turn-text"></span>' +
+            '<span class="sp-place-btns">' +
+              '<button type="button" class="btn small ghost sp-rot" data-axis="0" data-step="-15" aria-label="Turn left">↺ Turn</button>' +
+              '<button type="button" class="btn small ghost sp-rot" data-axis="0" data-step="15" aria-label="Turn right">Turn ↻</button>' +
+              '<button type="button" class="btn small ghost sp-rot" data-axis="1" data-step="-15" aria-label="Tilt back">▲ Tilt</button>' +
+              '<button type="button" class="btn small ghost sp-rot" data-axis="1" data-step="15" aria-label="Tilt forward">Tilt ▼</button>' +
+              '<button type="button" class="btn small ghost sp-rot" data-axis="2" data-step="15" aria-label="Roll sideways">Roll ⟲</button>' +
+              '<button type="button" class="btn small ghost sp-rot-reset" aria-label="Reset rotation">Reset</button>' +
+            '</span></div>' +
+          '<div class="sp-z-row" role="group" aria-label="Layer order where it overlaps other things">' +
+            '<span>Where it overlaps: <b class="sp-z-out"></b></span>' +
+            '<span class="sp-place-btns"><button type="button" class="btn small ghost sp-z" data-z="-1">▼ Further back</button>' +
+            '<button type="button" class="btn small ghost sp-z" data-z="1">▲ Further forward</button></span></div>' +
+        '</div>' +
+        '<details class="sc-more disc"><summary><span class="disc-t">More options <span class="sc-more-n"></span></span></summary>' +
+          '<div class="disc-body">' +
             '<label class="check sp-float-row"><input type="checkbox" class="sp-float"><span>Float on the screen <span class="help-inline">— stays in the same place on the screen as viewers look around, like a sticker on the glass</span></span></label>' +
             '<label class="check sp-plan-row"><input type="checkbox" class="sp-plan"><span>Floor plan <span class="help-inline">— a “you are here” dot, and a cone that turns to show which way the viewer is facing</span></span></label>' +
+            '<div class="sp-planset" hidden>' +
+              '<p class="help flush">Click the plan where the 360° photo was taken.</p>' +
+              '<div class="sp-plan-pick" tabindex="0" role="slider" aria-label="Where the photo was taken on the plan: click it, or use the arrow keys" aria-valuemin="0" aria-valuemax="100">' +
+                '<img class="sp-plan-img" alt=""><span class="sp-plan-dot" aria-hidden="true"></span></div>' +
+              '<label class="sp-plan-turn-label">Turn the cone to match the plan <output class="sp-plan-turn-out"></output>' +
+                '<input type="range" class="sp-plan-turn" min="-180" max="180" step="1"></label>' +
+              '<button type="button" class="btn small ghost sp-plan-here">The way the preview faces now is the top of the plan</button>' +
+              '<p class="help">Look around in the preview: when you face something, the cone on the plan should point at it.</p>' +
+            '</div>' +
             '<label class="check sp-pin-row"><input type="checkbox" class="sp-pin"><span>Pin corners <span class="help-inline">— drag each corner onto the matching point in the photo, e.g. a picture frame or window</span></span></label>' +
             '<label class="check sp-vanish-row"><input type="checkbox" class="sp-vanish"><span>Disappear when it ends <span class="help-inline">— instead of staying on its last frame</span></span></label>' +
             '<label class="check sp-mask-row" hidden><input type="checkbox" class="sp-mask"><span>Hidden by masks <span class="help-inline">— untick to keep it in front of every mask</span></span></label>' +
-            '<div class="sp-z-row" role="group" aria-label="Layer order where it overlaps other things">' +
-              '<span>Where it overlaps: <b class="sp-z-out"></b></span>' +
-              '<span class="sp-place-btns"><button type="button" class="btn small ghost sp-z" data-z="-1">▼ Further back</button>' +
-              '<button type="button" class="btn small ghost sp-z" data-z="1">▲ Further forward</button></span></div>' +
-          '</details>' +
-        '</div>' +
-        '<div class="sp-floatpos" role="group" aria-label="Where it sits on the screen" hidden>' +
-          FLOAT_SPOTS.map(([x, y, name]) => '<button type="button" class="sp-fpos" data-x="' + x + '" data-y="' + y + '" aria-label="' + name + '" title="' + name + '" aria-pressed="false"><span aria-hidden="true"></span></button>').join('') +
-        '</div>' +
-        '<div class="sp-planset" hidden>' +
-          '<p class="help flush">Click the plan where the 360° photo was taken.</p>' +
-          '<div class="sp-plan-pick" tabindex="0" role="slider" aria-label="Where the photo was taken on the plan: click it, or use the arrow keys" aria-valuemin="0" aria-valuemax="100">' +
-            '<img class="sp-plan-img" alt=""><span class="sp-plan-dot" aria-hidden="true"></span></div>' +
-          '<label class="sp-plan-turn-label">Turn the cone to match the plan <output class="sp-plan-turn-out"></output>' +
-            '<input type="range" class="sp-plan-turn" min="-180" max="180" step="1"></label>' +
-          '<button type="button" class="btn small ghost sp-plan-here">The way the preview faces now is the top of the plan</button>' +
-          '<p class="help">Look around in the preview: when you face something, the cone on the plan should point at it.</p>' +
-        '</div>' +
-        '<div class="sp-place"><span class="sp-where"></span>' +
-          '<span class="sp-place-btns">' +
-            '<button type="button" class="btn small ghost sp-smaller" aria-label="Make smaller">− Smaller</button>' +
-            '<button type="button" class="btn small ghost sp-bigger" aria-label="Make bigger">+ Bigger</button>' +
-            '<button type="button" class="btn small ghost sp-move">Move to crosshair</button>' +
-            '<button type="button" class="btn small ghost sp-show">Show me</button>' +
-          '</span></div>' +
-        '<div class="sp-turn" role="group" aria-label="Turn the 3D model"><span class="sp-turn-text"></span>' +
-          '<span class="sp-place-btns">' +
-            '<button type="button" class="btn small ghost sp-rot" data-axis="0" data-step="-15" aria-label="Turn left">↺ Turn</button>' +
-            '<button type="button" class="btn small ghost sp-rot" data-axis="0" data-step="15" aria-label="Turn right">Turn ↻</button>' +
-            '<button type="button" class="btn small ghost sp-rot" data-axis="1" data-step="-15" aria-label="Tilt back">▲ Tilt</button>' +
-            '<button type="button" class="btn small ghost sp-rot" data-axis="1" data-step="15" aria-label="Tilt forward">Tilt ▼</button>' +
-            '<button type="button" class="btn small ghost sp-rot" data-axis="2" data-step="15" aria-label="Roll sideways">Roll ⟲</button>' +
-            '<button type="button" class="btn small ghost sp-rot-reset" aria-label="Reset rotation">Reset</button>' +
-          '</span>' +
-          '<label class="check sp-spin-row"><input type="checkbox" class="sp-spin"><span>Spins slowly</span></label>' +
-          '<label class="check sp-flat-row"><input type="checkbox" class="sp-flat"><span>Bright, flat colours <span class="help-inline">— matte, with the colours as you picked them, like Tinkercad shows them. Untick for the file’s own materials (shinier, often paler).</span></span></label></div>' +
+          '</div>' +
+        '</details>' +
         '<p class="status sp-status" role="status" aria-live="polite"></p>' +
       '</div>';
 
@@ -1024,20 +1043,21 @@
 
     if (sp.stacked) { sp.hidden = false; q('.sp-hide-row').hidden = true; }
     // More options: hidden if none apply; says how many are switched on (and opens if any are, so nothing's hidden away)
-    const main = [...li.querySelectorAll('.sc-checks > .check')], more = [...li.querySelectorAll('.sc-more > .check')];
+    const more = [...li.querySelectorAll('.sc-more .disc-body > .check')];
     const moreBox = q('.sc-more');
-    moreBox.hidden = more.every(c => c.hidden) && q('.sp-z-row').hidden;
+    moreBox.hidden = more.every(c => c.hidden);
     // layer order: for anything that sits in the room (not floating), saying where it is in the stack
     const zRow = q('.sp-z-row'), z = sp.z || 0;
     zRow.hidden = !sp.src.trim() || !!sp.float || (sp.hidden && !sp.stacked) || kind === 'audio';
+    // 3D models only: spinning and flat colours (in "How it looks")
+    q('.sp-spin-row').hidden = q('.sp-flat-row').hidden = !isModel || !sp.src.trim();
     q('.sp-z-out').textContent = z > 0 ? 'in front' + (z > 1 ? ' (' + z + ' steps)' : '') : z < 0 ? 'behind' + (z < -1 ? ' (' + -z + ' steps)' : '') : 'as placed';
     li.querySelector('.sp-z[data-z="-1"]').disabled = z <= -3;
     li.querySelector('.sp-z[data-z="1"]').disabled = z >= 3;
-    const on = more.filter(c => !c.hidden && (c.classList.contains('sp-mask-row') ? !c.querySelector('input').checked : c.querySelector('input').checked)).length + (!zRow.hidden && z ? 1 : 0);
+    const on = more.filter(c => !c.hidden && (c.classList.contains('sp-mask-row') ? !c.querySelector('input').checked : c.querySelector('input').checked)).length;
     q('.sc-more-n').textContent = on ? '(' + on + ' on)' : '';
     if (on && !moreBox.dataset.seen) moreBox.open = true;
     moreBox.dataset.seen = '1';
-    q('.sc-checks').hidden = main.every(c => c.hidden) && moreBox.hidden;
     const hide = q('.sp-hide');
     hide.disabled = sp.play === 'tap';
     if (sp.play === 'tap' || isImage || still || sp.dwell) { hide.checked = false; sp.hidden = false; }

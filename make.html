@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>360° QR Experience Maker</title>
   <meta name="description" content="Paste a link to a 360° photo and some audio, and get a QR code that opens it on any phone. No sign-in.">
-  <link rel="stylesheet" href="css/create.css?v=20261124d">
+  <link rel="stylesheet" href="css/create.css?v=20261124e">
   <script src="vendor/qrcode.js"></script>
-  <script src="js/settings.js?v=20261124d"></script>
-  <script src="js/sources.js?v=20261124d"></script>
-  <script src="js/library.js?v=20261124d"></script>
-  <script src="js/spots.js?v=20261124d"></script>
+  <script src="js/settings.js?v=20261124e"></script>
+  <script src="js/sources.js?v=20261124e"></script>
+  <script src="js/library.js?v=20261124e"></script>
+  <script src="js/spots.js?v=20261124e"></script>
 </head>
 <body>
 <header class="masthead">
@@ -36,8 +36,9 @@
       <button type="button" class="btn small ghost" id="sample">Try a sample</button>
       <p class="status" id="pano-status" role="status" aria-live="polite"></p>
       <p class="help merged-note" id="merged-note" hidden>This photo has spots merged into it. To move or change them, <a id="merged-orig" href="#">open the version with them still separate</a>.</p>
-      <details class="compare-box" id="compare-box">
-        <summary>Compare photospheres <span class="opt">optional: a second photo to compare</span></summary>
+      <details class="disc compare-box" id="compare-box">
+        <summary><span class="disc-t">Compare photospheres</span><span class="disc-sub">Optional: a second photo to wipe between</span></summary>
+        <div class="disc-body">
         <p class="help flush">Add a second 360° photo taken from the same spot: an old photo, or the same room on another day. Viewers drag a bar left and right to wipe between the two.</p>
         <label for="in-pano2">Link to the second 360° photo</label>
         <input id="in-pano2" type="url" inputmode="url" placeholder="https://drive.google.com/file/d/…" aria-describedby="pano2-status">
@@ -52,40 +53,17 @@
           </div>
           <p class="help" id="names-help">Type your own name for each side; it shows beside the bar. The second photo is on the left, your main photo on the right. Leave a box empty for no name on that side.</p>
         </div>
+        </div>
       </details>
     </section>
 
     <section class="panel step-spots" aria-labelledby="h-spots">
       <h2 id="h-spots"><span class="num" aria-hidden="true">2</span> Add things to the room <span class="opt">optional</span></h2>
       <p class="help flush">Turn the preview until the <b>crosshair</b> (+) is where you want something, then choose what to add. You can drag it into place afterwards.</p>
-      <details class="howto">
-        <summary>Tips</summary>
-        <ul>
-          <li>In the preview, drag a thing to move it, and pull its corners to resize it. Or use <b>Smaller</b>, <b>Bigger</b> and <b>Move to crosshair</b> on its card.</li>
-          <li>Something can wait behind a small dot that viewers reveal by looking at it: <b>Appears → After looking at a dot</b>.</li>
-          <li>Background sound: add a <b>Sound</b>, set it to play <b>as soon as it opens</b>, and tick <b>Hidden</b> and <b>Loop</b>.</li>
-          <li>Rarely needed settings (floating on the screen, pinning corners, masks) are under <b>More options</b> on each card.</li>
-        </ul>
-      </details>
-      <details class="howto lib-box" id="lib-box">
-        <summary>Class link library <span class="lib-n" id="lib-n"></span></summary>
-        <p class="help">A teacher can put every link the class might use in a <b>Google Sheet</b> with four columns, in this order: <b>Number | Type | Name | Link</b> (one link per row, under a heading row). <b>Type</b> is one of <b>image</b>, <b>video</b>, <b>sound</b>, <b>3D</b>, <b>link</b> or <b>document</b> (a capital first letter is fine): the link then only shows on that kind of card. Leave Type empty to offer it on every card. Share the sheet as <b>Anyone with the link → Viewer</b> and paste its address here. The QR code then only holds short numbers like <b>#3</b>, and fixing a link in the sheet fixes every tour that uses it.</p>
-        <p><button type="button" class="btn small ghost" id="lib-heading">Copy the heading row</button> <span class="help-inline" id="lib-heading-out">— then click cell A1 of a new Google Sheet and paste</span></p>
-        <label for="in-lib">Google Sheet link</label>
-        <input id="in-lib" type="url" inputmode="url" placeholder="https://docs.google.com/spreadsheets/d/…" aria-describedby="lib-status">
-        <p class="status" id="lib-status" role="status" aria-live="polite"></p>
-        <div class="actions lib-actions" id="lib-actions" hidden>
-          <button type="button" class="btn small" id="lib-check">Check every link</button>
-          <button type="button" class="btn small ghost" id="lib-reload">Reload the sheet</button>
-          <button type="button" class="btn small ghost" id="lib-share">Copy a maker link for pupils</button>
-          <a class="btn small ghost" id="lib-open" target="_blank" rel="noopener">Open the sheet</a>
-        </div>
-        <div class="lib-report" id="lib-report" aria-live="polite"></div>
-      </details>
       <p class="help" id="spots-empty">Nothing added yet.</p>
       <ol class="spot-list" id="spot-list"></ol>
       <div class="add-row" role="group" aria-labelledby="add-h">
-        <p class="add-h" id="add-h">Add at the crosshair:</p>
+        <p class="add-h" id="add-h"><span class="add-plus" aria-hidden="true">+</span> Add at the crosshair</p>
         <div class="add-kinds">
           <button type="button" class="add-kind" data-kind="image" disabled><span class="ak-ico" aria-hidden="true"></span>Picture</button>
           <button type="button" class="add-kind" data-kind="video" disabled><span class="ak-ico" aria-hidden="true"></span>Video</button>
@@ -97,18 +75,11 @@
         </div>
         <p class="help add-why" id="add-why">Choose a 360° photo in step 1 first.</p>
       </div>
-      <div class="bright-row" id="bright-row" hidden>
-        <label for="in-bright">Brightness of all 3D models <output id="bright-out" for="in-bright">Normal</output></label>
-        <div class="bright-ctl">
-          <span aria-hidden="true">Darker</span>
-          <input type="range" id="in-bright" min="0.3" max="2.5" step="0.05" value="1" aria-describedby="bright-help">
-          <span aria-hidden="true">Brighter</span>
-          <button type="button" class="btn small ghost" id="bright-reset">Reset</button>
-        </div>
-        <p class="help" id="bright-help">Lights every 3D model at once. Match them to the photo: darker for a dim room, brighter for a sunny one.</p>
-      </div>
-      <details class="layers" id="layers-box">
-        <summary><b>Masking</b> <span class="opt">hide parts of spots behind things in the photo</span></summary>
+      <div class="tools" role="group" aria-labelledby="tools-h">
+        <p class="group-h" id="tools-h">Tools for the whole tour</p>
+      <details class="disc layers" id="layers-box">
+          <summary><span class="disc-t">Masking</span><span class="disc-sub">Hide things behind parts of the photo</span></summary>
+          <div class="disc-body">
         <p class="help">Draw around something in the photo, like a desk, a door frame or a person, and any picture, video, 3D model or text behind it is hidden there. Sound buttons and links always stay on top.</p>
         <button type="button" class="ltool" data-kind="front" aria-pressed="false" disabled>
           <span class="lmark front" aria-hidden="true"></span><span><b>Draw a mask</b><br><span class="help-inline">Click around the edge of it in the preview, dot by dot. You can click on top of spots; dragging still turns the view.</span></span>
@@ -125,21 +96,65 @@
           <label class="check"><input type="checkbox" id="layer-show" checked> Use the masks in the preview</label>
         </div>
         <p class="status" id="layer-status" role="status" aria-live="polite"></p>
-      </details>
+        </div>
+        </details>
+      <div class="tool-box bright-row" id="bright-row" hidden>
+        <label for="in-bright">Brightness of all 3D models <output id="bright-out" for="in-bright">Normal</output></label>
+        <div class="bright-ctl">
+          <span aria-hidden="true">Darker</span>
+          <input type="range" id="in-bright" min="0.3" max="2.5" step="0.05" value="1" aria-describedby="bright-help">
+          <span aria-hidden="true">Brighter</span>
+          <button type="button" class="btn small ghost" id="bright-reset">Reset</button>
+        </div>
+        <p class="help" id="bright-help">Lights every 3D model at once. Match them to the photo: darker for a dim room, brighter for a sunny one.</p>
+      </div>
+      <details class="disc lib-box" id="lib-box">
+          <summary><span class="disc-t">Class link library <span class="lib-n" id="lib-n"></span></span><span class="disc-sub">Pupils choose links from a Google Sheet</span></summary>
+          <div class="disc-body">
+        <p class="help">A teacher can put every link the class might use in a <b>Google Sheet</b> with four columns, in this order: <b>Number | Type | Name | Link</b> (one link per row, under a heading row). <b>Type</b> is one of <b>image</b>, <b>video</b>, <b>sound</b>, <b>3D</b>, <b>link</b> or <b>document</b> (a capital first letter is fine): the link then only shows on that kind of card. Leave Type empty to offer it on every card. Share the sheet as <b>Anyone with the link → Viewer</b> and paste its address here. The QR code then only holds short numbers like <b>#3</b>, and fixing a link in the sheet fixes every tour that uses it.</p>
+        <p><button type="button" class="btn small ghost" id="lib-heading">Copy the heading row</button> <span class="help-inline" id="lib-heading-out">— then click cell A1 of a new Google Sheet and paste</span></p>
+        <label for="in-lib">Google Sheet link</label>
+        <input id="in-lib" type="url" inputmode="url" placeholder="https://docs.google.com/spreadsheets/d/…" aria-describedby="lib-status">
+        <p class="status" id="lib-status" role="status" aria-live="polite"></p>
+        <div class="actions lib-actions" id="lib-actions" hidden>
+          <button type="button" class="btn small" id="lib-check">Check every link</button>
+          <button type="button" class="btn small ghost" id="lib-reload">Reload the sheet</button>
+          <button type="button" class="btn small ghost" id="lib-share">Copy a maker link for pupils</button>
+          <a class="btn small ghost" id="lib-open" target="_blank" rel="noopener">Open the sheet</a>
+        </div>
+        <div class="lib-report" id="lib-report" aria-live="polite"></div>
+        </div>
+        </details>
+      <details class="disc">
+          <summary><span class="disc-t">Tips</span><span class="disc-sub">Moving, background sound, things behind a dot</span></summary>
+          <div class="disc-body">
+        <ul class="tips">
+          <li>In the preview, drag a thing to move it, and pull its corners to resize it. Or use <b>Smaller</b>, <b>Bigger</b> and <b>Move to crosshair</b> on its card.</li>
+          <li>Something can wait behind a small dot that viewers reveal by looking at it: <b>Appears → After looking at a dot</b>.</li>
+          <li>Background sound: add a <b>Sound</b>, set it to play <b>as soon as it opens</b>, and tick <b>Hidden</b> and <b>Loop</b>.</li>
+          <li>Rarely needed settings (floating on the screen, pinning corners, masks) are under <b>More options</b> on each card.</li>
+        </ul>
+          </div>
+        </details>
+      </div>
     </section>
 
     <section class="panel step-title" aria-labelledby="h-title">
       <h2 id="h-title"><span class="num" aria-hidden="true">3</span> Name it</h2>
       <label for="in-title">Title <span class="opt">shown before the experience starts</span></label>
       <input id="in-title" type="text" maxlength="80" placeholder="A classroom 150 years ago">
-      <label class="check" style="margin-top:14px"><input type="checkbox" id="in-align" aria-describedby="align-help"> Line up with the real room</label>
+      <div class="opt-box">
+      <label class="check"><input type="checkbox" id="in-align" aria-describedby="align-help"> Line up with the real room</label>
       <p class="help" id="align-help">For when viewers stand in the room where the photo was taken.</p>
       <details class="howto">
         <summary>How lining up works</summary>
         <p>Viewers get a <b>Line up with this room</b> option. Their camera shows the room with your photo faded over it; they turn until the two match, and the page tells them when it <b>looks lined up</b>. Then the spots sit on the real walls. It works best when the photo was taken from where viewers will stand (e.g. by the QR code) and the room still looks similar. Viewers can always skip it.</p>
       </details>
-      <label class="check" style="margin-top:14px"><input type="checkbox" id="in-bg" aria-describedby="bg-help"> Keep sounds playing when the screen is off</label>
+      </div>
+      <div class="opt-box">
+      <label class="check"><input type="checkbox" id="in-bg" aria-describedby="bg-help"> Keep sounds playing when the screen is off</label>
       <p class="help" id="bg-help">For listening tours: viewers scan the code, then lock their phone and keep listening as they walk. Otherwise sounds pause when viewers switch apps or turn the screen off, and carry on when they come back. (Phones always pause videos.)</p>
+      </div>
     </section>
   </form>
 
@@ -180,21 +195,21 @@
       <p class="qr-foot" id="qr-foot">Turn your sound up 🔊</p>
     </div>
     <p class="warn" id="warn" hidden></p>
-    <details class="howto short-box" id="short-box">
-      <summary>Make the QR code simpler with a short link</summary>
-      <p class="help">Press <b>Copy link</b>, shorten it with a link shortener such as <a href="https://tinyurl.com" target="_blank" rel="noopener">TinyURL</a>, and paste the short link here. The QR code is then made from the short link, so it has far fewer squares and scans easily. If you change the tour afterwards, make a new short link.</p>
-      <label for="in-short">Short link</label>
-      <input id="in-short" type="url" inputmode="url" placeholder="https://tinyurl.com/…" aria-describedby="short-status">
-      <p class="status" id="short-status" role="status" aria-live="polite"></p>
-    </details>
-    <div class="actions">
-      <button type="button" id="copy" class="btn" disabled>Copy link</button>
-      <a id="open" class="btn ghost disabled" target="_blank" rel="noopener" aria-disabled="true">Open</a>
-      <button type="button" id="dl" class="btn ghost" disabled>Save PNG</button>
-      <button type="button" id="print" class="btn ghost" disabled>Print</button>
-      <button type="button" id="embed" class="btn ghost" disabled aria-expanded="false" aria-controls="embed-panel">Embed</button>
-      <a id="merge" class="btn ghost" target="_blank" rel="noopener" hidden title="Paint the pictures, text cards and 3D models that sit still into the photo, so the QR code gets simpler">Export merged photosphere…</a>
+    <div class="share-group" role="group" aria-labelledby="use-h">
+      <p class="group-h" id="use-h">Use the QR code</p>
+      <div class="actions">
+        <button type="button" id="copy" class="btn" disabled>Copy link</button>
+        <a id="open" class="btn ghost disabled" target="_blank" rel="noopener" aria-disabled="true">Open</a>
+        <button type="button" id="print" class="btn ghost" disabled>Print</button>
+        <button type="button" id="dl" class="btn ghost" disabled>Save PNG</button>
+      </div>
     </div>
+    <div class="share-group" role="group" aria-labelledby="more-h">
+      <p class="group-h" id="more-h">Other ways to share</p>
+      <div class="actions">
+        <button type="button" id="embed" class="btn ghost" disabled aria-expanded="false" aria-controls="embed-panel">Embed in a website</button>
+        <a id="merge" class="btn ghost" target="_blank" rel="noopener" hidden title="Paint the pictures, text cards and 3D models that sit still into the photo, so the QR code gets simpler">Export merged photosphere…</a>
+      </div>
     <div class="embed-panel" id="embed-panel" hidden>
       <label for="embed-h">Embed in a website (Google Sites, WordPress, Canvas, Moodle…)</label>
       <div class="embed-row">
@@ -209,10 +224,20 @@
       <textarea id="embed-code" rows="4" readonly aria-label="Embed code"></textarea>
       <p class="help">In Google Sites: <b>Insert → Embed → Embed code</b>. Inside another site, phones can always drag to look around, but iPhones often block moving the phone and the camera, so the embed shows an <b>Open full screen ↗</b> button.</p>
     </div>
-    <details class="howto link-details">
-      <summary>Show the link</summary>
-      <p class="help small" id="link-out"></p>
+    <details class="disc short-box" id="short-box">
+      <summary><span class="disc-t">Make the QR code simpler</span><span class="disc-sub">Use a short link (TinyURL or similar)</span></summary>
+      <div class="disc-body">
+      <p class="help">Press <b>Copy link</b>, shorten it with a link shortener such as <a href="https://tinyurl.com" target="_blank" rel="noopener">TinyURL</a>, and paste the short link here. The QR code is then made from the short link, so it has far fewer squares and scans easily. If you change the tour afterwards, make a new short link.</p>
+      <label for="in-short">Short link</label>
+      <input id="in-short" type="url" inputmode="url" placeholder="https://tinyurl.com/…" aria-describedby="short-status">
+      <p class="status" id="short-status" role="status" aria-live="polite"></p>
+      </div>
     </details>
+    <details class="disc link-details">
+      <summary><span class="disc-t">Show the link</span><span class="disc-sub">See the whole address in the QR code</span></summary>
+      <div class="disc-body"><p class="help small flush" id="link-out"></p></div>
+    </details>
+    </div>
   </section>
 </main>
 
@@ -246,6 +271,6 @@
   <p>Want a person or object standing in the room, with the room showing around them? Make a see-through video from green-screen footage with the <a href="videomaker.html">See-through Video Maker</a>.</p>
 </footer>
 
-<script src="js/create.js?v=20261124d"></script>
+<script src="js/create.js?v=20261124e"></script>
 </body>
 </html>

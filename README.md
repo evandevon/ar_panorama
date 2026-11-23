@@ -108,13 +108,20 @@ Handy:
 
 ### Which one is in front
 
-When you choose something in the preview that overlaps something else, small **▲ / ▼** buttons appear beside it: ▲ brings it in front, ▼ sends it behind. (The same buttons are in its card's **More options**.)
+When you choose something in the preview that overlaps something else, small **▲ / ▼** buttons appear beside it: ▲ brings it in front, ▼ sends it behind. (The same buttons are in its card's **Size and place** box.)
 
 Pictures, text and links normally sit in front of 3D models. **Pictures** can go behind a 3D model or see-through video too, for example a mat on a tabletop with a model standing on it: choose the model and press ▲.
 
-### More options
+### A thing's card
 
-Each card has **More options** for things most tours never need:
+Press a thing in the list to open its card. Its settings are in labelled boxes:
+- **When it shows and plays** (blue): when it appears, how it plays, Hidden, Loop and Volume.
+- **How it looks** (purple): see-through video, and spinning or flat colours for 3D models.
+- **Size and place** (gold): Smaller, Bigger, Move to crosshair, Show me, turning a 3D model, and which one is in front.
+
+Boxes that don't apply to that kind of thing are left out.
+
+**More options** (the dashed box at the bottom) has things most tours never need:
 - **Pin corners:** drag each of the four corners onto a point in the photo (the corners of a window or blackboard). It's warped to fit, so it looks painted on the wall.
 - **Float on the screen:** stays in one place on the screen instead of in the room, like a sticker.
 - **Floor plan** (floating pictures): shows a dot and a cone on your map, pointing the way the viewer faces.
