@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>360° QR Experience Maker</title>
   <meta name="description" content="Paste a link to a 360° photo and some audio, and get a QR code that opens it on any phone. No sign-in.">
-  <link rel="stylesheet" href="css/create.css?v=20261124b">
+  <link rel="stylesheet" href="css/create.css?v=20261124c">
   <script src="vendor/qrcode.js"></script>
-  <script src="js/settings.js?v=20261124b"></script>
-  <script src="js/sources.js?v=20261124b"></script>
-  <script src="js/library.js?v=20261124b"></script>
-  <script src="js/spots.js?v=20261124b"></script>
+  <script src="js/settings.js?v=20261124c"></script>
+  <script src="js/sources.js?v=20261124c"></script>
+  <script src="js/library.js?v=20261124c"></script>
+  <script src="js/spots.js?v=20261124c"></script>
 </head>
 <body>
 <header class="masthead">
@@ -69,7 +69,7 @@
       </details>
       <details class="howto lib-box" id="lib-box">
         <summary>Class link library <span class="lib-n" id="lib-n"></span></summary>
-        <p class="help">A teacher can put every link the class might use in a <b>Google Sheet</b> with four columns, in this order: <b>Number | Type | Name | Link</b> (one link per row, under a heading row). <b>Type</b> is one of <b>image</b>, <b>video</b>, <b>see-through</b>, <b>sound</b>, <b>3D</b>, <b>link</b> or <b>document</b> (a capital first letter is fine): the link then only shows on that kind of card. Leave Type empty to offer it on every card. Share the sheet as <b>Anyone with the link → Viewer</b> and paste its address here. The QR code then only holds short numbers like <b>#3</b>, and fixing a link in the sheet fixes every tour that uses it.</p>
+        <p class="help">A teacher can put every link the class might use in a <b>Google Sheet</b> with four columns, in this order: <b>Number | Type | Name | Link</b> (one link per row, under a heading row). <b>Type</b> is one of <b>image</b>, <b>video</b>, <b>sound</b>, <b>3D</b>, <b>link</b> or <b>document</b> (a capital first letter is fine): the link then only shows on that kind of card. Leave Type empty to offer it on every card. Share the sheet as <b>Anyone with the link → Viewer</b> and paste its address here. The QR code then only holds short numbers like <b>#3</b>, and fixing a link in the sheet fixes every tour that uses it.</p>
         <p><button type="button" class="btn small ghost" id="lib-heading">Copy the heading row</button> <span class="help-inline" id="lib-heading-out">— then click cell A1 of a new Google Sheet and paste</span></p>
         <label for="in-lib">Google Sheet link</label>
         <input id="in-lib" type="url" inputmode="url" placeholder="https://docs.google.com/spreadsheets/d/…" aria-describedby="lib-status">
@@ -246,6 +246,6 @@
   <p>Want a person or object standing in the room, with the room showing around them? Make a see-through video from green-screen footage with the <a href="videomaker.html">See-through Video Maker</a>.</p>
 </footer>
 
-<script src="js/create.js?v=20261124b"></script>
+<script src="js/create.js?v=20261124c"></script>
 </body>
 </html>

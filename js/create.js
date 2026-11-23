@@ -692,14 +692,13 @@
       const en = lib && lib.entries[+e.target.value];
       if (!en) return;
       sp.ref = Library.refFor(lib.entries, en);
-      // a card that hasn't got a type yet takes the library's (see-through = a video, ticked see-through)
-      const t = en.type === 'see-through' ? 'video' : en.type;
+      // a card that hasn't got a type yet takes the library's
+      const t = en.type;
       if (!sp.type && t && t !== 'unknown') { sp.type = t; q('.sp-type').value = t; }
       const ta = q('.sp-src');
       ta.value = en.link;
       if (!sp.label && (HotSpots.kindOf(sp) === 'link' || sp.type === 'link')) { sp.label = en.name; q('.sp-label').value = en.name; }
       ta.dispatchEvent(new Event('input', { bubbles: true }));
-      if (en.type === 'see-through' && !sp.stacked) { setSeeThrough(li, sp, true, /\.webm(\?|#|$)/i.test(en.link), true); syncCard(li, sp, i); spotsChanged(true); }
     });
 
     let typing = 0;
@@ -1056,10 +1055,10 @@
     const show = !!(lib && lib.entries.length) && kind !== 'text' && !(sp.type === 'text');
     row.hidden = !show;
     if (!show) return;
-    // a link with a Type shows only on that kind of card (see-through videos on video cards); a link without one
+    // a link with a Type shows only on that kind of card; a link without one
     // (or with a Type word that isn't understood) shows on every card; a card without a type yet shows them all
     const want = sp.type || '';
-    const fits = en => !want || !en.type || en.type === 'unknown' || en.type === want || (en.type === 'see-through' && want === 'video');
+    const fits = en => !want || !en.type || en.type === 'unknown' || en.type === want;
     const cur = sp.ref ? lib.entries.indexOf(Library.find(lib.entries, sp.ref)) : -1;
     const key = want + '|' + cur + '|' + lib.entries.length;
     if (sel.dataset.key === key) return;
@@ -1067,7 +1066,7 @@
     const opt = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; return o; };
     sel.innerHTML = '';
     sel.appendChild(opt('', sp.ref && cur < 0 ? sp.ref + ' isn’t in the library any more' : 'Choose…'));
-    const TYPE_NAME = { image: 'picture', video: 'video', 'see-through': 'see-through video', audio: 'sound', model: '3D model', link: 'web page', doc: 'document' };
+    const TYPE_NAME = { image: 'picture', video: 'video', audio: 'sound', model: '3D model', link: 'web page', doc: 'document' };
     lib.entries.forEach((en, n) => {
       if (!fits(en) && n !== cur) return;
       sel.appendChild(opt(n, (en.num ? en.num + ' · ' : '') + (en.name || en.link) + (!want && TYPE_NAME[en.type] ? ' (' + TYPE_NAME[en.type] + ')' : '')));
@@ -1536,7 +1535,7 @@
   });
 
   // "Check every link": what each link is, and whether a phone will be able to use it, before any pupil does
-  const LIB_TYPE_NAME = { image: 'Picture', video: 'Video', 'see-through': 'See-through video', audio: 'Sound', model: '3D model', link: 'Web page', doc: 'Document' };
+  const LIB_TYPE_NAME = { image: 'Picture', video: 'Video', audio: 'Sound', model: '3D model', link: 'Web page', doc: 'Document' };
   const KIND_NAME = { image: 'Picture', video: 'Video', audio: 'Sound', model: '3D model', link: 'Web page', doc: 'Document', '': 'File' };
   const withTimeout = (p, ms) => Promise.race([p, new Promise(res => setTimeout(() => res({ state: 'unknown', msg: 'It took too long to answer. Try opening it.' }), ms))]);
   function loads(kind, url) {
@@ -1617,7 +1616,7 @@
     // does the Type column agree with what the link turned out to be?
     const typeNote = (en, res) => {
       if (en.type === 'unknown') return { warn: true, text: 'Type “' + escapeHtml(en.typeWord) + '” isn’t one of the types, so it shows on every card. Use one of: ' + Library.TYPE_LIST.join(', ') + '.' };
-      const said = en.type === 'see-through' ? 'video' : en.type, det = res && res.det;
+      const said = en.type, det = res && res.det;
       const files = ['image', 'video', 'audio', 'model'];
       if (said && det && files.includes(said) && files.includes(det) && said !== det && !(said === 'audio' && det === 'video'))
         return { warn: true, text: 'Its Type says ' + LIB_TYPE_NAME[en.type].toLowerCase() + ', but it looks like a ' + (KIND_NAME[det] || 'file').toLowerCase() + ', so it may show on the wrong cards.' };

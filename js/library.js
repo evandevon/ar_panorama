@@ -68,9 +68,9 @@
     /^((drive|docs)\.google\.com|youtu\.be|(m\.)?youtube\.com|(www\.)?dropbox\.com|1drv\.ms|onedrive\.live\.com)\//i.test(c) ||   // copied without https://
     /^[\w.\/-]+\.[a-z0-9]{2,5}([?#].*)?$/i.test(c) && /[\/.]/.test(c) && !/^\d+(\.\d+)?$/.test(c) ||
     /^[\w.-][\w .\/-]*\/[\w .-]*\.[a-z0-9]{2,5}$/i.test(c);          // a file in this site with spaces in its name (models/playground 1.glb)
-  // The Type column: exactly these words, written as here or with a capital first letter ("Image", "See-through").
-  // Each is the kind of card the link shows on ('see-through' = a see-through video, on Video cards).
-  const TYPES = [['image', 'image'], ['video', 'video'], ['see-through', 'see-through'], ['sound', 'audio'],
+  // The Type column: exactly these words, written as here or with a capital first letter ("Image", "Video").
+  // Each is the kind of card the link shows on.
+  const TYPES = [['image', 'image'], ['video', 'video'], ['sound', 'audio'],
     ['3D', 'model'], ['link', 'link'], ['document', 'doc']];
   const TYPE_LIST = TYPES.map(t => t[0]);
   /** The card type for a Type cell: '' when empty, null when it isn't one of the TYPES */
@@ -81,12 +81,12 @@
     return hit ? hit[1] : null;
   }
   // The heading row: Number | Type | Name | Link (in that order; a sheet without a heading row is read in that order too).
-  // The Type heading may list the types, e.g. "Type (image, video, see-through, sound, 3D, link, document)".
+  // The Type heading may list the types, e.g. "Type (image, video, sound, 3D, link, document)".
   const ORDER = ['num', 'type', 'name', 'link'];
   const HEAD = { num: /^(number|no\.?|#)$/i, type: /^type\b/i, name: /^name$/i, link: /^link$/i };
   const HEADING = 'Number\tType (' + TYPE_LIST.join(', ') + ')\tName\tLink';
   /** @returns {{num: string, name: string, link: string, type: string, typeWord: string, row: number}[]}
-   *  type: the card type ('image', 'video', 'see-through', 'audio', 'model', 'link', 'doc'), '' for "any card",
+   *  type: the card type ('image', 'video', 'audio', 'model', 'link', 'doc'), '' for "any card",
    *  or 'unknown' when the Type cell isn't one of the types (then it shows on every card, and Check every link says so) */
   function entriesFrom(text) {
     const rows = parseCsv(text), out = [];
