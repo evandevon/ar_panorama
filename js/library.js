@@ -68,59 +68,44 @@
     /^((drive|docs)\.google\.com|youtu\.be|(m\.)?youtube\.com|(www\.)?dropbox\.com|1drv\.ms|onedrive\.live\.com)\//i.test(c) ||   // copied without https://
     /^[\w.\/-]+\.[a-z0-9]{2,5}([?#].*)?$/i.test(c) && /[\/.]/.test(c) && !/^\d+(\.\d+)?$/.test(c) ||
     /^[\w.-][\w .\/-]*\/[\w .-]*\.[a-z0-9]{2,5}$/i.test(c);          // a file in this site with spaces in its name (models/playground 1.glb)
-  // Words a teacher might put in the Type column → the maker's card types ('see-through' = a see-through video)
-  const TYPE_WORDS = [
-    ['see-through', /^(see[\s-]?through( video)?|green[\s-]?screen|transparent( video)?|cut[\s-]?out video)$/],
-    ['image', /^(pictures?|images?|photos?|pics?|drawings?|posters?|png|jpe?g|gif)$/],
-    ['video', /^(videos?|movies?|clips?|films?|mp4|youtube)$/],
-    ['audio', /^(sounds?|audio|music|songs?|sound effects?|sfx|noises?|narration|voice|mp3)$/],
-    ['model', /^(3d( models?| objects?)?|models?|objects?|glb|stl)$/],
-    ['link', /^(links?|web ?pages?|web ?sites?|sites?|pages?|urls?)$/],
-    ['doc', /^(documents?|docs?|pdfs?|slides?|worksheets?|presentations?|word|google docs?)$/]
-  ];
-  /** The card type for a Type cell: '' when empty, null when the word isn't understood */
+  // The Type column: exactly these words, written as here or with a capital first letter ("Image", "See-through").
+  // Each is the kind of card the link shows on ('see-through' = a see-through video, on Video cards).
+  const TYPES = [['image', 'image'], ['video', 'video'], ['see-through', 'see-through'], ['sound', 'audio'],
+    ['3D', 'model'], ['link', 'link'], ['document', 'doc']];
+  const TYPE_LIST = TYPES.map(t => t[0]);
+  /** The card type for a Type cell: '' when empty, null when it isn't one of the TYPES */
   function typeFrom(word) {
-    const w = String(word || '').trim().toLowerCase().replace(/[_.]+/g, ' ').replace(/\s+/g, ' ');
+    const w = String(word || '').trim();
     if (!w) return '';
-    const hit = TYPE_WORDS.find(([, re]) => re.test(w));
-    return hit ? hit[0] : null;
+    const hit = TYPES.find(([t]) => w === t || w === t.charAt(0).toUpperCase() + t.slice(1) || (t === '3D' && w === '3d'));
+    return hit ? hit[1] : null;
   }
-  const HEAD = { num: /^(#|no\.?|num(ber)?|ref(erence)?|id|code)$/i, name: /^(name|title|label|what|description)$/i,
-    link: /^(link|links|url|address|web address|file|source)$/i, type: /^(type|kind|category|card|card type|sort)$/i };
+  // The heading row: Number | Type | Name | Link (in that order; a sheet without a heading row is read in that order too).
+  // The Type heading may list the types, e.g. "Type (image, video, see-through, sound, 3D, link, document)".
+  const ORDER = ['num', 'type', 'name', 'link'];
+  const HEAD = { num: /^(number|no\.?|#)$/i, type: /^type\b/i, name: /^name$/i, link: /^link$/i };
+  const HEADING = 'Number\tType (' + TYPE_LIST.join(', ') + ')\tName\tLink';
   /** @returns {{num: string, name: string, link: string, type: string, typeWord: string, row: number}[]}
    *  type: the card type ('image', 'video', 'see-through', 'audio', 'model', 'link', 'doc'), '' for "any card",
-   *  or 'unknown' when the Type cell has a word that isn't understood (then it shows on every card too) */
+   *  or 'unknown' when the Type cell isn't one of the types (then it shows on every card, and Check every link says so) */
   function entriesFrom(text) {
     const rows = parseCsv(text), out = [];
-    let cols = null;                                            // column positions, from a heading row if there is one
+    let cols = { num: 0, type: 1, name: 2, link: 3 };
     rows.forEach((r, i) => {
       const raw = r.map(c => String(c || '').trim());
-      const cells = raw.filter(Boolean);
-      // the Link column (when there's a heading row naming it), or whichever cell looks like a link
-      const link = cols && cols.link != null ? (raw[cols.link] || '') : cells.find(looksLikeLink);
-      if (cols && cols.link != null && !link) return;            // a row with no link
-      if (!link || (cols && cols.link != null && !looksLikeLink(link) && HEAD.link.test(link))) {
-        // a heading row: remember which column is which
-        const m = {};
-        raw.forEach((c, k) => Object.keys(HEAD).forEach(key => { if (m[key] == null && HEAD[key].test(c)) m[key] = k; }));
-        if (m.link != null || m.type != null) cols = m;
-        return;                                                  // (or a note, or an empty row)
-      }
-      let num, name, typeWord = '';
-      if (cols) {
-        num = cols.num != null ? raw[cols.num] : '';
-        name = cols.name != null ? raw[cols.name] : '';
-        typeWord = cols.type != null ? raw[cols.type] || '' : '';
-        if (!name) name = cells.find(c => c !== link && c !== num && c !== typeWord) || '';
-      } else {
-        const rest = cells.filter(c => c !== link);
-        typeWord = rest.find(c => typeFrom(c)) || '';
-        num = rest.find(c => /^#?\d{1,4}$/.test(c));
-        name = rest.find(c => c !== num && c !== typeWord) || '';
-      }
-      num = /^#?\d{1,4}$/.test(num || '') ? num.replace(/^#/, '') : '';
+      // a heading row: which column is which
+      const m = {};
+      raw.forEach((c, k) => ORDER.forEach(key => { if (m[key] == null && HEAD[key].test(c)) m[key] = k; }));
+      if (m.link != null && !raw.some(looksLikeLink)) { cols = Object.assign({}, cols, m); return; }
+      let link = raw[cols.link] || '';
+      if (!looksLikeLink(link)) link = raw.find(looksLikeLink) || '';   // (a row laid out differently)
+      if (!link) return;                                                  // a note, or an empty row
+      const typeWord = raw[cols.type] || '';
+      const numCell = raw[cols.num] || '';
+      const name = raw[cols.name] && raw[cols.name] !== link ? raw[cols.name] : '';
       const t = typeFrom(typeWord);
-      out.push({ num, name, link, type: t === null ? 'unknown' : t, typeWord, row: i + 1 });
+      out.push({ num: /^#?\d{1,4}$/.test(numCell) ? numCell.replace(/^#/, '') : '', name, link,
+        type: t === null ? 'unknown' : t, typeWord, row: i + 1 });
     });
     return out;
   }
@@ -185,5 +170,5 @@
     return missing;
   }
 
-  global.Library = { typeFrom, idFrom, sources, sheetUrl, parseCsv, entriesFrom, load, find, refFor, resolve, isRef };
+  global.Library = { TYPE_LIST, HEADING, typeFrom, idFrom, sources, sheetUrl, parseCsv, entriesFrom, load, find, refFor, resolve, isRef };
 })(window);

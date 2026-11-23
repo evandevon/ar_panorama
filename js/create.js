@@ -1524,6 +1524,10 @@
     $('lib-report').innerHTML = '';
     loadLib(true);
   });
+  $('lib-heading').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(Library.HEADING); $('lib-heading-out').textContent = '— copied. Click cell A1 of a new Google Sheet and paste: it fills the four headings.'; }
+    catch (e) { $('lib-heading-out').textContent = '— type these four headings into row 1: Number, Type, Name, Link'; }
+  });
   $('lib-reload').addEventListener('click', () => { $('lib-report').innerHTML = ''; loadLib(true); });
   $('lib-share').addEventListener('click', async () => {
     const url = new URL('make.html?lib=' + encodeURIComponent(libValue), location.href).href;
@@ -1612,7 +1616,7 @@
     let next = 0;
     // does the Type column agree with what the link turned out to be?
     const typeNote = (en, res) => {
-      if (en.type === 'unknown') return { warn: true, text: 'Type “' + escapeHtml(en.typeWord) + '” isn’t one the maker knows, so it shows on every card. Use picture, video, see-through, sound, 3D, web page or document.' };
+      if (en.type === 'unknown') return { warn: true, text: 'Type “' + escapeHtml(en.typeWord) + '” isn’t one of the types, so it shows on every card. Use one of: ' + Library.TYPE_LIST.join(', ') + '.' };
       const said = en.type === 'see-through' ? 'video' : en.type, det = res && res.det;
       const files = ['image', 'video', 'audio', 'model'];
       if (said && det && files.includes(said) && files.includes(det) && said !== det && !(said === 'audio' && det === 'video'))
