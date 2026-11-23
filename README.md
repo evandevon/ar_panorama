@@ -247,6 +247,8 @@ The Video Maker can also make a **WebM with transparency** (for other apps and w
 | School OneDrive | ❌ Usually blocked | ❌ Usually blocked | ⚠️ Only if outside sharing is allowed | ❌ |
 | YouTube | ❌ | ✅ If the owner allows embedding | — | — |
 
+**GitHub files:** you can paste a file's GitHub page link (`github.com/…/blob/…`). It's turned into the file itself, and a file in this site's own folder shrinks to just its path, like `models/inkwell.glb`.
+
 **Google Drive tips:**
 - Share every file as **Anyone with the link → Viewer**.
 - Drive links don't say what kind of file they are, so choose the **Type** on the card.
