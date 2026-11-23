@@ -19,6 +19,8 @@
   let yaw = 0;              // chosen starting direction (degrees)
   let viewYaw = 0, viewPitch = 0;   // where the preview is currently looking
   let spots = [];           // spots: { src, type, yaw, pitch, w, play, hidden, loop, label }
+  let lib = null;           // the class link library (library.js): { value, entries, fromCopy }; a spot chosen from it has sp.ref ("#3")
+  let libValue = '';        // what goes in links as lib= (kept even while the sheet is loading or unreachable)
   const MAX_SPOTS = 20;
   const showW = w => w < 10 ? String(Math.round(w * 10) / 10) : String(Math.round(w));   // small sizes to a tenth
   // The longest link worth making: web servers (GitHub Pages included) refuse addresses much past 8 KB, and a link
@@ -68,6 +70,9 @@
     compareParams(f, false).forEach(([k, v]) => q.set(k, v));
     spots.filter(sp => sp.src.trim()).forEach(sp => q.append('s', HotSpots.encode(sp, false)));
     layers.forEach(l => q.append('f', encodeLayer(l)));
+    // the class link library, and which spots were chosen from it (the maker's own address keeps full links too)
+    if (libValue) q.set('lib', libValue);
+    spots.filter(sp => sp.src.trim()).forEach((sp, n) => { if (sp.ref) q.append('lr', n + ':' + sp.ref); });
     history.replaceState(null, '', q.toString() ? '?' + q : location.pathname);
   }
 
@@ -87,6 +92,11 @@
     yaw = Number(q.get('y')) || 0;
     spots = q.getAll('s').map(HotSpots.decode).filter(Boolean);
     layers = q.getAll('f').map(decodeLayer).filter(Boolean);
+    libValue = Library.idFrom(q.get('lib') || '');
+    $('in-lib').value = libValue ? Library.sheetUrl(libValue) : '';
+    q.getAll('lr').forEach(v => { const m = v.match(/^(\d+):(#\S.*)$/); if (m && spots[+m[1]]) spots[+m[1]].ref = m[2]; });
+    // a tour's own link (from its QR code) holds only "#3": those get their full links once the library loads
+    spots.forEach(sp => { if (Library.isRef(sp.src) && sp.type !== 'text') { sp.ref = sp.src.trim(); sp.libPending = true; } });
     spots.forEach(sp => { delete sp.behind; });
     // Older links had a separate background sound: turn it into a hidden sound spot
     if (q.get('a')) spots.unshift({ src: q.get('a'), yaw: 0, pitch: 0, w: HotSpots.DEFAULT_W, play: 'start', type: 'audio', hidden: true, loop: q.get('l') === '1', label: 'Background sound' });
@@ -105,7 +115,10 @@
     if (f.bg && !preview) q.push(['bg', '1']);
     if (f.bright !== 1 && hasModels()) q.push(['mb', f.bright]);
     compareParams(f, true).forEach(p => q.push(p));
-    if (!preview) spots.filter(sp => sp.src.trim()).forEach(sp => q.push(['s', HotSpots.encode(sp, true)]));
+    // links chosen from the class library are written as "#3" (only while the library is in use)
+    const useLib = !!(lib && libValue) && spots.some(sp => sp.ref && sp.src.trim());
+    if (!preview && useLib) q.push(['lib', libValue]);
+    if (!preview) spots.filter(sp => sp.src.trim()).forEach(sp => q.push(['s', HotSpots.encode(useLib ? sp : Object.assign({}, sp, { ref: '' }), true)]));
     if (!preview) layers.forEach(l => q.push(['f', encodeLayer(l)]));
     if (preview) q.push(['preview', '1']);
     else q.push(['v', '2']);                        // format version, and a safe last character for email
@@ -578,6 +591,8 @@
         '<div class="sc-field sc-type"><label for="' + id + '-type">Type</label><select id="' + id + '-type" class="sp-type">' +
             '<option value="">Choose, or paste a link below…</option><option value="video">Video</option><option value="audio">Sound only</option><option value="image">Picture</option>' +
             '<option value="text">Text</option><option value="link">Link to a web page</option><option value="doc">Document (PDF, Word, slides…)</option><option value="model">3D model</option></select></div>' +
+        '<div class="sc-field sp-lib-row" hidden><label for="' + id + '-lib">Choose from the class link library</label>' +
+          '<select id="' + id + '-lib" class="sp-lib"></select></div>' +
         '<div class="sc-field"><label for="' + id + '-src" class="sp-src-label">Link or text</label>' +
           '<span class="field-wrap"><textarea id="' + id + '-src" class="sp-src" rows="1" aria-describedby="' + id + '-err" placeholder="Paste a link (YouTube, video, sound, picture or web page) — or type some text"></textarea>' +
           '<button type="button" class="field-err" hidden aria-label="Problem with this link — show details" aria-controls="' + id + '-err" aria-expanded="false">!</button>' +
@@ -672,6 +687,17 @@
     li.addEventListener('mouseenter', () => post({ type: 'hoverSpot', index: i }));
     li.addEventListener('mouseleave', () => post({ type: 'hoverSpot', index: -1 }));
 
+    // choosing from the class link library fills in the link (and remembers its number for the tour's link)
+    q('.sp-lib').addEventListener('change', e => {
+      const en = lib && lib.entries[+e.target.value];
+      if (!en) return;
+      sp.ref = Library.refFor(lib.entries, en);
+      const ta = q('.sp-src');
+      ta.value = en.link;
+      if (!sp.label && (HotSpots.kindOf(sp) === 'link' || sp.type === 'link')) { sp.label = en.name; q('.sp-label').value = en.name; }
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     let typing = 0;
     q('.sp-src').addEventListener('input', e => {
       // OneDrive's Share → Embed gives a bit of HTML: keep just its address
@@ -679,6 +705,7 @@
       if (embedded) { e.target.value = embedded; sp.type = 'doc'; sp.autoDoc = true; }
       grow(e.target);
       sp.src = e.target.value; sp.error = '';
+      if (sp.ref) { const en = lib && Library.find(lib.entries, sp.ref); if (!en || en.link !== sp.src.trim()) { delete sp.ref; delete sp.libPending; } }
       // A document link becomes a Document spot by itself (the author can still change it)
       if (Media.looksLikeDoc(sp.src) && !sp.type) { sp.type = 'doc'; sp.autoDoc = true; }
       const auto = autoSeeThrough(sp.src);
@@ -948,6 +975,7 @@
     }[sp.src.trim() || sp.type ? kind : ''] || 'Paste a link (YouTube, video, sound, picture, 3D model or web page) — or type some text';
     const decided = !!(sp.src.trim() || sp.type);
     q('.sp-src-label').textContent = !decided ? 'Link or text' : kind === 'text' ? 'Text' : 'Link';
+    syncLibChoice(li, sp, kind, decided);
     q('.sp-label').placeholder = kind === 'link' ? 'Button text, e.g. Read more about slates' : kind === 'text' ? 'Heading (optional)' : 'Label, e.g. The teacher’s desk (optional)';
     const opts = isImage ? PLAY_OPTIONS.image : PLAY_OPTIONS.media;
     if (isImage && sp.play === 'start') sp.play = 'tap';
@@ -1016,6 +1044,25 @@
     updatePlaceText(i, li);
     renderSpotStatus(i, li);
     updateSummary(li, sp);
+  }
+
+  // The class library's links that suit this card (its kind, or files whose kind isn't clear from the link)
+  function syncLibChoice(li, sp, kind, decided) {
+    const row = li.querySelector('.sp-lib-row'), sel = li.querySelector('.sp-lib');
+    const show = !!(lib && lib.entries.length) && kind !== 'text' && !(sp.type === 'text');
+    row.hidden = !show;
+    if (!show) return;
+    const want = sp.type || (decided ? kind : '');
+    const fits = en => { const g = HotSpots.guessKind(en.link); return !want || !g || g === want || (want === 'audio' && g === 'video'); };
+    const cur = sp.ref ? lib.entries.indexOf(Library.find(lib.entries, sp.ref)) : -1;
+    const key = want + '|' + cur + '|' + lib.entries.length;
+    if (sel.dataset.key === key) return;
+    sel.dataset.key = key;
+    const opt = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; return o; };
+    sel.innerHTML = '';
+    sel.appendChild(opt('', sp.ref && cur < 0 ? sp.ref + ' isn’t in the library any more' : 'Choose…'));
+    lib.entries.forEach((en, n) => { if (fits(en) || n === cur) sel.appendChild(opt(n, (en.num ? en.num + ' · ' : '') + (en.name || en.link))); });
+    sel.value = cur >= 0 ? String(cur) : '';
   }
 
   function renderSpotStatus(i, li) {
@@ -1430,7 +1477,133 @@
   $('shape-phone').addEventListener('click', () => setShape(true));
   $('shape-wide').addEventListener('click', () => setShape(false));
 
+  // ---------------------------------------------------------------- class link library
+  async function loadLib(fresh) {
+    if (!libValue) { lib = null; $('lib-actions').hidden = true; $('lib-n').textContent = ''; $('lib-report').innerHTML = ''; renderSpots(); refresh(); return; }
+    status('lib-status', 'wait', 'Loading the link library…');
+    try {
+      const got = await Library.load(libValue, fresh);
+      if (got.value !== libValue) return;
+      lib = got;
+      // spots from a tour's own link ("#3") get their full links now
+      const missing = [];
+      spots.forEach(sp => {
+        if (!sp.libPending) return;
+        const en = Library.find(lib.entries, sp.ref);
+        if (en) { sp.src = en.link; delete sp.libPending; } else missing.push(sp.ref);
+      });
+      const n = lib.entries.length;
+      $('lib-n').textContent = '(' + n + ' link' + (n === 1 ? '' : 's') + ')';
+      $('lib-actions').hidden = false;
+      $('lib-open').href = Library.sheetUrl(libValue);
+      status('lib-status', n ? (got.fromCopy || missing.length ? 'note' : 'ok') : 'err',
+        !n ? 'The sheet opened, but no links were found in it. Put a number, a name and a link on each row.'
+          : n + ' link' + (n === 1 ? '' : 's') + ' ready. Each card now has <b>Choose from the class link library</b>.' +
+            (got.fromCopy ? ' (The sheet couldn’t be reached, so the copy saved in this browser is being used.)' : '') +
+            (missing.length ? ' Not in the library: ' + missing.map(escapeHtml).join(', ') + '.' : ''));
+    } catch (e) {
+      lib = null;
+      $('lib-actions').hidden = true; $('lib-n').textContent = '';
+      status('lib-status', 'err', escapeHtml(e.message));
+    }
+    renderSpots(); refresh();
+  }
+  $('in-lib').addEventListener('change', () => {
+    libValue = Library.idFrom($('in-lib').value);
+    $('lib-report').innerHTML = '';
+    loadLib(true);
+  });
+  $('lib-reload').addEventListener('click', () => { $('lib-report').innerHTML = ''; loadLib(true); });
+  $('lib-share').addEventListener('click', async () => {
+    const url = new URL('make.html?lib=' + encodeURIComponent(libValue), location.href).href;
+    try { await navigator.clipboard.writeText(url); status('lib-status', 'ok', 'Copied. Pupils who open <b>' + escapeHtml(url) + '</b> start with this library ready.'); }
+    catch (e) { status('lib-status', 'note', 'Copy this for pupils: <b>' + escapeHtml(url) + '</b>'); }
+  });
+
+  // "Check every link": what each link is, and whether a phone will be able to use it, before any pupil does
+  const KIND_NAME = { image: 'Picture', video: 'Video', audio: 'Sound', model: '3D model', link: 'Web page', doc: 'Document', '': 'File' };
+  const withTimeout = (p, ms) => Promise.race([p, new Promise(res => setTimeout(() => res({ state: 'unknown', msg: 'It took too long to answer. Try opening it.' }), ms))]);
+  function loads(kind, url) {
+    return new Promise(res => {
+      if (kind === 'image') {
+        const im = new Image(); im.referrerPolicy = 'no-referrer';
+        im.onload = () => res({ state: 'ok', msg: 'Opens (' + im.naturalWidth + ' × ' + im.naturalHeight + ').' });
+        im.onerror = () => res({ state: 'bad', msg: 'The picture didn’t open. Check the link, and that it’s shared publicly.' });
+        im.src = url;
+      } else {
+        const m = document.createElement(kind === 'audio' ? 'audio' : 'video');
+        m.preload = 'metadata'; m.muted = true;
+        m.onloadedmetadata = () => res({ state: 'ok', msg: 'Plays' + (isFinite(m.duration) ? ' (' + Math.round(m.duration) + ' s).' : '.') });
+        m.onerror = () => res({ state: 'bad', msg: 'It didn’t play. Check the link goes straight to the file, and that it’s shared publicly.' });
+        m.src = url;
+      }
+    });
+  }
+  async function checkEntry(en) {
+    const link = en.link, kind = HotSpots.guessKind(link), yt = Media.youTube(link);
+    if (yt) {
+      try {
+        const r = await fetch('https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + yt.id));
+        if (r.ok) { const j = await r.json(); return { state: 'ok', kind: 'YouTube', msg: '“' + (j.title || 'video') + '”.' }; }
+        return { state: 'bad', kind: 'YouTube', msg: 'YouTube says it’s private, removed or can’t be embedded.' };
+      } catch (e) { return { state: 'unknown', kind: 'YouTube', msg: 'Couldn’t ask YouTube. Try opening it.' }; }
+    }
+    if (Media.driveFileId(link)) {
+      const info = await Media.driveAccess(link);
+      if (!info) return { state: 'bad', kind: 'Google Drive', msg: Media.driveKey() ? 'Google Drive won’t open it for viewers. Share it as “Anyone with the link” (Viewer).' : 'Can’t be checked here (no Google Drive key).' };
+      const k = HotSpots.guessKind(info.name);
+      return { state: info.canEdit ? 'warn' : 'ok', kind: 'Drive ' + (KIND_NAME[k] || 'file').toLowerCase(),
+        msg: '“' + info.name + '”.' + (info.canEdit ? ' Shared so <b>anyone can edit it</b>: change it to Viewer.' : '') };
+    }
+    if (kind === 'link' || kind === 'doc') return { state: 'unknown', kind: KIND_NAME[kind], msg: 'A web page: open it to check it’s the right one.' };
+    if (kind === 'model') {
+      const ctl = new AbortController();
+      try {
+        const r = await fetch(Media.resolveMediaUrl(link, 'model').url, { signal: ctl.signal });
+        ctl.abort();
+        return r.ok ? { state: 'ok', kind: '3D model', msg: 'Opens.' } : { state: 'bad', kind: '3D model', msg: 'Not found (error ' + r.status + ').' };
+      } catch (e) { return { state: 'bad', kind: '3D model', msg: 'Its website doesn’t let tours load it. Put it in your GitHub site or Google Drive.' }; }
+    }
+    if (kind === 'image' || kind === 'video' || kind === 'audio') {
+      const r = await loads(kind, Media.resolveMediaUrl(link, kind).url);
+      return Object.assign({ kind: KIND_NAME[kind] }, r);
+    }
+    return { state: 'unknown', kind: 'Unknown', msg: 'Not sure what this is. Check it’s a link to a picture, video, sound, 3D model or web page.' };
+  }
+  const STATE_WORD = { ok: '✓ OK', warn: '⚠ Check', bad: '✗ Problem', unknown: '? Open to check' };
+  $('lib-check').addEventListener('click', async () => {
+    if (!lib) return;
+    const btn = $('lib-check'); btn.disabled = true;
+    const rows = lib.entries.map(en => ({ en, res: null }));
+    // the same number or name twice means pupils could get the wrong one
+    const seen = new Map();
+    rows.forEach(r => [r.en.num && 'n' + r.en.num, r.en.name && 'm' + r.en.name.toLowerCase()].filter(Boolean).forEach(k => seen.set(k, (seen.get(k) || 0) + 1)));
+    const isDup = en => (en.num && seen.get('n' + en.num) > 1) || (en.name && seen.get('m' + en.name.toLowerCase()) > 1);
+    const stateOf = r => isDup(r.en) && r.res.state === 'ok' ? 'warn' : r.res.state;
+    const draw = () => {
+      const done = rows.filter(r => r.res), tally = s => done.filter(r => stateOf(r) === s).length;
+      $('lib-report').innerHTML = '<p class="status ' + (done.length < rows.length ? 'wait' : tally('bad') ? 'err' : tally('warn') ? 'note' : 'ok') + '">' +
+        (done.length < rows.length ? 'Checking ' + (done.length + 1) + ' of ' + rows.length + '…' :
+          'Checked ' + rows.length + ': ' + tally('ok') + ' OK' + (tally('warn') ? ', ' + tally('warn') + ' to check' : '') + (tally('bad') ? ', <b>' + tally('bad') + ' with a problem</b>' : '') + (tally('unknown') ? ', ' + tally('unknown') + ' to open and look at' : '') + '.') + '</p>' +
+        '<div class="lib-table-wrap"><table class="lib-table"><caption class="sr-only">Every link in the class link library</caption><thead><tr><th scope="col">#</th><th scope="col">Name</th><th scope="col">What it is</th><th scope="col">Result</th></tr></thead><tbody>' +
+        rows.map(r => {
+          const dup = isDup(r.en);
+          const res = r.res || { state: 'wait', kind: '…', msg: '' };
+          const st = r.res ? stateOf(r) : 'wait';
+          return '<tr class="lr-' + st + '"><td>' + escapeHtml(r.en.num || '–') + '</td><td><a href="' + escapeHtml(Media.expand(r.en.link)) + '" target="_blank" rel="noopener">' + escapeHtml(r.en.name || 'Row ' + r.en.row) + '</a></td>' +
+            '<td>' + escapeHtml(res.kind || '') + '</td><td><b>' + (STATE_WORD[st] || 'Checking…') + '</b> ' + (res.msg || '') +
+            (dup ? ' <b>The same ' + (r.en.num && seen.get('n' + r.en.num) > 1 ? 'number' : 'name') + ' is used twice</b>, so pupils could get the wrong one.' : '') + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    };
+    draw();
+    let next = 0;
+    const worker = async () => { while (next < rows.length) { const r = rows[next++]; r.res = await withTimeout(checkEntry(r.en).catch(() => ({ state: 'unknown', msg: 'Couldn’t be checked.' })), 15000); draw(); } };
+    await Promise.all([worker(), worker(), worker()]);
+    btn.disabled = false;
+  });
+
   loadFromAddress();
+  if (libValue) { $('lib-box').open = true; loadLib(false); }
   // A merged photo (from Export merged photosphere): offer the editable version it was made from
   function mergedNote() {
     let orig = null;

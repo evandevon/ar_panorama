@@ -65,6 +65,7 @@
     src = Media.expand(src);
     if (!src || /^gd:/.test(src)) return '';
     if (/^blob:/i.test(src)) return '';                                // a file made in this browser (the video maker's "try it")
+    if (/^#\d{1,4}$/.test(src.trim())) return '';                     // "#3": a link from the class link library (library.js)
     // another tour on this same site: links shorten it to "?p=…" (or "index.html?p=…"), which isn't words to show
     if (/^([\w.\/-]*\.html)?\?[\w%.-]+=\S*$/.test(src)) return 'link';
     if (Media.youTube(src) || Media.looksLikeVideo(src)) return 'video';
@@ -81,6 +82,7 @@
     const t = d.type || (d.audioOnly ? 'audio' : '');
     const guess = guessKind(d.src);
     if (t === 'link' && !/\s/.test(String(d.src || '').trim())) return 'link';   // the author said it's a link
+    if (t && t !== 'text' && /^#\S/.test(String(d.src || '').trim())) return t;   // "#Candle video": a library link by name, of the kind its letter says
     if (t === 'text' || guess === 'text') return 'text';
     if (t === 'link') return 'link';
     if (t === 'doc') return 'doc';                 // a document, shown full screen (always chosen by the author)
@@ -112,14 +114,16 @@
   // ------------------------------------------------------------------ link format
   function encodeSpot(s, shorten) {
     // the kind letter is left out only when the link as written (shortened or not) shows the kind by itself
-    const kind = kindOf(s), guess = guessKind(kind === 'text' ? s.src : shorten ? Media.shorten(s.src) : s.src.trim());
+    // a link chosen from the class link library is written as its short reference ("#3") in the tour's link
+    const useRef = shorten && s.ref && /^#\S/.test(s.ref) && kindOf(s) !== 'text';
+    const kind = kindOf(s), guess = guessKind(useRef ? s.ref : kind === 'text' ? s.src : shorten ? Media.shorten(s.src) : s.src.trim());
     const kindFlag = kind === 'text' || kind === guess || (kind === 'video' && Media.youTube(s.src)) ? ''
       : { audio: 'a', video: 'v', image: 'i', link: 'k', model: 'm', doc: 'p' }[kind];
     const flags = (s.play === 'look' ? 'l' : s.play === 'start' ? 's' : '') + kindFlag +
       (s.hidden ? 'h' : '') + (s.loop ? 'r' : '') + (s.dwell ? 'd' : '') + (s.spin ? 'o' : '') + (s.flat ? 'f' : '') + (s.stacked && kind === 'video' ? 'x' + (s.alpha ? 'w' : '') : '') + (s.noMask ? 'u' : '') + (s.vanish && kind === 'video' && !s.loop ? 'e' : '') + (s.float ? 'g' : '');
     const label = (s.label || '').trim();
     const w = s.w && roundW(s.w) !== DEFAULT_W ? roundW(s.w) : '';
-    const src = kind === 'text' ? 't:' + s.src.trim() : shorten ? Media.shorten(s.src) : s.src.trim();
+    const src = kind === 'text' ? 't:' + s.src.trim() : useRef ? s.ref.trim() : shorten ? Media.shorten(s.src) : s.src.trim();
     const pin = validPin(s.pin) && !s.float ? s.pin.map(c => c.map(n => Math.round(n)).join(',')).join(',') : '';
     const rot = Array.isArray(s.rot) && s.rot.some(n => Math.round(n)) ? s.rot.map(n => Math.round(n)).join(',') : '';
     const delay = s.delay > 0 ? +(+s.delay).toFixed(1) : '';

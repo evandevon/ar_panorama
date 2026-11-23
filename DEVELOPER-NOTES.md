@@ -48,6 +48,15 @@ A-Frame 1.8.0 (THREE is `AFRAME.THREE`), qrcode.js, PDF.js, gifenc (ESM, lazy-im
 - **Maker ↔ preview:** postMessage. The message names are listed in the viewer.js file guide.
 - **Phone window:** the preview iframe fills the panel. The viewer gets `setWindow {w,h}`, sets the camera fov so the phone-sized window shows a real phone's view, and puts `.win-shade` panels outside it. Those panels allow dragging but not tapping.
 
+## Class link library (js/library.js, 21 Nov)
+
+- Tour param `lib=`: a Google Sheet id (`<id>[.<gid>]`), a published sheet (`e:<id>[.<gid>]`), or a CSV/text file's address. (`l=` was already taken by the old background-sound loop flag.) A spot's link `#3` (or `#Name` when the sheet has no numbers) is looked up in it.
+- Reading: `gviz/tq?tqx=out:csv` (works for sheets shared "Anyone with the link"; no key), then the Drive API export with the site's key; a copy of the list is kept in localStorage (`link-library:<value>`) and used if the sheet can't be reached. Rows: the cell that looks like a link, the first number, the first other cell as the name; anything without a link is skipped (headings, notes).
+- Viewer: `Library.resolve` swaps refs for links before `spots.set`; unknown refs are dropped with a hint; a link button without a label takes the entry's name.
+- Maker: `lib` (loaded list) and `libValue`; a spot chosen from the library keeps `sp.src` = the full link (so every check and the preview work as before) and `sp.ref` = "#3". `HotSpots.encode(sp, true)` writes the ref (with its kind letter: `guessKind('#3')` is '') only when the share link includes `lib=`. The maker's own address keeps full links plus `lr=<index>:<ref>` and `lib=`. Typing over a library link drops its ref. Opening a QR link (refs only) in the maker resolves them when the library loads (`libPending`).
+- `kindOf`: a `#…` src with a non-text kind letter keeps that kind (names like "#Candle video" would otherwise look like text). Text cards are always `t:`-prefixed in links, so `#hashtag` text is unaffected.
+- **Check every link** (maker): YouTube via oEmbed; Drive via `Media.driveAccess` (not shared → problem, editable → check); pictures/videos/sounds by loading them; 3D models by fetching; web pages can't be checked from a page (other sites block it), so they're marked "open to check"; repeated numbers/names flagged. Three at a time, 15 s each.
+
 ## Pictures behind 3D models (spots.js `pics3D`)
 
 A picture (pinned, or a flat in-room card since 28 Oct — `pinGeom` then uses the same level-card corners as the CSS card3d: half-width tan (w/2)/FLAT_K; not floating, not a floor plan) with an overlapping 3D spot on a higher z is drawn as a WebGL sheet instead of relying on its page element (which gets `.in3d`: the img goes see-through, the frame stays for taps, handles and caption). The sheet is a 16×16 grid in a plane square on to the centre of the pinned corners, with vertex positions from the square-to-quad homography of the corners' gnomonic coordinates, so it matches the CSS warp exactly. Distance: just behind the 3D things it's under (far reach ×1.03), within [22, 96·min cos] for masked pictures (behind the masks' cut-out sphere) or [1.5, 18] for "not hidden by masks". Material: transparent, depthWrite false, so opaque models in front win on depth. Texture: CORS image load, then Drive download with the site's key, else `no3D` + maker message and it stays a page element. `overlapsOf` lets pinned pictures and 3D spots be ordered against each other; merge.js paints such pictures before the models.
@@ -77,6 +86,10 @@ merge.js `make()` paints the 3D part as the tour draws it: z levels lowest first
 ## How big a tour can be (28 Oct)
 
 `MAX_SPOTS = 20` (was 8, which had no technical basis). The real limit is the link: `LINK_MAX = 8000` characters (web servers, GitHub Pages included, refuse addresses much past 8 KB, and a shortener only redirects to the same address), past which adding is blocked and step 4 warns. QR: tried at level M, then L (holds ~2,950 bytes); too long for either → no code, but the link can still be copied, and the **short link** box (TinyURL etc.) makes the code from the short link. A short link is remembered in localStorage under a hash of the exact tour link (`shortKey`), so a changed tour falls back to the full link and says so.
+
+## QR size tester (qr-test.html, 2 Nov)
+
+A standalone page (vendor/qrcode.js only). The link is a real tour link on this site (sample room, title = its size) padded with an ignored `x=` field to the chosen length. Shows squares across, version, and mm per square at a chosen print width; Copy picture puts a ~300 dpi PNG (with an optional size label) on the clipboard (ClipboardItem), falling back to a download. Not linked from the maker.
 
 ## Scan another code (viewer, top right, 2 Nov)
 
@@ -145,7 +158,7 @@ The keying runs in a WebGL fragment shader (`FRAG` in videomaker.js):
 - **Teacher-facing words:** plain English, no jargon. Say "see-through" not "alpha" and "stencil" not "matte". Australian spelling: colour, centre.
 - **Accessibility:** labels on everything, keyboard paths, focus styles, and the WCAG AA contrast ratios we checked. The timeline trim dots are role=slider. axe-core showed no violations on all pages; keep it that way.
 - **Privacy:** nothing is uploaded and nothing stored except in the link. Never put student media in the repo or deliverables.
-- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261102a**.
+- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261121a**.
 - **Dragging the view:** `bindDrag` (viewer.js) calls preventDefault on mouse pointerdown, clears any text selection, and blocks `dragstart`. Without this, a drag on the dimmed area round the phone frame selected spot labels, and a later press on that selection started a browser text-drag that cancelled the look-around drag after a moment.
 - **Colours: "Ember and slate" (dark).** Use the tokens, never raw hex:
 

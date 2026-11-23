@@ -970,6 +970,16 @@
     rig.setAttribute('spot-tracker', '');
     front.set(params.getAll('f').map(FrontLayer.decode).filter(Boolean));
     spotDefs = params.getAll('s').map(HotSpots.decode);
+    // Links from the class link library ("#3"): looked up in the teacher's Google Sheet before anything is placed
+    if (params.get('lib') && spotDefs.some(d => d && Library.isRef(d.src) && d.type !== 'text')) {
+      try {
+        const lib = await Library.load(params.get('lib'));
+        const missing = Library.resolve(spotDefs, lib.entries);
+        spotDefs.forEach(d => { if (d && d.ref && !d.label && HotSpots.kindOf(d) === 'link') d.label = d.libName; });   // a link button says its name
+        if (missing.length) hint((missing.length === 1 ? missing[0] + ' isn’t' : missing.join(', ') + ' aren’t') + ' in the class link library, so ' + (missing.length === 1 ? 'it’s' : 'they’re') + ' missing.', 6000);
+      } catch (e) { hint(e.message + ' Some things in this tour are missing.', 7000); }
+      spotDefs = spotDefs.filter(d => !(d && Library.isRef(d.src) && d.type !== 'text'));
+    }
     spots.set(spotDefs);
 
     const isVideo = Media.looksLikeVideo(cfg.pano);

@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>360° QR Experience Maker</title>
   <meta name="description" content="Paste a link to a 360° photo and some audio, and get a QR code that opens it on any phone. No sign-in.">
-  <link rel="stylesheet" href="css/create.css?v=20261102a">
+  <link rel="stylesheet" href="css/create.css?v=20261121a">
   <script src="vendor/qrcode.js"></script>
-  <script src="js/settings.js?v=20261102a"></script>
-  <script src="js/sources.js?v=20261102a"></script>
-  <script src="js/spots.js?v=20261102a"></script>
+  <script src="js/settings.js?v=20261121a"></script>
+  <script src="js/sources.js?v=20261121a"></script>
+  <script src="js/library.js?v=20261121a"></script>
+  <script src="js/spots.js?v=20261121a"></script>
 </head>
 <body>
 <header class="masthead">
@@ -65,6 +66,20 @@
           <li>Background sound: add a <b>Sound</b>, set it to play <b>as soon as it opens</b>, and tick <b>Hidden</b> and <b>Loop</b>.</li>
           <li>Rarely needed settings (floating on the screen, pinning corners, masks) are under <b>More options</b> on each card.</li>
         </ul>
+      </details>
+      <details class="howto lib-box" id="lib-box">
+        <summary>Class link library <span class="lib-n" id="lib-n"></span></summary>
+        <p class="help">A teacher can put every link the class might use in a <b>Google Sheet</b>, one per row: a number, a name and the link (a heading row is fine). Share it as <b>Anyone with the link → Viewer</b>, paste its address here, and each card can choose from it. The QR code then only holds short numbers like <b>#3</b>, and fixing a link in the sheet fixes every tour that uses it.</p>
+        <label for="in-lib">Google Sheet link</label>
+        <input id="in-lib" type="url" inputmode="url" placeholder="https://docs.google.com/spreadsheets/d/…" aria-describedby="lib-status">
+        <p class="status" id="lib-status" role="status" aria-live="polite"></p>
+        <div class="actions lib-actions" id="lib-actions" hidden>
+          <button type="button" class="btn small" id="lib-check">Check every link</button>
+          <button type="button" class="btn small ghost" id="lib-reload">Reload the sheet</button>
+          <button type="button" class="btn small ghost" id="lib-share">Copy a maker link for pupils</button>
+          <a class="btn small ghost" id="lib-open" target="_blank" rel="noopener">Open the sheet</a>
+        </div>
+        <div class="lib-report" id="lib-report" aria-live="polite"></div>
       </details>
       <p class="help" id="spots-empty">Nothing added yet.</p>
       <ol class="spot-list" id="spot-list"></ol>
@@ -230,6 +245,6 @@
   <p>Want a person or object standing in the room, with the room showing around them? Make a see-through video from green-screen footage with the <a href="videomaker.html">See-through Video Maker</a>.</p>
 </footer>
 
-<script src="js/create.js?v=20261102a"></script>
+<script src="js/create.js?v=20261121a"></script>
 </body>
 </html>

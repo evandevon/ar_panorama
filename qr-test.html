@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QR code size tester · 360° QR Experience Maker</title>
+<meta name="robots" content="noindex">
+<meta name="description" content="Make QR codes of any size, to find out how detailed a code your phones can still scan, on screen and on paper.">
+<script src="vendor/qrcode.js?v=20261102b"></script>
+<style>
+  /* "Ember and slate", as in the tour maker */
+  :root {
+    color-scheme: dark;
+    --slate: #0f0d0c; --paper: #161312; --card: #221e1c; --field: #1a1716; --line: #3b3431;
+    --ink: #f3ede9; --ink-soft: #b9ada6; --brass: #ee8b5c; --brass-hover: #f4a37c; --on-brass: #2a1105;
+    --select: #6fc7b8; --ok: #86d6a0; --note: #f2c98a; --danger: #ff8c8c;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 var(--sans); }
+  .masthead { background: var(--slate); border-bottom: 4px solid var(--brass); padding: 20px 16px; }
+  .masthead h1 { margin: 0 0 6px; font: 700 clamp(1.4rem, 3.5vw, 2rem)/1.15 var(--serif); }
+  .masthead p { margin: 0; color: var(--ink-soft); max-width: 70ch; }
+  .eyebrow { margin: 0 0 4px !important; font: 600 .76rem/1.2 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--brass) !important; }
+  main { display: grid; gap: 16px; max-width: 1180px; margin: 0 auto; padding: 16px; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 900px) { main { grid-template-columns: minmax(320px, 400px) minmax(0, 1fr); align-items: start; } .controls { position: sticky; top: 16px; } }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 18px; }
+  h2 { margin: 0 0 12px; font: 700 1.1rem/1.2 var(--serif); }
+  label { display: block; font-weight: 600; margin: 14px 0 4px; }
+  label:first-of-type { margin-top: 0; }
+  label output { float: right; font-weight: 700; color: var(--brass); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; min-height: 40px; accent-color: var(--brass); }
+  select { width: 100%; min-height: 44px; padding: 0 10px; border-radius: 8px; border: 1px solid #7d716a; background: var(--field); color: var(--ink); font: inherit; }
+  .help { margin: 4px 0 0; font-size: .86rem; color: var(--ink-soft); }
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  button, .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 16px;
+    border: 2px solid var(--brass); border-radius: 999px; background: var(--brass); color: var(--on-brass); font: 700 .95rem var(--sans); cursor: pointer; text-decoration: none; }
+  button:hover { background: var(--brass-hover); border-color: var(--brass-hover); }
+  button.ghost { background: transparent; color: var(--ink); border-color: #7d716a; }
+  button.ghost:hover { background: rgba(255,255,255,.06); }
+  button.small { min-height: 36px; padding: 0 12px; font-size: .85rem; }
+  button[aria-pressed="true"] { background: var(--select); border-color: var(--select); color: #0d2420; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--select); outline-offset: 2px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .check { display: flex; align-items: center; gap: 8px; font-weight: 400; margin-top: 12px; }
+  .check input { width: 20px; height: 20px; accent-color: var(--brass); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 0 0 14px; }
+  .stat { background: var(--field); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  .stat b { display: block; font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: .8rem; color: var(--ink-soft); }
+  .verdict { margin: 0 0 14px; padding: 10px 12px; border-radius: 8px; border-left: 4px solid var(--ok); background: rgba(134,214,160,.08); }
+  .verdict.note { border-color: var(--note); background: rgba(242,201,138,.08); }
+  .verdict.bad { border-color: var(--danger); background: rgba(255,140,140,.08); }
+  .stage { display: grid; place-items: center; background: #fff; border-radius: 8px; padding: 16px; overflow: auto; }
+  .stage canvas { display: block; image-rendering: pixelated; max-width: 100%; height: auto; }
+  .status { min-height: 1.5em; margin: 8px 0 0; font-weight: 600; }
+  .status.ok { color: var(--ok); } .status.err { color: var(--danger); }
+  details { margin-top: 14px; color: var(--ink-soft); font-size: .9rem; }
+  summary { cursor: pointer; color: var(--ink); font-weight: 600; min-height: 32px; }
+  code { overflow-wrap: anywhere; font-size: .8rem; }
+  table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+  th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<header class="masthead">
+  <p class="eyebrow">360° QR Experience Maker · tester</p>
+  <h1>QR code size tester</h1>
+  <p>Slide to make the code more or less detailed, then scan it from the screen, or copy it into PowerPoint and print it, to find where your phones stop reading it. Scanning a code opens a short test tour that says how big that code was.</p>
+</header>
+
+<main>
+  <section class="panel controls" aria-labelledby="c-h">
+    <h2 id="c-h">How detailed</h2>
+    <label for="len">Link length <output id="len-out" for="len"></output></label>
+    <input type="range" id="len" min="60" max="2900" step="10" value="400" aria-describedby="len-help">
+    <p class="help" id="len-help">Longer links make more, smaller squares. Tour links are usually 150–1,500 characters.</p>
+    <div class="presets" role="group" aria-label="Jump to the sizes the tour maker warns about">
+      <button type="button" class="small ghost" data-modules="65">65 squares</button>
+      <button type="button" class="small ghost" data-modules="97">97 squares</button>
+      <button type="button" class="small ghost" data-modules="117">117 squares</button>
+      <button type="button" class="small ghost" data-modules="177">Biggest</button>
+    </div>
+
+    <label for="ec">Damage tolerance (error correction)</label>
+    <select id="ec" aria-describedby="ec-help">
+      <option value="L">Low (L): holds the most</option>
+      <option value="M" selected>Medium (M): what the tour maker uses</option>
+      <option value="Q">Quartile (Q)</option>
+      <option value="H">High (H): survives the most smudging</option>
+    </select>
+    <p class="help" id="ec-help">Higher tolerance copes better with glare and scuffs, but needs more squares for the same link.</p>
+
+    <h2 style="margin-top:22px">On screen</h2>
+    <label for="px">Size on this screen <output id="px-out" for="px"></output></label>
+    <input type="range" id="px" min="120" max="900" step="10" value="420">
+
+    <h2 style="margin-top:22px">For printing</h2>
+    <label for="cm">Printed width <output id="cm-out" for="cm"></output></label>
+    <input type="range" id="cm" min="2" max="20" step="0.5" value="6" aria-describedby="cm-help">
+    <p class="help" id="cm-help">Set the picture to this width in PowerPoint (Picture Format → Size). Below it shows how big each square comes out.</p>
+    <label class="check"><input type="checkbox" id="label" checked> Put the size under the code (so you can tell your printouts apart)</label>
+
+    <div class="actions">
+      <button type="button" id="copy">Copy picture</button>
+      <button type="button" class="ghost" id="save">Save PNG</button>
+    </div>
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-labelledby="q-h">
+    <h2 id="q-h">The code</h2>
+    <div class="stats" aria-live="polite">
+      <div class="stat"><b id="s-chars">–</b><span>characters</span></div>
+      <div class="stat"><b id="s-mods">–</b><span>squares across</span></div>
+      <div class="stat"><b id="s-ver">–</b><span>QR version (1–40)</span></div>
+      <div class="stat"><b id="s-mm">–</b><span>each square when printed</span></div>
+    </div>
+    <p class="verdict" id="verdict"></p>
+    <div class="stage"><canvas id="qr" role="img" aria-label="QR code"></canvas></div>
+    <details>
+      <summary>What's in the link</summary>
+      <p>A real link to a test tour on this site (the sample room), so scanning it opens the tour and shows its size as the title. The extra length is filler that the tour ignores.</p>
+      <p><code id="link"></code></p>
+    </details>
+    <details>
+      <summary>Keep a record of your tests</summary>
+      <table>
+        <thead><tr><th scope="col">Squares</th><th scope="col">Printed</th><th scope="col">Phone</th><th scope="col">Result</th></tr></thead>
+        <tbody><tr><td>65</td><td>6 cm</td><td></td><td></td></tr><tr><td>97</td><td>8 cm</td><td></td><td></td></tr><tr><td>117</td><td>10 cm</td><td></td><td></td></tr><tr><td>177</td><td>15 cm</td><td></td><td></td></tr></tbody>
+      </table>
+      <p>As a rough guide, phones read squares down to about 0.5 mm on good paper in good light; below about 0.4 mm many struggle. Screens are usually easier than paper because they're bright and flat.</p>
+    </details>
+  </section>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const PAD = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  let qr = null, link = '';
+
+  // A real link to a test tour on this site: scanning it opens the sample room, titled with this code's size
+  function makeLink(n, ec) {
+    const base = new URL('index.html', location.href).href;
+    const head = base + '?p=panoramas/sample-room.jpg&t=';
+    const tail = '&v=2';
+    let title = 'QR+test:+' + n + '+characters+level+' + ec;
+    let fill = '';
+    const room = n - (head + title + '&x=' + tail).length;
+    for (let i = 0; i < room; i++) fill += PAD[(i * 7 + 3) % PAD.length];      // like a real link: mixed letters and numbers
+    return head + title + (room > 0 ? '&x=' + fill : '') + tail;
+  }
+  function build(text, ec) { try { const q = qrcode(0, ec); q.addData(text); q.make(); return q; } catch (e) { return null; } }
+
+  // the longest link that still fits at this level, for the "Biggest" button and the slider's top
+  function maxLen(ec) {
+    let lo = 60, hi = 3000;
+    while (lo < hi) { const mid = Math.ceil((lo + hi) / 2); if (build(makeLink(mid, ec), ec)) lo = mid; else hi = mid - 1; }
+    return lo;
+  }
+  // the link length that gives about this many squares across
+  function lenFor(modules, ec) {
+    let best = 60;
+    for (let n = 60; n <= +$('len').max; n += 10) { const q = build(makeLink(n, ec), ec); if (!q) break; if (q.getModuleCount() <= modules) best = n; else break; }
+    return best;
+  }
+
+  function draw() {
+    const ec = $('ec').value, n = +$('len').value;
+    link = makeLink(n, ec);
+    qr = build(link, ec);
+    if (!qr) return;
+    const m = qr.getModuleCount(), quiet = 4, total = m + quiet * 2;
+    const c = $('qr'), cell = Math.max(1, Math.floor(+$('px').value / total));
+    c.width = c.height = total * cell;
+    c.style.width = c.style.height = (total * cell) + 'px';
+    const x = c.getContext('2d');
+    x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+    x.fillStyle = '#000';
+    for (let r = 0; r < m; r++) for (let k = 0; k < m; k++) if (qr.isDark(r, k)) x.fillRect((k + quiet) * cell, (r + quiet) * cell, cell, cell);
+    c.setAttribute('aria-label', 'QR code with ' + m + ' squares across, holding a ' + link.length + '-character link');
+
+    const cm = +$('cm').value, mm = cm * 10 / total;
+    $('len-out').textContent = link.length.toLocaleString() + ' characters';
+    $('px-out').textContent = (total * cell) + ' px';
+    $('cm-out').textContent = cm + ' cm';
+    $('s-chars').textContent = link.length.toLocaleString();
+    $('s-mods').textContent = m;
+    $('s-ver').textContent = (m - 17) / 4;
+    $('s-mm').textContent = mm.toFixed(2) + ' mm';
+    $('link').textContent = link;
+    const v = $('verdict');
+    v.className = 'verdict' + (m > 117 || mm < 0.4 ? ' bad' : m > 65 || mm < 0.5 ? ' note' : '');
+    v.textContent = m <= 65 ? 'Easy: any phone should read this, even small.'
+      : m <= 97 ? 'Detailed: the tour maker asks for at least 6 cm wide in print.'
+      : m <= 117 ? 'Crowded: the tour maker asks for at least 8 cm wide.'
+      : 'Very crowded: the tour maker asks for 10 cm or more, and older phones may not read it.';
+    if (mm < 0.4) v.textContent += ' At ' + cm + ' cm each square is only ' + mm.toFixed(2) + ' mm: most phones will struggle on paper.';
+  }
+
+  // the picture to copy or save: the code at a print-friendly resolution (about 300 dpi at the chosen width), with its size under it
+  function printCanvas() {
+    const m = qr.getModuleCount(), quiet = 4, total = m + quiet * 2;
+    const target = +$('cm').value / 2.54 * 300;                     // pixels for ~300 dpi
+    const cell = Math.max(4, Math.round(target / total));
+    const label = $('label').checked, lh = label ? Math.round(cell * total * 0.07) : 0;
+    const c = document.createElement('canvas');
+    c.width = total * cell; c.height = total * cell + lh;
+    const x = c.getContext('2d');
+    x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+    x.fillStyle = '#000';
+    for (let r = 0; r < m; r++) for (let k = 0; k < m; k++) if (qr.isDark(r, k)) x.fillRect((k + quiet) * cell, (r + quiet) * cell, cell, cell);
+    if (label) {
+      x.font = '600 ' + Math.round(lh * 0.55) + 'px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+      x.fillText(m + ' squares · ' + link.length + ' characters · level ' + $('ec').value + ' · print ' + $('cm').value + ' cm wide', c.width / 2, total * cell + lh * 0.35);
+    }
+    return c;
+  }
+  const status = (t, k) => { const s = $('status'); s.textContent = t; s.className = 'status' + (k ? ' ' + k : ''); };
+  const name = () => 'qr-test-' + qr.getModuleCount() + 'sq-' + $('ec').value + '.png';
+  function save(c) {
+    c.toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name(); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }, 'image/png');
+  }
+  $('copy').addEventListener('click', async () => {
+    const c = printCanvas();
+    try {
+      if (!navigator.clipboard || !window.ClipboardItem) throw new Error('no clipboard');
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': new Promise(res => c.toBlob(res, 'image/png')) })]);
+      status('Copied ✓ Paste it into PowerPoint, then set its width to ' + $('cm').value + ' cm.', 'ok');
+    } catch (e) {
+      save(c);
+      status('This browser can’t copy pictures, so it was saved as a PNG instead. Insert it into PowerPoint from your Downloads.', 'err');
+    }
+  });
+  $('save').addEventListener('click', () => { save(printCanvas()); status('Saved ' + name() + '.', 'ok'); });
+
+  function setMax() {
+    const ec = $('ec').value, max = maxLen(ec);
+    $('len').max = Math.floor(max / 10) * 10;
+    if (+$('len').value > +$('len').max) $('len').value = $('len').max;
+  }
+  document.querySelectorAll('[data-modules]').forEach(b => b.addEventListener('click', () => {
+    const want = +b.dataset.modules;
+    $('len').value = want >= 177 ? $('len').max : lenFor(want, $('ec').value);
+    draw(); status('');
+  }));
+  $('ec').addEventListener('change', () => { setMax(); draw(); });
+  ['len', 'px', 'cm', 'label'].forEach(id => $(id).addEventListener('input', () => { draw(); status(''); }));
+  setMax(); draw();
+})();
+</script>
+</body>
+</html>

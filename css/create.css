@@ -383,3 +383,19 @@ textarea + .field-err { top: 8px; transform: none; }
 /* Share it: a short link (TinyURL…) for a simpler QR code */
 .short-box { margin-top: 10px; }
 .short-box input { width: 100%; }
+
+/* Class link library (step 2) */
+.lib-box input { width: 100%; }
+.lib-n { font-weight: 400; color: var(--ink-soft); }
+.lib-actions { margin-top: 8px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.lib-table-wrap { overflow-x: auto; margin-top: 6px; }
+.lib-table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+.lib-table th, .lib-table td { text-align: left; vertical-align: top; padding: 6px; border-bottom: 1px solid var(--line); }
+.lib-table td:first-child { font-variant-numeric: tabular-nums; }
+.lib-table a { color: var(--ink); }
+.lr-ok td:last-child b { color: var(--ok); }
+.lr-warn td:last-child b, .lr-unknown td:last-child b { color: var(--note); }
+.lr-bad td:last-child b { color: var(--danger); }
+.lr-bad { background: rgba(255,140,140,.06); }
+.sp-lib-row select { width: 100%; }
