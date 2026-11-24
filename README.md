@@ -14,10 +14,10 @@ It's free, there's nothing to sign in to, and nothing is uploaded: the whole tou
 
 **Contents**
 - [Make your first tour](#make-your-first-tour)
-- [Step 1: Your 360° photo](#step-1-your-360-photo)
-- [Step 2: Name it](#step-2-name-it)
+- [Pick your room](#pick-your-room)
 - [Add things to the room](#add-things-to-the-room)
-- [Step 3: Share it](#step-3-share-it)
+- [Settings](#settings)
+- [Try it and share it](#try-it-and-share-it)
 - [What viewers see](#what-viewers-see)
 - [See-through videos](#see-through-videos)
 - [Where to keep your files](#where-to-keep-your-files)
@@ -29,21 +29,21 @@ It's free, there's nothing to sign in to, and nothing is uploaded: the whole tou
 
 ## Make your first tour
 
-1. Open the **[tour maker](https://evandevon.github.io/ar_panorama/make.html)**. (Or press **Try a sample** to see one ready-made.)
-2. **Step 1** (left): paste a link to your 360° photo.
-3. **Step 2** (left): give the tour a name.
-4. **Add things to the room** (right): turn the preview until the **+** is where you want something, press **Picture**, **Video**, **Sound**, **Text**, **Link**, **3D model** or **Document**, and paste its link (or type the words).
-5. **Step 3** (left): print the QR code, or copy the link. Scan it with a phone to check it.
+1. Open the **[tour maker](https://evandevon.github.io/ar_panorama/make.html)**. It asks you to **pick your room** (a 360° photo). Paste a link to yours, choose one your teacher has put in the class library, or press **Try a sample room**.
+2. Type a name for the tour at the top.
+3. Turn the room until the **+** is where you want something, then press a tile on the right: **Picture**, **Video**, **Sound**, **Words**, **3D model**, **Link** or **Document**. Paste its link (or type the words), then press **Done**.
+4. Press **Try it** to see the tour the way a phone will.
+5. Press **Share** to print the QR code or copy the link. Scan it with a phone to check it.
 
-Use the maker on a computer. On a wide screen it has three columns: **setting up and sharing** on the left, the **preview** in the middle, and **adding and changing things** on the right. (In a narrower window everything is in one column beside the preview.)
+The maker is made for computers, and works a bit like Tinkercad: the room is in the middle, the tiles for adding things are on the right, and choosing a thing shows its settings in the same place. Tours are made to be looked at on phones.
 
-The preview shows the tour exactly the way a phone will. If it shows a green tick, the QR code will work.
+**The classic maker** (everything on one long page, the way the maker used to look) is still there: **[make-classic.html](https://evandevon.github.io/ar_panorama/make-classic.html)**, or **Settings → Open this tour in the classic maker**. Tours open in both.
 
 ---
 
-## Step 1: Your 360° photo
+## Pick your room
 
-Paste a link to the photo. Any of these work:
+The room is the 360° photo people look around in. Press **Room** at the top to change it. Paste a link to the photo, or pick one of the **Rooms from your teacher**. Any of these links work:
 - a file in this website's GitHub folder (most reliable)
 - a Google Drive or Dropbox share link, shared as **Anyone with the link**
 - a direct link to a JPEG
@@ -57,15 +57,9 @@ Paste a link to the photo. Any of these work:
 - Keep it in the GitHub folder (under 100 MB), or Google Drive (choose **Type → Video**).
 - YouTube 360° videos can't be used as the background (YouTube doesn't allow it). If it's your own video, download the original from YouTube Studio.
 
-**Compare photospheres:** under the photo, add a second 360° photo (for example, the same room 100 years ago). Viewers drag a bar across the screen to wipe between the two. You can turn the second photo to line it up, and give each side a name.
+**Keep working on a tour:** paste a tour's link (from **Copy link**) into **Keep working on a tour** and everything comes back, ready to change.
 
----
-
-## Step 2: Name it
-
-- **Name:** shown at the top of the tour.
-- **Line up with the real room:** for tours used in the room where the photo was taken. Viewers' cameras show the real room with your photo over it, and they turn until the two match, so everything sits on the real walls. It works best when the photo was taken where viewers stand.
-- **Keep sounds playing when the screen is off:** for listening tours. Viewers scan the code, lock their phone and keep listening as they walk, with pause and play on the lock screen. Otherwise sounds pause when the screen goes off and carry on when it comes back. (Phones always pause videos.)
+**Compare two photos:** under the photo, add a second 360° photo (for example, the same room 100 years ago). Viewers drag a bar across the screen to wipe between the two. You can turn the second photo to line it up, and give each side a name.
 
 ---
 
@@ -87,9 +81,10 @@ A tour can have up to 20 things. iPhone photos (HEIC) and TIFFs won't show on mo
 
 ### Placing things
 
-1. Turn the preview until the **+** (crosshair) is where you want it. The **arrow buttons** round the preview turn it too.
-2. Press the kind of thing under **Add at the crosshair**. Its card opens, ready for the link.
-3. In the preview, **drag** it to move it and **pull its corners** to resize it. Or use **Smaller**, **Bigger** and **Move to crosshair** on its card.
+1. Turn the room until the **+** (crosshair) is where you want it. The **arrow buttons** round the room turn it too.
+2. Press a tile on the right (**Make your own**), or a link your teacher chose (**Class library**). Its settings open, ready for the link.
+3. In the room, **drag** it to move it and **pull its corners** to resize it. Or use **Smaller**, **Bigger** and **Move to crosshair** in its settings.
+4. Press **Done** (or Esc) to go back to the tiles. Everything you've added is listed under **In your room**: press one to change it.
 
 Handy:
 - **📱 Phone** view shows exactly how much a phone held upright can see. Size videos in that view.
@@ -124,7 +119,7 @@ Pictures, text and links normally sit in front of 3D models. **Pictures** can go
 
 ### A thing's card
 
-Press a thing in the list to open its card. Its settings are in labelled boxes:
+Press a thing under **In your room** (or click it in the room) to open its settings. They're in labelled boxes:
 - **When it shows and plays** (blue): when it appears, how it plays, Hidden, Loop and Volume.
 - **How it looks** (purple): see-through video, and spinning or flat colours for 3D models.
 - **Size and place** (gold): Smaller, Bigger, Move to crosshair, Show me, turning a 3D model, and which one is in front.
@@ -173,11 +168,11 @@ Press **⤢ Open** on it in the preview to see what viewers will see.
 A teacher can put every link a class might use in one **Google Sheet**, so pupils choose from a list instead of pasting long links. QR codes stay small too: each chosen link is just a number like `#3` in the tour.
 
 1. Make a Google Sheet with these four columns, in this order: **Number | Type | Name | Link**. (In the maker, **Copy the heading row** copies the headings, ready to paste into cell A1.) Put one link per row. Any link that works elsewhere in the maker works here, including Google Drive.
-2. **Type** is one of: **image**, **video**, **sound**, **3D**, **link**, **document** (a capital first letter is fine). The link then only shows on that kind of card. Leave Type empty to show it on every card.
+2. **Type** is one of: **image**, **video**, **sound**, **3D**, **link**, **document** or **room** (a capital first letter is fine). The link then only shows on that kind of card. **room** is for 360° photos: they show in **Pick your room** as **Rooms from your teacher**. Leave Type empty to show a link on every card.
 3. Share the sheet as **Anyone with the link → Viewer**.
-4. In the maker, open **Class link library** (at the top of the left column) and paste the sheet's address. (A CSV file works too, such as `links/example.csv` in the GitHub folder, or its GitHub page's address.)
+4. In the maker, press **Settings**, open **Class link library** and paste the sheet's address. (A CSV file works too, such as `links/example.csv` in the GitHub folder, or its GitHub page's address.)
 5. Press **Check every link**. Each one is opened and marked ✓ OK, ⚠ Check, ✗ Problem, or ? (web pages: open them to look).
-6. Press **Copy a maker link for pupils** and give them that link. Each card then has **Choose from the class link library**.
+6. Press **Copy a maker link for pupils** and give them that link. They get a **Class library** tab beside the tiles, with your links as buttons (filtered by type), and each thing's settings has **Choose from the class link library**.
 
 Good to know:
 - Fixing a link in the sheet fixes every tour that uses it, even printed ones.
@@ -187,9 +182,23 @@ Good to know:
 
 ---
 
-## Step 3: Share it
+## Settings
 
-Copy the link, open it, print the QR code, save it as a picture, or get an embed code for another website.
+Press **Settings** at the top. (The tour's name is typed at the top of the maker, and shows at the top of the tour.)
+
+- **Line up with the real room:** for tours used in the room where the photo was taken. Viewers' cameras show the real room with your photo over it, and they turn until the two match, so everything sits on the real walls. It works best when the photo was taken where viewers stand.
+- **Keep sounds playing when the screen is off:** for listening tours. Viewers scan the code, lock their phone and keep listening as they walk, with pause and play on the lock screen. Otherwise sounds pause when the screen goes off and carry on when it comes back. (Phones always pause videos.)
+
+---
+- **For teachers:** the [class link library](#class-link-library), and a link to the classic maker.
+
+---
+
+## Try it and share it
+
+**Try it** shows the real tour in a phone-shaped frame: drag to look around and click things to play them. Close it to go back to making.
+
+**Share** shows the QR code with a big **Print it** button, **Copy link** and **Save picture**. **More ways to share** has Open, Embed, a short link, merging and the whole link. Keep the link (**Copy link**) if you want to change the tour later.
 
 **How big to print it:** every thing you add makes the QR code more detailed. The maker tells you when to print it bigger:
 
@@ -201,7 +210,7 @@ Copy the link, open it, print the QR code, save it as a picture, or get an embed
 | Very crowded | 10 cm wide |
 
 **Make the QR code simpler:**
-- **Short link:** under the QR code, open *Make the QR code simpler with a short link*. Copy the link, shorten it with TinyURL (or similar) and paste the short link in. The QR code is then made from it. If you change the tour afterwards, make a new short link.
+- **Short link:** under **More ways to share**, open *Make the QR code simpler*. Copy the link, shorten it with TinyURL (or similar) and paste the short link in. The QR code is then made from it. If you change the tour afterwards, make a new short link.
 - **Export merged photosphere:** paints pictures, text and 3D models that sit still into the 360° photo itself, so the link doesn't need to carry them. Keep the "editable version" link it gives you, because merged things can't be moved any more.
 - **Class link library:** links chosen from a library are just a number each.
 
@@ -294,7 +303,8 @@ The Video Maker can also make a **WebM with transparency** (for other apps and w
 
 | File | What it is |
 |---|---|
-| `make.html` | The tour maker |
+| `make.html` | The tour maker ("style A": room in the middle, tiles on the right) |
+| `make-classic.html` | The previous tour maker, kept as a backup (everything on one page) |
 | `index.html` | The tour viewer: what QR codes open (the site's main address) |
 | `videomaker.html` | The See-through Video Maker |
 | `merge.html` | Export merged photosphere (opened from the maker) |

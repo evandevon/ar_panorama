@@ -1,248 +1,351 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-AU" class="style-a">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>360° QR Experience Maker</title>
-  <meta name="description" content="Paste a link to a 360° photo and some audio, and get a QR code that opens it on any phone. No sign-in.">
-  <link rel="stylesheet" href="css/create.css?v=20261124g">
+  <title>360° Tour Maker</title>
+  <meta name="description" content="Make a 360° tour in your browser: choose a 360° photo, add pictures, videos, sounds and words, and print a QR code. No sign-in.">
+  <link rel="stylesheet" href="css/create.css?v=20261125a">
+  <link rel="stylesheet" href="css/maker.css?v=20261125a">
   <script src="vendor/qrcode.js"></script>
-  <script src="js/settings.js?v=20261124g"></script>
-  <script src="js/sources.js?v=20261124g"></script>
-  <script src="js/library.js?v=20261124g"></script>
-  <script src="js/spots.js?v=20261124g"></script>
+  <script src="js/settings.js?v=20261125a"></script>
+  <script src="js/sources.js?v=20261125a"></script>
+  <script src="js/library.js?v=20261125a"></script>
+  <script src="js/spots.js?v=20261125a"></script>
 </head>
-<body>
-<header class="masthead">
-  <div class="wrap">
-    <p class="eyebrow">Free · No sign-in · Nothing is uploaded</p>
-    <h1>360° QR Experience Maker</h1>
-    <p class="lede">Add a 360° photo, put pictures, videos, sounds and words around the room, then print the QR code. Anyone who scans it looks around by moving their phone.</p>
-  </div>
-</header>
+<body class="style-a">
+<!--
+  The tour maker, "style A" (25 Nov): a workplane like Tinkercad. The room (preview) in the middle, tiles to add things
+  on the right, and the chosen thing's settings in the same panel. Choosing the photo, tour settings, trying it and
+  sharing it open as big panels (<dialog>s) over the top. Every field keeps the id js/create.js expects.
+  The previous maker is kept, unchanged, as make-classic.html (js/create-classic.js, css/create-classic.css).
+-->
+<form id="form" class="a-app" autocomplete="off" onsubmit="return false">
 
-<main class="wrap grid">
-  <!-- The form's sections are laid out individually (display: contents), so they can go in different columns (create.css "Layout") -->
-  <form id="form" autocomplete="off" onsubmit="return false">
-    <!-- Teacher setup: the class link library (create.js "class link library"); each card's chooser uses it -->
-      <details class="panel disc lib-box lib-panel" id="lib-box">
-          <summary><span class="disc-t"><span class="lib-ico" aria-hidden="true">📚</span> Class link library <span class="lib-n" id="lib-n"></span></span><span class="disc-sub">For teachers: list the class’s links in a Google Sheet once, then pupils choose from it</span></summary>
-          <div class="disc-body">
-        <p class="help">A teacher can put every link the class might use in a <b>Google Sheet</b> with four columns, in this order: <b>Number | Type | Name | Link</b> (one link per row, under a heading row). <b>Type</b> is one of <b>image</b>, <b>video</b>, <b>sound</b>, <b>3D</b>, <b>link</b> or <b>document</b> (a capital first letter is fine): the link then only shows on that kind of card. Leave Type empty to offer it on every card. Share the sheet as <b>Anyone with the link → Viewer</b> and paste its address here. The QR code then only holds short numbers like <b>#3</b>, and fixing a link in the sheet fixes every tour that uses it.</p>
-        <p><button type="button" class="btn small ghost" id="lib-heading">Copy the heading row</button> <span class="help-inline" id="lib-heading-out">— then click cell A1 of a new Google Sheet and paste</span></p>
-        <label for="in-lib">Google Sheet link</label>
-        <input id="in-lib" type="url" inputmode="url" placeholder="https://docs.google.com/spreadsheets/d/…" aria-describedby="lib-status">
-        <p class="status" id="lib-status" role="status" aria-live="polite"></p>
-        <div class="actions lib-actions" id="lib-actions" hidden>
-          <button type="button" class="btn small" id="lib-check">Check every link</button>
-          <button type="button" class="btn small ghost" id="lib-reload">Reload the sheet</button>
-          <button type="button" class="btn small ghost" id="lib-share">Copy a maker link for pupils</button>
-          <a class="btn small ghost" id="lib-open" target="_blank" rel="noopener">Open the sheet</a>
-        </div>
-        <div class="lib-report" id="lib-report" aria-live="polite"></div>
-        </div>
-        </details>
+  <!-- ============ Top bar ============ -->
+  <header class="a-top">
+    <a class="a-logo" href="make.html" aria-label="360° Tour Maker: start again">360°</a>
+    <label class="a-name"><span class="sr-only">Tour name</span>
+      <input id="in-title" type="text" maxlength="80" placeholder="Name your tour">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>
+    </label>
+    <div class="a-tools" role="group" aria-label="Tour">
+      <button type="button" class="a-tool" id="a-room-btn" aria-haspopup="dialog">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 15l5-4 4 3 3-2 6 4"/></svg>Room</button>
+      <button type="button" class="a-tool" id="a-settings-btn" aria-haspopup="dialog">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Settings</button>
+    </div>
+    <span class="a-grow"></span>
+    <button type="button" class="a-btn a-try" id="a-try-btn" aria-haspopup="dialog" disabled>
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg>Try it</button>
+    <button type="button" class="a-btn a-share" id="a-share-btn" aria-haspopup="dialog" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 13v7h14v-7"/></svg>Share</button>
+  </header>
 
-    <section class="panel step-photo" aria-labelledby="h-photo">
-      <h2 id="h-photo"><span class="num" aria-hidden="true">1</span> Choose your 360° photo</h2>
-      <label for="in-pano">Link to a 360° photo</label>
-      <span class="field-wrap">
-        <input id="in-pano" type="url" inputmode="url" placeholder="https://drive.google.com/file/d/…" aria-describedby="pano-help pano-err-tip">
-        <button type="button" class="field-err" hidden aria-label="Problem with this link — show details" aria-controls="pano-err-tip" aria-expanded="false">!</button>
-        <span class="err-tip" id="pano-err-tip" role="tooltip" hidden></span>
-      </span>
-      <p class="help" id="pano-help">A Google Drive, OneDrive or Dropbox share link, a direct link to a JPEG, or a 360 video (MP4). Set sharing to <b>Anyone with the link</b>.</p>
-      <button type="button" class="btn small ghost" id="sample">Try a sample</button>
-      <p class="status" id="pano-status" role="status" aria-live="polite"></p>
-      <p class="help merged-note" id="merged-note" hidden>This photo has spots merged into it. To move or change them, <a id="merged-orig" href="#">open the version with them still separate</a>.</p>
-      <details class="disc compare-box" id="compare-box">
-        <summary><span class="disc-t">Compare photospheres</span><span class="disc-sub">Optional: a second photo to wipe between</span></summary>
-        <div class="disc-body">
-        <p class="help flush">Add a second 360° photo taken from the same spot: an old photo, or the same room on another day. Viewers drag a bar left and right to wipe between the two.</p>
-        <label for="in-pano2">Link to the second 360° photo</label>
-        <input id="in-pano2" type="url" inputmode="url" placeholder="https://drive.google.com/file/d/…" aria-describedby="pano2-status">
-        <p class="status" id="pano2-status" role="status" aria-live="polite"></p>
-        <div id="compare-opts" hidden>
-          <label for="in-yaw2">Turn it to line up <output id="yaw2-out" for="in-yaw2">0°</output></label>
-          <input type="range" id="in-yaw2" min="-180" max="180" step="1" value="0" aria-describedby="yaw2-help">
-          <p class="help" id="yaw2-help">Drag the bar in the preview so you can see both photos, then turn this until things line up across it.</p>
-          <div class="two">
-            <div><label for="in-n2">Name for the left side <span class="opt">(second photo)</span></label><input id="in-n2" type="text" maxlength="24" placeholder="e.g. 1876" aria-describedby="names-help"></div>
-            <div><label for="in-n1">Name for the right side <span class="opt">(main photo)</span></label><input id="in-n1" type="text" maxlength="24" placeholder="e.g. Today" aria-describedby="names-help"></div>
+  <div class="a-work">
+    <!-- ============ The room (the live preview) ============ -->
+    <section class="panel preview-panel" aria-labelledby="pv-h">
+      <div class="a-pv-head">
+        <h2 id="pv-h" class="sr-only">Your room</h2>
+        <div class="shape" role="group" aria-label="Preview shape">
+          <button type="button" id="shape-phone" aria-pressed="true">Phone</button>
+          <button type="button" id="shape-wide" aria-pressed="false">Wide</button>
+        </div>
+        <p class="a-hint">Drag to look around. Drag things to move them, and pull their corners to resize them.</p>
+      </div>
+      <div class="frame-nav phone" id="frame-nav" role="group" aria-label="Turn the room">
+        <button type="button" class="nav-btn nav-up" data-dir="up" aria-label="Look up" title="Look up (hold to keep turning)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 15 6-6 6 6"/></svg></button>
+        <button type="button" class="nav-btn nav-left" data-dir="left" aria-label="Look left" title="Look left (hold to keep turning)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 6-6 6 6 6"/></svg></button>
+        <div class="frame phone" id="frame">
+          <div class="empty" id="empty">Pick a room to start.</div>
+          <div class="phone-window" id="phone-window" aria-hidden="true"></div>
+        </div>
+        <button type="button" class="nav-btn nav-right" data-dir="right" aria-label="Look right" title="Look right (hold to keep turning)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6"/></svg></button>
+        <button type="button" class="nav-btn nav-down" data-dir="down" aria-label="Look down" title="Look down (hold to keep turning)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg></button>
+      </div>
+      <div class="facing">
+        <p id="facing-text">Starts facing the centre of the photo.</p>
+        <div class="facing-btns">
+          <button type="button" id="set-start" class="btn small ghost" disabled>Start from this view</button>
+          <button type="button" id="reset-start" class="btn small ghost" hidden>Reset</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Right: add things, then change the chosen one ============ -->
+    <aside class="a-side" id="a-side" aria-label="Things in the room">
+      <div class="a-adding" id="a-adding">
+        <h2 class="a-h" id="add-h">Add to the room</h2>
+        <div class="a-tabs" role="tablist" aria-label="What to add" id="a-tabs" hidden>
+          <button type="button" role="tab" id="a-tab-own" aria-selected="true" aria-controls="a-pane-own">Make your own</button>
+          <button type="button" role="tab" id="a-tab-lib" aria-selected="false" aria-controls="a-pane-lib" tabindex="-1">Class library</button>
+        </div>
+        <div id="a-pane-own" role="tabpanel" aria-labelledby="add-h">
+          <div class="add-row" role="group" aria-labelledby="add-h">
+            <div class="add-kinds">
+              <button type="button" class="add-kind" data-kind="image" disabled><span class="ak-ico" aria-hidden="true"></span>Picture</button>
+              <button type="button" class="add-kind" data-kind="video" disabled><span class="ak-ico" aria-hidden="true"></span>Video</button>
+              <button type="button" class="add-kind" data-kind="audio" disabled><span class="ak-ico" aria-hidden="true"></span>Sound</button>
+              <button type="button" class="add-kind" data-kind="text" disabled><span class="ak-ico" aria-hidden="true"></span>Words</button>
+              <button type="button" class="add-kind" data-kind="model" disabled><span class="ak-ico" aria-hidden="true"></span>3D model</button>
+              <button type="button" class="add-kind" data-kind="link" disabled><span class="ak-ico" aria-hidden="true"></span>Link</button>
+              <button type="button" class="add-kind" data-kind="doc" disabled><span class="ak-ico" aria-hidden="true"></span>Document</button>
+            </div>
+            <p class="help add-why" id="add-why">Pick a room first.</p>
+            <p class="help a-add-help">It goes where the <b>+</b> is in the room. Drag it into place afterwards.</p>
           </div>
-          <p class="help" id="names-help">Type your own name for each side; it shows beside the bar. The second photo is on the left, your main photo on the right. Leave a box empty for no name on that side.</p>
         </div>
+        <div id="a-pane-lib" role="tabpanel" aria-labelledby="a-tab-lib" hidden>
+          <div class="a-lib-filters" id="a-lib-filters" role="group" aria-label="Show only"></div>
+          <div class="a-lib-list" id="a-lib-list"></div>
+          <p class="help">Click one to put it where the <b>+</b> is. Your teacher chose these.</p>
         </div>
-      </details>
-    </section>
+      </div>
 
-    <section class="panel step-title" aria-labelledby="h-title">
-      <h2 id="h-title"><span class="num" aria-hidden="true">2</span> Name it</h2>
-      <label for="in-title">Title <span class="opt">shown before the experience starts</span></label>
-      <input id="in-title" type="text" maxlength="80" placeholder="A classroom 150 years ago">
-      <div class="opt-box">
-      <label class="check"><input type="checkbox" id="in-align" aria-describedby="align-help"> Line up with the real room</label>
-      <p class="help" id="align-help">For when viewers stand in the room where the photo was taken.</p>
-      <details class="howto">
-        <summary>How lining up works</summary>
-        <p>Viewers get a <b>Line up with this room</b> option. Their camera shows the room with your photo faded over it; they turn until the two match, and the page tells them when it <b>looks lined up</b>. Then the spots sit on the real walls. It works best when the photo was taken from where viewers will stand (e.g. by the QR code) and the room still looks similar. Viewers can always skip it.</p>
-      </details>
+      <div class="a-inroom">
+        <h2 class="a-h a-h-small" id="a-inroom-h">In your room <span id="a-count"></span></h2>
+        <p class="help" id="spots-empty">Nothing yet. Choose a tile above.</p>
+        <ol class="spot-list" id="spot-list" aria-labelledby="a-inroom-h"></ol>
       </div>
-      <div class="opt-box">
-      <label class="check"><input type="checkbox" id="in-bg" aria-describedby="bg-help"> Keep sounds playing when the screen is off</label>
-      <p class="help" id="bg-help">For listening tours: viewers scan the code, then lock their phone and keep listening as they walk. Otherwise sounds pause when viewers switch apps or turn the screen off, and carry on when they come back. (Phones always pause videos.)</p>
-      </div>
-    </section>
 
-    <section class="panel step-spots" aria-labelledby="h-spots">
-      <h2 id="h-spots"><span class="num" aria-hidden="true">+</span> Add things to the room</h2>
-      <p class="help flush">Turn the preview until the <b>crosshair</b> (+) is where you want something, then choose what to add. You can drag it into place afterwards.</p>
-      <p class="help" id="spots-empty">Nothing added yet.</p>
-      <ol class="spot-list" id="spot-list"></ol>
-      <div class="add-row" role="group" aria-labelledby="add-h">
-        <p class="add-h" id="add-h"><span class="add-plus" aria-hidden="true">+</span> Add at the crosshair</p>
-        <div class="add-kinds">
-          <button type="button" class="add-kind" data-kind="image" disabled><span class="ak-ico" aria-hidden="true"></span>Picture</button>
-          <button type="button" class="add-kind" data-kind="video" disabled><span class="ak-ico" aria-hidden="true"></span>Video</button>
-          <button type="button" class="add-kind" data-kind="audio" disabled><span class="ak-ico" aria-hidden="true"></span>Sound</button>
-          <button type="button" class="add-kind" data-kind="text" disabled><span class="ak-ico" aria-hidden="true"></span>Text</button>
-          <button type="button" class="add-kind" data-kind="link" disabled><span class="ak-ico" aria-hidden="true"></span>Link</button>
-          <button type="button" class="add-kind" data-kind="model" disabled><span class="ak-ico" aria-hidden="true"></span>3D model</button>
-          <button type="button" class="add-kind" data-kind="doc" disabled><span class="ak-ico" aria-hidden="true"></span>Document</button>
-        </div>
-        <p class="help add-why" id="add-why">Choose a 360° photo in step 1 first.</p>
+      <div class="a-editing-bar" id="a-editing-bar" hidden>
+        <button type="button" class="a-back" id="a-back">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>Done</button>
       </div>
-      <div class="tools" role="group" aria-labelledby="tools-h">
-        <p class="group-h" id="tools-h">Tools for the whole tour</p>
-      <details class="disc layers" id="layers-box">
+
+      <div class="tools a-more-tools" role="group" aria-labelledby="tools-h">
+        <p class="group-h" id="tools-h">Extra tools</p>
+        <details class="disc layers" id="layers-box">
           <summary><span class="disc-t">Masking</span><span class="disc-sub">Hide things behind parts of the photo</span></summary>
           <div class="disc-body">
-        <p class="help">Draw around something in the photo, like a desk, a door frame or a person, and any picture, video, 3D model or text behind it is hidden there. Sound buttons and links always stay on top.</p>
-        <button type="button" class="ltool" data-kind="front" aria-pressed="false" disabled>
-          <span class="lmark front" aria-hidden="true"></span><span><b>Draw a mask</b><br><span class="help-inline">Click around the edge of it in the preview, dot by dot. You can click on top of spots; dragging still turns the view.</span></span>
-        </button>
-        <div class="layer-bar" id="layer-bar" hidden>
-          <span><b id="layer-what"></b>: <span id="layer-count"></span></span>
-          <button type="button" class="btn small" id="layer-done" disabled>Done</button>
-          <button type="button" class="btn small ghost" id="layer-undo" disabled>Undo dot</button>
-          <button type="button" class="btn small ghost" id="layer-cancel">Cancel</button>
-        </div>
-        <ul class="layer-list" id="layer-list" aria-label="Masks"></ul>
-        <div class="layer-opts" id="layer-opts" hidden>
-          <button type="button" class="btn small ghost" id="layer-edit" aria-pressed="false">Adjust the dots</button>
-          <label class="check"><input type="checkbox" id="layer-show" checked> Use the masks in the preview</label>
-        </div>
-        <p class="status" id="layer-status" role="status" aria-live="polite"></p>
-        </div>
+            <p class="help">Draw around something in the photo, like a desk, a door frame or a person, and any picture, video, 3D model or words behind it are hidden there. Sound buttons and links always stay on top.</p>
+            <button type="button" class="ltool" data-kind="front" aria-pressed="false" disabled>
+              <span class="lmark front" aria-hidden="true"></span><span><b>Draw a mask</b><br><span class="help-inline">Click around the edge of it in the room, dot by dot. Dragging still turns the view.</span></span>
+            </button>
+            <div class="layer-bar" id="layer-bar" hidden>
+              <span><b id="layer-what"></b>: <span id="layer-count"></span></span>
+              <button type="button" class="btn small" id="layer-done" disabled>Done</button>
+              <button type="button" class="btn small ghost" id="layer-undo" disabled>Undo dot</button>
+              <button type="button" class="btn small ghost" id="layer-cancel">Cancel</button>
+            </div>
+            <ul class="layer-list" id="layer-list" aria-label="Masks"></ul>
+            <div class="layer-opts" id="layer-opts" hidden>
+              <button type="button" class="btn small ghost" id="layer-edit" aria-pressed="false">Adjust the dots</button>
+              <label class="check"><input type="checkbox" id="layer-show" checked> Use the masks in the preview</label>
+            </div>
+            <p class="status" id="layer-status" role="status" aria-live="polite"></p>
+          </div>
         </details>
-      <div class="tool-box bright-row" id="bright-row" hidden>
-        <label for="in-bright">Brightness of all 3D models <output id="bright-out" for="in-bright">Normal</output></label>
-        <div class="bright-ctl">
-          <span aria-hidden="true">Darker</span>
-          <input type="range" id="in-bright" min="0.3" max="2.5" step="0.05" value="1" aria-describedby="bright-help">
-          <span aria-hidden="true">Brighter</span>
-          <button type="button" class="btn small ghost" id="bright-reset">Reset</button>
+        <div class="tool-box bright-row" id="bright-row" hidden>
+          <label for="in-bright">Brightness of all 3D models <output id="bright-out" for="in-bright">Normal</output></label>
+          <div class="bright-ctl">
+            <span aria-hidden="true">Darker</span>
+            <input type="range" id="in-bright" min="0.3" max="2.5" step="0.05" value="1" aria-describedby="bright-help">
+            <span aria-hidden="true">Brighter</span>
+            <button type="button" class="btn small ghost" id="bright-reset">Reset</button>
+          </div>
+          <p class="help" id="bright-help">Lights every 3D model at once: darker for a dim room, brighter for a sunny one.</p>
         </div>
-        <p class="help" id="bright-help">Lights every 3D model at once. Match them to the photo: darker for a dim room, brighter for a sunny one.</p>
       </div>
-      <details class="disc">
-          <summary><span class="disc-t">Tips</span><span class="disc-sub">Moving, background sound, things behind a dot</span></summary>
+    </aside>
+  </div>
+
+  <!-- ============ Pick your room ============ -->
+  <dialog class="a-dialog a-room" id="a-room" aria-labelledby="a-room-h">
+    <div class="a-dlg-head">
+      <h2 id="a-room-h">Pick your room</h2>
+      <p>This is the 360° photo people will look around in.</p>
+      <button type="button" class="a-close" data-close aria-label="Close">×</button>
+    </div>
+    <div class="a-room-grid">
+      <section class="a-card a-rooms" id="a-rooms-box" aria-labelledby="a-rooms-h" hidden>
+        <h3 id="a-rooms-h" class="a-card-h"><span class="a-badge a-teal" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM8 7h7"/></svg></span>Rooms from your teacher</h3>
+        <div class="a-rooms-list" id="a-rooms"></div>
+      </section>
+      <section class="a-card step-photo" aria-labelledby="h-photo">
+        <h3 id="h-photo" class="a-card-h">Use your own photo</h3>
+        <label for="in-pano">Paste its link</label>
+        <span class="field-wrap">
+          <input id="in-pano" type="url" inputmode="url" placeholder="https://drive.google.com/file/d/…" aria-describedby="pano-help pano-err-tip">
+          <button type="button" class="field-err" hidden aria-label="Problem with this link — show details" aria-controls="pano-err-tip" aria-expanded="false">!</button>
+          <span class="err-tip" id="pano-err-tip" role="tooltip" hidden></span>
+        </span>
+        <p class="help" id="pano-help">A Google Drive, Dropbox or OneDrive link, a link to a JPEG, or a 360° video (MP4). In Google Drive, choose <b>Share → Anyone with the link</b> first.</p>
+        <p class="status" id="pano-status" role="status" aria-live="polite"></p>
+        <p class="help merged-note" id="merged-note" hidden>This photo has things merged into it. To move or change them, <a id="merged-orig" href="#">open the version with them still separate</a>.</p>
+        <button type="button" class="btn ghost" id="sample">Try a sample room</button>
+        <details class="disc compare-box" id="compare-box">
+          <summary><span class="disc-t">Compare two photos</span><span class="disc-sub">Optional: a second photo to wipe between</span></summary>
           <div class="disc-body">
-        <ul class="tips">
-          <li>In the preview, drag a thing to move it, and pull its corners to resize it. Or use <b>Smaller</b>, <b>Bigger</b> and <b>Move to crosshair</b> on its card.</li>
-          <li>Something can wait behind a small dot that viewers reveal by looking at it: <b>Appears → After looking at a dot</b>.</li>
-          <li>Background sound: add a <b>Sound</b>, set it to play <b>as soon as it opens</b>, and tick <b>Hidden</b> and <b>Loop</b>.</li>
-          <li>Rarely needed settings (floating on the screen, pinning corners, masks) are under <b>More options</b> on each card.</li>
-        </ul>
+            <p class="help flush">Add a second 360° photo taken from the same spot: an old photo, or the same room on another day. Viewers drag a bar left and right to wipe between the two.</p>
+            <label for="in-pano2">Link to the second 360° photo</label>
+            <input id="in-pano2" type="url" inputmode="url" placeholder="https://drive.google.com/file/d/…" aria-describedby="pano2-status">
+            <p class="status" id="pano2-status" role="status" aria-live="polite"></p>
+            <div id="compare-opts" hidden>
+              <label for="in-yaw2">Turn it to line up <output id="yaw2-out" for="in-yaw2">0°</output></label>
+              <input type="range" id="in-yaw2" min="-180" max="180" step="1" value="0" aria-describedby="yaw2-help">
+              <p class="help" id="yaw2-help">Drag the bar in the room so you can see both photos, then turn this until things line up across it.</p>
+              <div class="two">
+                <div><label for="in-n2">Name for the left side <span class="opt">(second photo)</span></label><input id="in-n2" type="text" maxlength="24" placeholder="e.g. 1876" aria-describedby="names-help"></div>
+                <div><label for="in-n1">Name for the right side <span class="opt">(main photo)</span></label><input id="in-n1" type="text" maxlength="24" placeholder="e.g. Today" aria-describedby="names-help"></div>
+              </div>
+              <p class="help" id="names-help">Type a name for each side; it shows beside the bar. Leave a box empty for no name on that side.</p>
+            </div>
+          </div>
+        </details>
+      </section>
+    </div>
+    <section class="a-card a-resume" aria-labelledby="a-resume-h">
+      <h3 id="a-resume-h" class="a-card-h">Keep working on a tour</h3>
+      <div class="a-resume-row">
+        <label for="a-resume-in" class="sr-only">Your tour’s link</label>
+        <input id="a-resume-in" type="url" inputmode="url" placeholder="Paste your tour’s link" aria-describedby="a-resume-status">
+        <button type="button" class="btn" id="a-resume-go">Open it</button>
+      </div>
+      <p class="status" id="a-resume-status" role="status" aria-live="polite"></p>
+    </section>
+    <p class="a-explain"><span class="a-pano-strip" aria-hidden="true"></span>A 360° photo looks stretched and is twice as wide as it is tall. 360° cameras and phone “photo sphere” modes make them.</p>
+    <div class="a-dlg-foot">
+      <button type="button" class="a-btn a-primary" id="a-room-done" disabled>Start making →</button>
+    </div>
+  </dialog>
+
+  <!-- ============ Tour settings (and the teacher's class link library) ============ -->
+  <dialog class="a-dialog a-settings" id="a-settings" aria-labelledby="a-settings-h">
+    <div class="a-dlg-head">
+      <h2 id="a-settings-h">Settings</h2>
+      <button type="button" class="a-close" data-close aria-label="Close">×</button>
+    </div>
+    <div class="a-settings-body">
+      <section class="a-card step-title" aria-labelledby="h-title">
+        <h3 id="h-title" class="a-card-h">This tour</h3>
+        <div class="opt-box">
+          <label class="check"><input type="checkbox" id="in-align" aria-describedby="align-help"> Line up with the real room</label>
+          <p class="help" id="align-help">For when viewers stand in the room where the photo was taken.</p>
+          <details class="howto">
+            <summary>How lining up works</summary>
+            <p>Viewers get a <b>Line up with this room</b> option. Their camera shows the room with your photo faded over it; they turn until the two match, and the page tells them when it <b>looks lined up</b>. Then everything sits on the real walls. It works best when the photo was taken from where viewers will stand (e.g. by the QR code) and the room still looks similar. Viewers can always skip it.</p>
+          </details>
+        </div>
+        <div class="opt-box">
+          <label class="check"><input type="checkbox" id="in-bg" aria-describedby="bg-help"> Keep sounds playing when the screen is off</label>
+          <p class="help" id="bg-help">For listening tours: viewers scan the code, lock their phone and keep listening as they walk. Otherwise sounds pause when the screen goes off. (Phones always pause videos.)</p>
+        </div>
+      </section>
+
+      <section class="a-card a-teacher" aria-labelledby="a-teacher-h">
+        <h3 id="a-teacher-h" class="a-card-h"><span class="a-badge a-teal" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM8 7h7"/></svg></span>For teachers</h3>
+        <details class="disc lib-box" id="lib-box">
+          <summary><span class="disc-t">Class link library <span class="lib-n" id="lib-n"></span></span><span class="disc-sub">List the class’s links in a Google Sheet once, then pupils pick from them</span></summary>
+          <div class="disc-body">
+            <p class="help">Make a <b>Google Sheet</b> with four columns, in this order: <b>Number | Type | Name | Link</b> (one link per row, under a heading row). <b>Type</b> is one of <b>image</b>, <b>video</b>, <b>sound</b>, <b>3D</b>, <b>link</b>, <b>document</b> or <b>room</b> (a 360° photo; a capital first letter is fine). Leave Type empty to offer it everywhere. Share the sheet as <b>Anyone with the link → Viewer</b> and paste its address here. QR codes then only hold short numbers like <b>#3</b>, and fixing a link in the sheet fixes every tour that uses it.</p>
+            <p><button type="button" class="btn small ghost" id="lib-heading">Copy the heading row</button> <span class="help-inline" id="lib-heading-out">— then click cell A1 of a new Google Sheet and paste</span></p>
+            <label for="in-lib">Google Sheet link</label>
+            <input id="in-lib" type="url" inputmode="url" placeholder="https://docs.google.com/spreadsheets/d/…" aria-describedby="lib-status">
+            <p class="status" id="lib-status" role="status" aria-live="polite"></p>
+            <div class="actions lib-actions" id="lib-actions" hidden>
+              <button type="button" class="btn small" id="lib-check">Check every link</button>
+              <button type="button" class="btn small ghost" id="lib-reload">Reload the sheet</button>
+              <button type="button" class="btn small ghost" id="lib-share">Copy a maker link for pupils</button>
+              <a class="btn small ghost" id="lib-open" target="_blank" rel="noopener">Open the sheet</a>
+            </div>
+            <div class="lib-report" id="lib-report" aria-live="polite"></div>
+          </div>
+        </details>
+        <p class="help a-classic-note">Want every option on one page? <a id="a-classic" href="make-classic.html">Open this tour in the classic maker</a>. Tours open in both.</p>
+      </section>
+    </div>
+    <div class="a-dlg-foot">
+      <button type="button" class="a-btn a-primary" data-close>Done</button>
+    </div>
+  </dialog>
+
+  <!-- ============ Try it like a phone ============ -->
+  <dialog class="a-dialog a-tryit" id="a-tryit" aria-labelledby="a-try-h">
+    <div class="a-dlg-head">
+      <h2 id="a-try-h"><span class="a-badge a-green" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z"/></svg></span>Try your tour</h2>
+      <button type="button" class="a-close" data-close aria-label="Close">×</button>
+    </div>
+    <div class="a-try-body">
+      <div class="a-try-side">
+        <div class="a-try-tip"><span class="a-tip-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h8M5 9l-3 3 3 3M19 9l3 3-3 3"/></svg></span>Drag inside the phone to look around.</div>
+        <div class="a-try-tip"><span class="a-tip-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V5a2 2 0 0 1 4 0v6"/><path d="M13 10a2 2 0 0 1 4 0v1a2 2 0 0 1 4 0v4a7 7 0 0 1-7 7h-1a7 7 0 0 1-6-3.5L5 15a2 2 0 0 1 3.4-2L9 14"/></svg></span>Click things to play them, just like tapping.</div>
+        <div class="a-try-tip"><span class="a-tip-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/></svg></span>Find every hidden dot. Is everything easy to read?</div>
+        <a class="a-try-tab" id="a-try-open" target="_blank" rel="noopener">Open it in a new tab ↗</a>
+      </div>
+      <div class="a-phone"><div class="a-phone-screen" id="a-phone-screen"></div></div>
+      <div class="a-try-side a-try-end">
+        <button type="button" class="a-btn a-ghost-btn" data-close>← Back to making</button>
+        <button type="button" class="a-btn a-share" id="a-try-share">It’s ready: Share it →</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ============ Share it ============ -->
+  <dialog class="a-dialog a-sharing" id="a-sharing" aria-labelledby="qr-h">
+    <div class="a-dlg-head">
+      <h2 id="qr-h">Share your tour</h2>
+      <button type="button" class="a-close" data-close aria-label="Close">×</button>
+    </div>
+    <section class="qr-panel a-share-body" aria-labelledby="qr-h">
+      <div class="a-share-qr">
+        <div class="qr-card" id="qr-card">
+          <p class="qr-title" id="qr-title">A 360° experience</p>
+          <p class="qr-sub">Scan with your phone camera, then look around.</p>
+          <div id="qr" class="qr" role="img" aria-label="QR code"><div class="qr-empty">Your QR code will appear here</div></div>
+          <p class="qr-foot" id="qr-foot">Turn your sound up 🔊</p>
+        </div>
+      </div>
+      <div class="a-share-do">
+        <p class="warn" id="warn" hidden></p>
+        <button type="button" id="print" class="btn a-big" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg>Print it</button>
+        <div class="a-two">
+          <button type="button" id="copy" class="btn ghost a-mid" disabled>Copy link</button>
+          <button type="button" id="dl" class="btn ghost a-mid" disabled>Save picture</button>
+        </div>
+        <p class="a-keep"><b>Want to change it later?</b> Keep the link (press <b>Copy link</b>). Then in the maker, press <b>Room → Keep working on a tour</b> and paste it: everything comes back.</p>
+        <details class="disc a-share-more">
+          <summary><span class="disc-t">More ways to share</span><span class="disc-sub">Open, embed, a shorter code, merging</span></summary>
+          <div class="disc-body">
+            <div class="actions">
+              <a id="open" class="btn small ghost disabled" target="_blank" rel="noopener" aria-disabled="true">Open</a>
+              <button type="button" id="embed" class="btn small ghost" disabled aria-expanded="false" aria-controls="embed-panel">Embed in a website</button>
+              <a id="merge" class="btn small ghost" target="_blank" rel="noopener" hidden title="Paint the pictures, words and 3D models that sit still into the photo, so the QR code gets simpler">Export merged photosphere…</a>
+            </div>
+            <div class="embed-panel" id="embed-panel" hidden>
+              <label for="embed-h">Embed in a website (Google Sites, WordPress, Canvas, Moodle…)</label>
+              <div class="embed-row">
+                <select id="embed-h" aria-label="Height">
+                  <option value="400">400 px tall</option>
+                  <option value="500" selected>500 px tall</option>
+                  <option value="650">650 px tall</option>
+                  <option value="wide">16:9, fills the width</option>
+                </select>
+                <button type="button" id="embed-copy" class="btn small">Copy code</button>
+              </div>
+              <textarea id="embed-code" rows="4" readonly aria-label="Embed code"></textarea>
+              <p class="help">In Google Sites: <b>Insert → Embed → Embed code</b>. iPhones often block moving the phone inside another site, so the embed shows an <b>Open full screen ↗</b> button.</p>
+            </div>
+            <details class="disc short-box" id="short-box">
+              <summary><span class="disc-t">Make the QR code simpler</span><span class="disc-sub">Use a short link (TinyURL or similar)</span></summary>
+              <div class="disc-body">
+                <p class="help">Press <b>Copy link</b>, shorten it with a link shortener such as <a href="https://tinyurl.com" target="_blank" rel="noopener">TinyURL</a>, and paste the short link here. The QR code is then made from the short link, so it scans more easily. If you change the tour afterwards, make a new short link.</p>
+                <label for="in-short">Short link</label>
+                <input id="in-short" type="url" inputmode="url" placeholder="https://tinyurl.com/…" aria-describedby="short-status">
+                <p class="status" id="short-status" role="status" aria-live="polite"></p>
+              </div>
+            </details>
+            <details class="disc link-details">
+              <summary><span class="disc-t">Show the link</span><span class="disc-sub">See the whole address in the QR code</span></summary>
+              <div class="disc-body"><p class="help small flush" id="link-out"></p></div>
+            </details>
           </div>
         </details>
       </div>
     </section>
-
-  </form>
-
-  <!-- ============ 2. Preview ============ -->
-  <section class="panel preview-panel" aria-labelledby="pv-h">
-    <h2 id="pv-h">Preview <span class="opt">drag to look around · drag things to move them · pull their corners to resize</span></h2>
-    <div class="shape" role="group" aria-label="Preview shape">
-      <button type="button" id="shape-phone" aria-pressed="true">Phone</button>
-      <button type="button" id="shape-wide" aria-pressed="false">Wide</button>
-      <span class="help-inline">Phone shows exactly what a phone held upright sees.</span>
-    </div>
-    <div class="frame-nav phone" id="frame-nav" role="group" aria-label="Turn the preview">
-      <button type="button" class="nav-btn nav-up" data-dir="up" aria-label="Look up" title="Look up (hold to keep turning)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 15 6-6 6 6"/></svg></button>
-      <button type="button" class="nav-btn nav-left" data-dir="left" aria-label="Look left" title="Look left (hold to keep turning)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 6-6 6 6 6"/></svg></button>
-      <div class="frame phone" id="frame">
-        <div class="empty" id="empty">Paste a 360° photo link to see it here.</div>
-        <div class="phone-window" id="phone-window" aria-hidden="true"></div>
-      </div>
-      <button type="button" class="nav-btn nav-right" data-dir="right" aria-label="Look right" title="Look right (hold to keep turning)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6"/></svg></button>
-      <button type="button" class="nav-btn nav-down" data-dir="down" aria-label="Look down" title="Look down (hold to keep turning)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg></button>
-    </div>
-    <div class="facing">
-      <p id="facing-text">Starts facing the centre of the photo.</p>
-      <div class="facing-btns">
-        <button type="button" id="set-start" class="btn small" disabled>Start from this view</button>
-        <button type="button" id="reset-start" class="btn small ghost" hidden>Reset</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ 3. QR ============ -->
-  <section class="panel qr-panel" aria-labelledby="qr-h">
-    <h2 id="qr-h"><span class="num" aria-hidden="true">3</span> Share it</h2>
-    <div class="qr-card" id="qr-card">
-      <p class="qr-title" id="qr-title">A 360° experience</p>
-      <p class="qr-sub">Scan with your phone camera, then look around.</p>
-      <div id="qr" class="qr" role="img" aria-label="QR code"><div class="qr-empty">Your QR code will appear here</div></div>
-      <p class="qr-foot" id="qr-foot">Turn your sound up 🔊</p>
-    </div>
-    <p class="warn" id="warn" hidden></p>
-    <div class="share-group" role="group" aria-labelledby="use-h">
-      <p class="group-h" id="use-h">Use the QR code</p>
-      <div class="actions">
-        <button type="button" id="copy" class="btn" disabled>Copy link</button>
-        <a id="open" class="btn ghost disabled" target="_blank" rel="noopener" aria-disabled="true">Open</a>
-        <button type="button" id="print" class="btn ghost" disabled>Print</button>
-        <button type="button" id="dl" class="btn ghost" disabled>Save PNG</button>
-      </div>
-    </div>
-    <div class="share-group" role="group" aria-labelledby="more-h">
-      <p class="group-h" id="more-h">Other ways to share</p>
-      <div class="actions">
-        <button type="button" id="embed" class="btn ghost" disabled aria-expanded="false" aria-controls="embed-panel">Embed in a website</button>
-        <a id="merge" class="btn ghost" target="_blank" rel="noopener" hidden title="Paint the pictures, text cards and 3D models that sit still into the photo, so the QR code gets simpler">Export merged photosphere…</a>
-      </div>
-    <div class="embed-panel" id="embed-panel" hidden>
-      <label for="embed-h">Embed in a website (Google Sites, WordPress, Canvas, Moodle…)</label>
-      <div class="embed-row">
-        <select id="embed-h" aria-label="Height">
-          <option value="400">400 px tall</option>
-          <option value="500" selected>500 px tall</option>
-          <option value="650">650 px tall</option>
-          <option value="wide">16:9, fills the width</option>
-        </select>
-        <button type="button" id="embed-copy" class="btn small">Copy code</button>
-      </div>
-      <textarea id="embed-code" rows="4" readonly aria-label="Embed code"></textarea>
-      <p class="help">In Google Sites: <b>Insert → Embed → Embed code</b>. Inside another site, phones can always drag to look around, but iPhones often block moving the phone and the camera, so the embed shows an <b>Open full screen ↗</b> button.</p>
-    </div>
-    <details class="disc short-box" id="short-box">
-      <summary><span class="disc-t">Make the QR code simpler</span><span class="disc-sub">Use a short link (TinyURL or similar)</span></summary>
-      <div class="disc-body">
-      <p class="help">Press <b>Copy link</b>, shorten it with a link shortener such as <a href="https://tinyurl.com" target="_blank" rel="noopener">TinyURL</a>, and paste the short link here. The QR code is then made from the short link, so it has far fewer squares and scans easily. If you change the tour afterwards, make a new short link.</p>
-      <label for="in-short">Short link</label>
-      <input id="in-short" type="url" inputmode="url" placeholder="https://tinyurl.com/…" aria-describedby="short-status">
-      <p class="status" id="short-status" role="status" aria-live="polite"></p>
-      </div>
-    </details>
-    <details class="disc link-details">
-      <summary><span class="disc-t">Show the link</span><span class="disc-sub">See the whole address in the QR code</span></summary>
-      <div class="disc-body"><p class="help small flush" id="link-out"></p></div>
-    </details>
-    </div>
-  </section>
-</main>
+  </dialog>
+</form>
 
 <!-- Asked before printing a very crowded QR code (js/create.js "QR size") -->
 <dialog class="ask" id="print-ask" aria-labelledby="print-ask-h" aria-describedby="print-ask-p">
@@ -269,11 +372,7 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden><span id="toast-text"></span><button type="button" class="toast-btn" id="toast-btn">Undo</button></div>
 
-<footer class="wrap foot">
-  <p>Everything is stored in the link itself — there’s no account and no database. Bookmark this page to come back and edit, or just make a new code.</p>
-  <p>Want a person or object standing in the room, with the room showing around them? Make a see-through video from green-screen footage with the <a href="videomaker.html">See-through Video Maker</a>.</p>
-</footer>
-
-<script src="js/create.js?v=20261124g"></script>
+<script src="js/create.js?v=20261125a"></script>
+<script src="js/maker-a.js?v=20261125a"></script>
 </body>
 </html>

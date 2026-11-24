@@ -1,0 +1,530 @@
+/* ===================================================================== Author page (make.html) */
+:root {
+  /* "Ember and slate": warm charcoal surfaces, ember for actions, teal for what's selected and for focus */
+  color-scheme: dark;
+  --slate: #0f0d0c; --slate-2: #2a2523;              /* the darkest surface (header, preview); a raised surface */
+  --paper: #161312; --card: #221e1c; --card-2: #2a2523; --card-hover: #332d2a; --field: #1a1716;
+  --ink: #f3ede9; --ink-soft: #b9ada6; --ink-faint: #8f837c; --line: #3b3431; --line-strong: #7d716a;
+  --brass: #ee8b5c; --brass-hover: #f4a37c; --on-brass: #2a1105; --brass-dark: #f6b596;   /* ember: actions; light ember: links */
+  --select: #6fc7b8; --select-bg: #163430; --select-text: #a6e2d7;                      /* teal: selected, focus */
+  --ok: #86d6a0; --danger: #ff8c8c; --danger-fill: #d43c3c; --note: #f2c98a; --warn-bg: #3a2a1a;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --r: 8px;             /* corner radius */
+  --control: 44px;      /* height of buttons and fields: comfortable to tap */
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { scroll-padding-top: 16px; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 var(--sans); }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px; }
+
+/* ---------------------------------------------------------------- header */
+.masthead { background: var(--slate); color: var(--ink); padding: 24px 0 26px; border-bottom: 4px solid var(--brass); }
+.eyebrow { margin: 0 0 6px; font: 600 .76rem/1.2 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--brass); }
+.masthead h1 { margin: 0 0 8px; font: 700 clamp(1.6rem, 4vw, 2.3rem)/1.1 var(--serif); }
+.lede { margin: 0; max-width: 62ch; opacity: .92; }
+
+/* ---------------------------------------------------------------- layout
+   Phones:  photo → preview → spots → title → share  (the preview sits right where it's first useful)
+   Wide:    the steps on the left, the preview on the right, staying in view while you scroll */
+#form { display: contents; }
+.grid { display: grid; gap: 16px; padding-top: 20px; padding-bottom: 12px;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "lib" "photo" "title" "preview" "spots" "share"; }
+.grid > *, #form > * { min-width: 0; }
+.step-photo { grid-area: photo; } .step-spots { grid-area: spots; } .step-title { grid-area: title; }
+.preview-panel { grid-area: preview; } .qr-panel { grid-area: share; }
+@media (min-width: 900px) {
+  .grid { grid-template-columns: minmax(340px, 420px) minmax(0, 1fr); align-items: start;
+          grid-template-areas: "lib preview" "photo preview" "title preview" "spots preview" "share preview"; }
+  .preview-panel { position: sticky; top: 16px; }
+}
+
+/* ---------------------------------------------------------------- panels and type */
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; }
+.panel h2 { margin: 0 0 12px; font: 700 1.15rem/1.2 var(--serif); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.num { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--brass); color: var(--on-brass); font: 700 .85rem var(--sans); }
+/* Each numbered step has its own colour, so it's easy to see where one ends and the next begins while scrolling:
+   1 sky (the photo), 2 ember (adding things, the busiest step), 3 violet (naming it), 4 gold (sharing it).
+   Only the number, a stripe along the top and a faint wash change: buttons stay ember, and teal still means selected. */
+.step-photo  { --step: #7fb2f0; }
+.step-spots  { --step: #ee8b5c; }
+.step-title  { --step: #b9a0f2; }
+.qr-panel    { --step: #f0c35a; }
+.step-photo, .step-spots, .step-title, .qr-panel {
+  border-top: 4px solid var(--step);
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--step) 9%, var(--card)), var(--card) 90px);
+}
+.step-photo .num, .step-spots .num, .step-title .num, .qr-panel .num { background: var(--step); color: #17110e; }
+.step-photo h2, .step-spots h2, .step-title h2, .qr-panel h2 { color: color-mix(in srgb, var(--step) 35%, var(--ink)); }
+.opt { font: 400 .82rem var(--sans); color: var(--ink-soft); }
+.help { margin: 6px 0 0; font-size: .87rem; color: var(--ink-soft); line-height: 1.45; }
+.help.flush { margin-top: 0; }
+.help.small { font-size: .78rem; word-break: break-all; }
+.help-inline { font-weight: 400; color: var(--ink-soft); font-size: .85rem; }
+
+/* ---------------------------------------------------------------- fields */
+label { display: block; font-weight: 600; font-size: .92rem; margin: 0 0 6px; }
+label .opt { font-weight: 400; }
+input[type=url], input[type=text], select, textarea {
+  width: 100%; min-height: var(--control); padding: 10px 12px; font: inherit; font-size: .95rem;
+  border: 1px solid var(--line-strong); border-radius: 6px; background: var(--field); color: var(--ink);
+}
+select { padding: 8px 10px; }
+input::placeholder, textarea::placeholder { color: var(--ink-faint); }
+a { color: var(--brass-dark); }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visible {
+  outline: 3px solid var(--select); outline-offset: 2px;
+}
+.check { display: flex; gap: 10px; align-items: flex-start; font-weight: 500; margin-top: 10px; cursor: pointer; min-height: 24px; }
+.check input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--brass); }
+.check input:disabled, .check input:disabled ~ * { opacity: .5; }
+
+/* "How it works" and other tucked-away detail */
+.howto { margin-top: 10px; font-size: .87rem; color: var(--ink-soft); }
+.howto summary { cursor: pointer; color: var(--brass-dark); font-weight: 600; min-height: 32px; display: inline-flex; align-items: center; }
+.howto ul { margin: 6px 0 0; padding-left: 20px; } .howto li + li { margin-top: 4px; }
+.howto p { margin: 6px 0 0; }
+
+/* status lines under fields */
+.status { margin: 10px 0 0; font-size: .88rem; line-height: 1.45; padding-left: 26px; position: relative; }
+.status:empty { display: none; }
+.status::before { position: absolute; left: 0; top: 0; width: 20px; text-align: center; font-weight: 700; }
+.status.ok { color: var(--ok); } .status.ok::before { content: "✓"; }
+.status.err { color: var(--danger); } .status.err::before { content: "✕"; }
+.status.wait { color: var(--ink-soft); } .status.wait::before { content: "…"; }
+.status.note { color: var(--note); } .status.note::before { content: "!"; }
+
+/* ---------------------------------------------------------------- buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: var(--control); padding: 0 16px; border-radius: 6px;
+       border: 1px solid var(--brass); background: var(--brass); color: var(--on-brass); font: 700 .92rem var(--sans); cursor: pointer; text-decoration: none; }
+.btn:hover { background: var(--brass-hover); border-color: var(--brass-hover); }
+.btn.small { min-height: 36px; padding: 0 12px; font-size: .86rem; }
+.btn.ghost { background: transparent; color: var(--ink); border-color: var(--line-strong); }
+.btn.ghost:hover { background: var(--card-hover); }
+.btn:disabled, .btn.disabled { opacity: .45; cursor: not-allowed; pointer-events: none; }
+#sample { margin-top: 10px; }
+
+/* ---------------------------------------------------------------- preview */
+/* Arrows around the preview */
+.frame-nav { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; grid-template-rows: 40px auto 40px; gap: 6px; align-items: center; justify-items: center; }
+.frame-nav.phone { grid-template-columns: 40px minmax(0, 1fr) 40px; }
+.frame-nav > .frame { grid-area: 2 / 2; width: 100%; }
+.frame-nav.phone > .frame { width: 100%; }
+.nav-btn { width: 40px; height: 40px; display: grid; place-items: center; padding: 0; border: 1px solid var(--line-strong); border-radius: 50%; background: var(--card); color: var(--ink); cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; }
+.nav-btn svg { width: 22px; height: 22px; }
+.nav-btn:hover:not(:disabled) { background: var(--card-hover); border-color: var(--ink-soft); }
+.nav-btn:active:not(:disabled) { transform: scale(.94); }
+.nav-btn:disabled { opacity: .35; cursor: default; }
+.nav-btn:focus-visible { outline: 3px solid var(--select); outline-offset: 2px; }
+.nav-up { grid-area: 1 / 2; } .nav-down { grid-area: 3 / 2; }
+.nav-left { grid-area: 2 / 1; } .nav-right { grid-area: 2 / 3; }
+
+.frame { position: relative; aspect-ratio: 16 / 10; background: var(--slate); border-radius: 6px; overflow: hidden; }
+.frame.phone { aspect-ratio: auto; width: 100%; height: clamp(440px, calc(100vh - 230px), 820px); margin: 0 auto; }
+/* Phone view: the whole photo, with a phone-shaped window showing exactly what a phone held upright sees */
+.phone-window { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2; pointer-events: none;
+  border-radius: 22px; box-shadow: 0 0 0 2px rgba(255, 255, 255, .9), 0 0 0 5px rgba(15, 13, 12, .6), 0 0 0 100vmax rgba(15, 13, 12, .5); display: none; }
+.frame.phone.has-pano .phone-window { display: block; }
+@media (max-width: 899px) { .frame.phone { height: clamp(420px, 75vh, 640px); } }
+.frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.empty { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; text-align: center; color: var(--ink-soft); font-size: .95rem; }
+.shape { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 12px; }
+.shape button { min-height: 36px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 999px; background: transparent; color: var(--ink); font: 600 .86rem var(--sans); cursor: pointer; }
+.shape button[aria-pressed="true"] { background: var(--select-bg); color: var(--select-text); border-color: var(--select); }
+.shape .help-inline { flex: 1 1 200px; font-size: .8rem; }
+.facing { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 12px; font-size: .9rem; }
+.facing p { margin: 0; color: var(--ink-soft); }
+.facing-btns { display: flex; gap: 8px; align-items: center; }
+
+/* ---------------------------------------------------------------- spot cards (collapsible) */
+.spot-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.spot-card { min-width: 0; border: 1px solid var(--line); border-left: 4px solid var(--brass); border-radius: 6px; background: var(--card-2); }
+.spot-card.selected { border-color: var(--select); border-left-color: var(--select); box-shadow: 0 0 0 1px var(--select); }
+.sc-head { display: flex; align-items: stretch; }
+.sc-toggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 10px 8px 10px 10px; min-height: 56px;
+  border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 6px 0 0 6px; }
+.sc-toggle:hover { background: var(--card-hover); }
+.pin { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--brass); color: var(--on-brass); font: 700 .8rem var(--sans); }
+.sc-icon { flex: none; width: 22px; height: 22px; color: var(--brass-dark); }
+.sc-sum { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.sc-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-meta { font-size: .8rem; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-flag { color: var(--danger); font-weight: 700; }
+.chev { flex: none; width: 18px; height: 18px; color: var(--ink-soft); transition: transform .2s; }
+.spot-card.open .chev { transform: rotate(180deg); }
+.iconbtn { flex: none; width: var(--control); align-self: center; height: var(--control); margin-right: 6px; border: 1px solid transparent; border-radius: 6px;
+  background: transparent; color: var(--ink-soft); cursor: pointer; display: grid; place-items: center; }
+.iconbtn:hover { border-color: var(--line-strong); color: var(--danger); }
+.iconbtn svg { width: 18px; height: 18px; }
+.sc-body { padding: 4px 12px 14px; border-top: 1px dashed var(--line); }
+.sc-body > * + * { margin-top: 12px; }
+.sc-field label { font-size: .86rem; margin-bottom: 4px; }
+.spot-card textarea.sp-src { min-height: var(--control); resize: none; line-height: 1.35; overflow: hidden; }
+.sc-grid { display: grid; gap: 10px 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.sp-row { font-size: .86rem; } .sp-row select { margin-top: 4px; font-size: .9rem; }
+.sp-place { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; font-size: .86rem; color: var(--ink-soft); }
+.sp-place-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.sp-turn { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: .86rem; color: var(--ink-soft); }
+.sp-turn[hidden] { display: none; }
+.sp-turn-text { flex: 1 1 100%; }
+.sp-turn .check { margin: 0; }
+.sc-checks { display: grid; gap: 2px; }
+.sc-checks[hidden], .sc-checks > [hidden] { display: none; }
+.sc-checks .check { font-size: .9rem; }
+.sc-type select { font-weight: 600; }
+.spot-card .status { font-size: .85rem; }
+/* Adding: one button for each kind of thing, placed at the crosshair */
+.add-row { margin-top: 14px; padding: 12px; border: 1px dashed var(--line-strong); border-radius: 8px; }
+.add-h { margin: 0 0 8px; font-weight: 600; font-size: .92rem; }
+.add-kinds { display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+.add-kind { display: flex; align-items: center; gap: 8px; min-height: var(--control); padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 6px;
+  background: var(--card-2); color: var(--ink); font: 600 .88rem var(--sans); cursor: pointer; text-align: left; }
+.add-kind:hover:not(:disabled) { border-color: var(--brass); background: var(--card-hover); }
+.add-kind:disabled { opacity: .45; cursor: not-allowed; }
+.ak-ico { flex: none; width: 20px; height: 20px; color: var(--brass-dark); }
+.ak-ico svg { display: block; width: 100%; height: 100%; }
+.add-why { margin-top: 8px; }
+.add-why[hidden] { display: none; }
+/* More options on a spot card: the settings most spots never need */
+.sc-more { margin-top: 6px; }
+.sc-more > summary { cursor: pointer; min-height: 36px; display: inline-flex; align-items: center; gap: 6px; color: var(--brass-dark); font-weight: 600; font-size: .9rem; }
+.sc-more-n { font-weight: 400; color: var(--ink-soft); }
+.sp-z-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; margin-top: 8px; font-size: .9rem; }
+.sp-z-row[hidden] { display: none; }
+.sc-more > .check:first-of-type { margin-top: 4px; }
+
+/* ---------------------------------------------------------------- share */
+.qr-card { background: #fff; color: #1b1715; border: 1px solid var(--line); border-top: 6px solid var(--brass); border-radius: 6px; padding: 18px; text-align: center; }   /* stays light: phones scan dark-on-light codes best */
+.qr-card .qr-sub, .qr-card .qr-foot, .qr-card .qr-empty { color: #5c524c; }
+.qr-card .qr-empty { border-color: #d8d0ca; }
+.qr-title { margin: 0 0 2px; font: 700 1.25rem/1.2 var(--serif); overflow-wrap: anywhere; }
+.qr-sub { margin: 0 0 12px; color: var(--ink-soft); font-size: .92rem; }
+.qr { width: min(240px, 100%); aspect-ratio: 1; margin: 0 auto; }
+.qr svg { width: 100%; height: 100%; display: block; }
+.qr-empty { height: 100%; display: grid; place-items: center; border: 2px dashed var(--line); border-radius: 6px; color: var(--ink-soft); font-size: .88rem; padding: 16px; }
+.qr-foot { margin: 10px 0 0; font-size: .85rem; color: var(--ink-soft); }
+.warn { margin: 12px 0 0; padding: 8px 12px; background: var(--warn-bg); border-left: 4px solid var(--brass); font-size: .86rem; line-height: 1.45; border-radius: 0 6px 6px 0; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.actions > * { flex: 1 1 auto; white-space: nowrap; }
+.embed-panel { margin-top: 12px; padding: 12px; border: 1px dashed var(--line-strong); border-radius: 6px; background: var(--card); }
+.embed-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.embed-row select { flex: 1; }
+#embed-code { font: .78rem/1.4 ui-monospace, Menlo, Consolas, monospace; resize: vertical; }
+.link-details { margin-top: 12px; }
+
+/* ---------------------------------------------------------------- toast (with Undo) */
+.toast { position: fixed; z-index: 50; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 14px; max-width: calc(100% - 32px); padding: 8px 8px 8px 16px; border-radius: 10px;
+  background: var(--slate-2); color: var(--ink); border: 1px solid var(--line-strong); font-size: .92rem; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+.toast-btn { min-height: 40px; padding: 0 14px; border: 0; border-radius: 6px; background: var(--brass); color: var(--on-brass); font: 700 .9rem var(--sans); cursor: pointer; }
+
+.foot { padding-top: 6px; padding-bottom: 32px; font-size: .85rem; color: var(--ink-soft); }
+
+@media (prefers-reduced-motion: reduce) { .chev { transition: none; } }
+
+@media print {
+  .masthead, .step-photo, .step-spots, .step-title, .preview-panel, .actions, .warn, .foot, .qr-panel > h2, .link-details, .embed-panel, .toast { display: none !important; }
+  body { background: #fff; color: #000; }
+  .grid { display: block; padding: 0; }
+  .panel { border: 0; padding: 0; background: none; }
+  .qr-card { max-width: 13cm; margin: 1.5cm auto; border: 2px solid #000; border-top-width: 8px; }
+  .qr { width: 9cm; }
+}
+
+/* 3D model brightness */
+.bright-row { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.bright-row[hidden] { display: none; }
+.bright-row output { float: right; font-weight: 600; color: var(--ink-soft); }
+.bright-ctl { display: flex; align-items: center; gap: 10px; font-size: .86rem; color: var(--ink-soft); }
+.bright-ctl input[type=range] { flex: 1; min-width: 0; min-height: 44px; accent-color: var(--brass); }
+
+/* A problem with a link: ⚠ inside the end of the field; its message shows as a tooltip */
+.field-wrap { position: relative; display: block; }
+.field-wrap.has-err input, .field-wrap.has-err textarea { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger); padding-right: 44px; }
+.field-err {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px;
+  display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%;
+  background: var(--danger-fill); color: #fff; font: 800 1rem/1 var(--sans, system-ui); cursor: help;
+}
+textarea + .field-err { top: 8px; transform: none; }
+.field-err[hidden] { display: none; }
+.field-err:focus-visible { outline: 3px solid var(--select); outline-offset: 2px; }
+.err-tip {
+  position: absolute; z-index: 30; right: 0; top: calc(100% + 8px); width: min(320px, 100%); min-width: 220px;
+  padding: 10px 12px; border-radius: 8px; background: #3a1513; color: #ffe9e6; border: 1px solid #6e2a26;
+  font: 500 .88rem/1.45 var(--sans, system-ui); box-shadow: 0 8px 24px rgba(0,0,0,.3);
+}
+.err-tip::before { content: ""; position: absolute; right: 14px; top: -6px; border: 6px solid transparent; border-top: 0; border-bottom-color: #6e2a26; }
+.err-tip[hidden] { display: none; }
+.err-tip b { font-weight: 700; }
+
+/* see-through video: which kind */
+.sp-stk-kind { display: grid; gap: 2px; margin: -2px 0 6px 30px; }
+.sp-stk-kind[hidden] { display: none; }
+.sp-stk-kind .check { font-size: .9rem; }
+
+/* ---------------------------------------------------------------- front layer ("Things in front") */
+.layers { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.layers > summary { cursor: pointer; font-size: .95rem; list-style-position: outside; }
+.layers > summary .opt { font-weight: 400; }
+.layers[open] > summary { margin-bottom: 6px; }
+.layer-tools { display: grid; gap: 6px; margin: 8px 0; }
+.layers > .ltool { width: 100%; margin: 8px 0; }
+.ltool { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; text-align: left; border: 1px solid var(--line-strong);
+  border-radius: 8px; background: var(--field); color: var(--ink); font: inherit; font-size: .92rem; cursor: pointer; }
+.ltool[aria-pressed="true"] { border-color: var(--select); box-shadow: inset 0 0 0 2px var(--select); background: var(--select-bg); }
+.ltool:disabled { opacity: .55; cursor: default; }
+.lmark { flex: none; width: 18px; height: 18px; margin-top: 2px; border-radius: 4px; border: 2px dashed; box-sizing: border-box; }
+.lmark.front { border-color: #ffc93c; background: rgba(255, 201, 60, .25); }
+.lmark.window { border-color: #5ad1ff; background: rgba(90, 209, 255, .25); }
+.layer-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 8px; background: var(--warn-bg); font-size: .9rem; }
+.layer-bar > span { flex: 1 1 100%; }
+.layer-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.layer-list li { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: .92rem; }
+.layer-list li > span:nth-child(2) { flex: 1; }
+.layer-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 8px; }
+
+/* ---------------------------------------------------------------- wide screens: an editor layout
+   The steps scroll on their own down the left; the preview fills the rest of the window and never scrolls away. */
+@media (min-width: 900px) {
+  :root { --side: clamp(380px, 32vw, 470px); }
+  html { height: 100%; overflow: hidden; }
+  body { height: 100%; width: var(--side); overflow-y: auto; overscroll-behavior: contain; }
+  .masthead { padding: 18px 0 20px; }
+  .masthead .wrap, .grid, .foot { max-width: none; }
+  .masthead h1 { font-size: 1.75rem; }
+  .grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "lib" "photo" "title" "spots" "share"; padding-top: 16px; }
+  .preview-panel { position: fixed; top: 0; bottom: 0; left: var(--side); right: 0; z-index: 5;
+    display: flex; flex-direction: column; margin: 0; padding: 14px 18px 12px; border: 0; border-left: 1px solid var(--line); border-radius: 0; }
+  .preview-panel > h2 { margin-bottom: 8px; }
+  .preview-panel .shape { margin-bottom: 8px; }
+  .frame-nav, .frame-nav.phone { flex: 1 1 auto; min-height: 0; grid-template-rows: 40px minmax(0, 1fr) 40px; }
+  .frame-nav > .frame, .frame-nav.phone > .frame, .frame.phone { width: 100%; height: 100%; aspect-ratio: auto; }
+  .facing { margin-top: 8px; }
+}
+.frame-nav { cursor: grab; } .frame-nav:active { cursor: grabbing; } .frame-nav > * { cursor: auto; }
+
+/* compare photospheres: a second photo, tucked under the first */
+.compare-box { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.compare-box > summary { cursor: pointer; font-weight: 600; min-height: 36px; display: flex; flex-wrap: wrap; align-items: center; gap: 0 8px; color: var(--ink); }
+.compare-box > summary .opt { font-weight: 400; font-size: .85rem; color: var(--ink-soft); }
+.compare-box[open] > summary { margin-bottom: 6px; }
+.compare-box input[type=range] { width: 100%; min-height: 36px; accent-color: var(--brass); }
+.compare-box label output { float: right; font-weight: 600; color: var(--ink-soft); }
+.compare-box .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+
+/* floating spots: nine places on the screen; and the delay's seconds box */
+.sp-floatpos { display: grid; grid-template-columns: repeat(3, 36px); gap: 4px; width: max-content; margin: 8px 0 2px; padding: 4px;
+  border: 1px solid var(--line-strong); border-radius: 8px; background: var(--field); }
+.sp-floatpos[hidden] { display: none; }
+.sp-fpos { display: flex; width: 36px; height: 26px; padding: 4px; border: 1px solid var(--line); border-radius: 4px; background: transparent; color: var(--ink-soft); cursor: pointer; }
+.sp-fpos span { width: 11px; height: 8px; border-radius: 2px; background: currentColor; }
+.sp-fpos[data-x="50"] { justify-content: center; } .sp-fpos[data-x="100"] { justify-content: flex-end; }
+.sp-fpos[data-y="50"] { align-items: center; } .sp-fpos[data-y="100"] { align-items: flex-end; }
+.sp-fpos:hover { border-color: var(--brass); color: var(--ink); }
+.sp-fpos[aria-pressed="true"] { background: var(--select-bg); border-color: var(--select); color: var(--select-text); }
+.sp-fpos:focus-visible { outline: 3px solid var(--select); outline-offset: 1px; }
+.sp-delay { width: 100%; min-height: var(--control); padding: 8px 10px; font: inherit; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--field); color: var(--ink); }
+
+/* floor plan: click the plan where the photo was taken; turn the cone to match */
+.sp-planset { margin: 8px 0 4px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); }
+.sp-planset[hidden] { display: none; }
+.sp-plan-pick { position: relative; display: block; width: 100%; max-width: 320px; margin: 6px 0 10px; cursor: crosshair; border-radius: 6px; overflow: hidden; line-height: 0; }
+.sp-plan-pick:focus-visible { outline: 3px solid var(--select); outline-offset: 2px; }
+.sp-plan-img { display: block; width: 100%; height: auto; min-height: 60px; background: var(--card-2); }
+.sp-plan-dot { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: var(--brass); border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.5), 0 1px 4px rgba(0,0,0,.5); pointer-events: none; }
+.sp-plan-turn-label { display: block; font-size: .86rem; }
+.sp-plan-turn-label output { float: right; font-weight: 600; color: var(--ink-soft); }
+.sp-plan-turn { width: 100%; min-height: 36px; accent-color: var(--brass); }
+.sp-vol-row { display: block; margin: 6px 0 2px; font-size: .9rem; }
+.sp-vol-row[hidden] { display: none; }
+.sp-vol-row output { float: right; font-weight: 600; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.sp-vol { width: 100%; min-height: 36px; accent-color: var(--brass); }
+.sp-plan-here { margin: 2px 0 4px; height: auto; min-height: 36px; padding: 6px 12px; line-height: 1.3; white-space: normal; text-align: left; }
+
+/* ---------- "Anyone with this link can change the file" (js/create.js, Drive edit links) ---------- */
+.ask { max-width: min(560px, calc(100vw - 32px)); padding: 20px 22px; border: 1px solid var(--line-strong); border-radius: var(--r);
+  background: var(--card); color: var(--ink); box-shadow: 0 18px 50px rgba(0,0,0,.55); }
+.ask::backdrop { background: rgba(10,8,7,.7); }
+.ask h2 { margin: 0 0 10px; font: 700 1.15rem/1.3 var(--serif); }
+.ask p { margin: 0 0 10px; line-height: 1.5; }
+.ask-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+
+/* ---------- Export merged photosphere (merge.html) ---------- */
+.merge-grid { align-items: start; }
+.merge-steps { display: grid; gap: 16px; min-width: 0; }
+@media (min-width: 900px) { .merge-view { position: sticky; top: 12px; } }
+.merge-list, .merge-stay { list-style: none; margin: 8px 0 0; padding: 0; }
+.merge-list li + li { border-top: 1px solid var(--line); }
+.merge-stay li { margin: 6px 0; font-size: .88rem; color: var(--ink-soft); }
+.merge-qr { margin-top: 14px; padding: 10px 12px; border-radius: 6px; background: var(--card-2); font-size: .88rem; }
+.merge-qr p { margin: 2px 0; }
+.merge-progress { height: 8px; margin-top: 12px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.merge-progress > div { height: 100%; width: 0; background: var(--brass); transition: width .2s; }
+.merge-canvas { position: relative; background: var(--field); border-radius: 6px; overflow: hidden; }
+.merge-canvas canvas { display: block; width: 100%; height: auto; aspect-ratio: 2 / 1; }
+.merge-empty { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--ink-soft); }
+.merge-keep { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); font-size: .9rem; }
+.merge-keep p { margin: 0 0 4px; }
+#m-open[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
+.merge-work { position: absolute; left: -10000px; top: 0; width: 512px; height: 512px; overflow: hidden; }
+.merge-work a-scene { width: 512px; height: 512px; }
+@media (prefers-reduced-motion: reduce) { .merge-progress > div { transition: none; } }
+/* the merge page is an ordinary scrolling page, not the maker's fixed editor layout */
+@media (min-width: 900px) {
+  html:has(body.merge-page) { height: auto; overflow: auto; }
+  body.merge-page { height: auto; width: auto; overflow: visible; }
+  .merge-page .masthead .wrap, .merge-page .grid, .merge-page .foot { max-width: 1280px; }
+  .merge-page .grid.merge-grid { grid-template-columns: minmax(340px, 440px) minmax(0, 1fr); grid-template-areas: none; }
+}
+
+/* Share it: a short link (TinyURL…) for a simpler QR code */
+.short-box { margin-top: 10px; }
+.short-box input { width: 100%; }
+
+/* Class link library (step 2) */
+.lib-box input { width: 100%; }
+.lib-n { font-weight: 400; color: var(--ink-soft); }
+.lib-actions { margin-top: 8px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.lib-table-wrap { overflow-x: auto; margin-top: 6px; }
+.lib-table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+.lib-table th, .lib-table td { text-align: left; vertical-align: top; padding: 6px; border-bottom: 1px solid var(--line); }
+.lib-table td:first-child { font-variant-numeric: tabular-nums; }
+.lib-table a { color: var(--ink); }
+.lr-ok td:last-child b { color: var(--ok); }
+.lr-warn td:last-child b, .lr-unknown td:last-child b { color: var(--note); }
+.lr-bad td:last-child b { color: var(--danger); }
+.lr-bad { background: rgba(255,140,140,.06); }
+.sp-lib-row select { width: 100%; }
+
+/* ===================================================================== Grouping (24 Nov)
+   Things that belong together sit in a box. Box tints say what kind of setting it is:
+     sky     = when it shows and plays     violet = how it looks     gold = size and place
+     ember   = adding (the main action)    dashed = optional extras (fold-outs)
+   Tints only colour a thin top/left accent, the box heading and a faint wash, so text stays AA. */
+:root { --t-play: #7fb2f0; --t-look: #b9a0f2; --t-place: #f0c35a; }
+
+/* Small headings over a group of controls */
+.group-h { margin: 0 0 8px; font: 700 .74rem/1.2 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+
+/* ---- fold-outs: one look everywhere (a box with a title, a short line under it and a chevron) */
+.disc { margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card-2); }
+.disc > summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) 20px; column-gap: 10px; align-items: center;
+  min-height: 48px; padding: 8px 12px; border-radius: 8px; color: var(--ink); }
+.disc > summary::-webkit-details-marker { display: none; }
+.disc > summary::after { content: ""; grid-column: 2; grid-row: 1 / span 2; justify-self: center; width: 8px; height: 8px;
+  border-right: 2px solid var(--ink-soft); border-bottom: 2px solid var(--ink-soft); transform: translateY(-2px) rotate(45deg); transition: transform .2s; }
+.disc[open] > summary::after { transform: translateY(2px) rotate(-135deg); }
+.disc > summary:hover { background: var(--card-hover); }
+.disc[open] > summary { border-bottom: 1px solid var(--line); border-radius: 8px 8px 0 0; }
+.disc-t { grid-column: 1; font-weight: 650; font-size: .95rem; line-height: 1.3; }
+.disc-sub { grid-column: 1; font-weight: 400; font-size: .8rem; color: var(--ink-soft); line-height: 1.3; }
+.disc-body { padding: 4px 12px 12px; font-size: .92rem; }
+.disc-body > .help:first-child { margin-top: 8px; }
+ul.tips { margin: 8px 0 0; padding-left: 20px; color: var(--ink-soft); font-size: .87rem; } ul.tips li + li { margin-top: 4px; }
+/* the older fold-out rules are replaced by .disc */
+.compare-box.disc, .layers.disc, .short-box.disc, .link-details.disc { margin-top: 12px; padding-top: 0; border-top: 1px solid var(--line); }
+.layers.disc > summary, .compare-box.disc > summary { font-size: inherit; margin-bottom: 0; display: grid; }
+.layers.disc .ltool { width: 100%; margin: 10px 0 6px; }
+.compare-box.disc .disc-body > label { margin-top: 10px; }
+
+/* "How lining up works" and other little help links stay plain, with a chevron */
+.howto > summary { list-style: none; gap: 6px; }
+.howto > summary::-webkit-details-marker { display: none; }
+.howto > summary::before { content: ""; width: 6px; height: 6px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); margin-right: 4px; transition: transform .2s; }
+.howto[open] > summary::before { transform: rotate(45deg); }
+
+/* ---- step 2: adding is the main thing to do, so it's ember and solid */
+.add-row { margin-top: 14px; padding: 12px 12px 14px; border: 1px solid color-mix(in srgb, var(--brass) 60%, var(--line)); border-radius: 10px;
+  background: color-mix(in srgb, var(--brass) 8%, var(--card)); }
+.add-h { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-weight: 700; font-size: .95rem; color: var(--brass-dark); }
+.add-plus { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--brass); color: var(--on-brass); font-weight: 800; line-height: 1; }
+.add-kind { background: var(--card); }
+.add-kind:hover:not(:disabled) { background: color-mix(in srgb, var(--brass) 14%, var(--card)); }
+.spot-list:empty { margin: 0; }
+
+/* whole-tour tools sit together under one heading */
+.tools { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.tools > .disc:first-of-type, .tools > .group-h + * { margin-top: 0; }
+.tool-box { margin-top: 10px; padding: 10px 12px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--card-2); }
+.bright-row.tool-box { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.bright-row label { font-size: .95rem; }
+
+/* ---- spot cards: settings in tinted boxes */
+.sc-body { padding: 10px 12px 14px; }
+.sc-body > * + * { margin-top: 10px; }
+.sc-box { --tint: var(--line-strong); padding: 8px 12px 12px; border: 1px solid color-mix(in srgb, var(--tint) 35%, var(--line)); border-left: 3px solid var(--tint);
+  border-radius: 8px; background: color-mix(in srgb, var(--tint) 6%, var(--field)); }
+.sc-box-play { --tint: var(--t-play); } .sc-box-look { --tint: var(--t-look); } .sc-box-place { --tint: var(--t-place); }
+.sc-box-h { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; font: 700 .74rem/1.2 var(--sans); letter-spacing: .08em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--tint) 70%, var(--ink)); }
+.sc-box-ico { width: 15px; height: 15px; flex: none; }
+/* a box hides itself when nothing in it applies to this kind of thing */
+.sc-box:not(:has(> :not([hidden]):not(.sc-box-h))) { display: none; }
+.sc-checks:not(:has(> :not([hidden]))) { display: none; }
+.sc-box > .sc-checks { margin-top: 4px; }
+.sc-box .check:first-of-type { margin-top: 4px; }
+.sc-box .sp-place { color: var(--ink-soft); }
+.sc-box .sp-turn { margin-top: 10px; padding-top: 10px; }
+.sc-box .sp-z-row { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.sc-box .sp-floatpos { margin-top: 8px; }
+.sc-box .sp-stk-kind { margin-bottom: 2px; }
+/* More options on a card: an optional extra, so it's dashed and quieter */
+.sc-more.disc { margin-top: 10px; border-style: dashed; border-color: var(--line-strong); background: transparent; }
+.sc-more.disc > summary { min-height: 40px; color: var(--ink); font-size: .9rem; }
+.sc-more .disc-t { font-size: .9rem; }
+.sc-more-n { font-weight: 600; color: var(--select-text); }
+.sc-more .disc-body > .check:first-child { margin-top: 8px; }
+/* the field that matters most on a card */
+.spot-card .sc-field label { color: var(--ink); }
+.iconbtn:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); border-color: color-mix(in srgb, var(--danger) 50%, transparent); }
+
+/* ---- step 3: each option is its own box */
+.opt-box { margin-top: 12px; padding: 10px 12px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--card-2); }
+.opt-box > .check { margin-top: 0; font-weight: 650; }
+.opt-box > .help { margin-left: 30px; }
+.opt-box > .howto { margin: 4px 0 0 30px; }
+.opt-box:has(input:checked) { border-color: color-mix(in srgb, var(--step) 60%, var(--line)); background: color-mix(in srgb, var(--step) 7%, var(--card-2)); }
+
+/* ---- step 4: the main buttons, then the other ways to share */
+.share-group { margin-top: 16px; }
+.share-group > .actions { margin-top: 0; }
+.share-group + .share-group { padding-top: 14px; border-top: 1px solid var(--line); }
+.qr-panel .warn { margin-top: 14px; }
+
+@media (prefers-reduced-motion: reduce) { .disc > summary::after, .howto > summary::before { transition: none; } }
+
+/* ===================================================================== Three columns (24 Nov)
+   On wide computer screens: setting up and sharing on the left (photo, name, QR code), the preview in the middle,
+   and adding and changing things on the right, next to the preview where they're dragged about.
+   Narrower windows keep the two-column layout above (everything on the left). */
+@media (min-width: 1280px) {
+  :root { --side: clamp(330px, 24vw, 400px); --side2: clamp(370px, 27vw, 450px); }
+  .preview-panel { right: var(--side2); }
+  .step-spots { position: fixed; top: 0; bottom: 0; right: 0; z-index: 6; width: var(--side2); margin: 0;
+    display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain;
+    border: 0; border-left: 1px solid var(--line); border-top: 4px solid var(--step); border-radius: 0; padding: 16px 16px 28px; }
+  .step-spots > * { flex: none; }
+  /* adding comes first, then the list (newest at the bottom), then the tools */
+  .step-spots > h2 { order: 0; } .step-spots > .help.flush { order: 1; } .step-spots > .add-row { order: 2; margin-top: 4px; }
+  .step-spots > #spots-empty { order: 3; margin-top: 14px; } .step-spots > .spot-list { order: 3; margin-top: 14px; } .step-spots > .tools { order: 4; }
+  .step-spots > .spot-list:not(:empty)::before { content: "In the room"; display: block; margin: 0 0 8px;
+    font: 700 .74rem/1.2 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+  .add-kinds { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
+}
+@media (min-width: 1280px) {
+  /* a shorter header, so Share it isn't pushed far down the left column */
+  .masthead { padding: 14px 0 14px; }
+  .masthead h1 { font-size: 1.45rem; margin-bottom: 4px; }
+  .masthead .lede { font-size: .88rem; line-height: 1.45; margin: 0; }
+}
+
+/* Class link library: teacher setup, a folded box at the top of the left column (24 Nov) */
+.lib-panel { grid-area: lib; margin: 0; padding: 0; border: 1px solid color-mix(in srgb, var(--select) 40%, var(--line)); background: var(--card); }
+.lib-panel > summary { min-height: 56px; padding: 10px 16px; }
+.lib-panel[open] > summary { border-bottom-color: var(--line); }
+.lib-panel > .disc-body { padding: 4px 16px 16px; }
+.lib-ico { margin-right: 4px; }

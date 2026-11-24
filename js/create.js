@@ -565,10 +565,14 @@
     updateAdd();
     $('spots-empty').hidden = spots.length > 0;
     syncBright();
+    announce('spots', { count: spots.length });
   }
 
+  // Tells js/maker-a.js (the style A page) what's going on; nothing listens in the classic maker
+  const announce = (name, detail) => document.dispatchEvent(new CustomEvent('maker:' + name, { detail }));
   function openCard(i, focus) {
     openIndex = i;
+    announce('card', { index: i });
     [...$('spot-list').children].forEach((li, n) => {
       const open = n === i;
       li.classList.toggle('open', open);
@@ -1078,7 +1082,7 @@
     // a link with a Type shows only on that kind of card; a link without one
     // (or with a Type word that isn't understood) shows on every card; a card without a type yet shows them all
     const want = sp.type || '';
-    const fits = en => !want || !en.type || en.type === 'unknown' || en.type === want;
+    const fits = en => en.type === 'pano' ? want === 'pano' : (!want || !en.type || en.type === 'unknown' || en.type === want);
     const cur = sp.ref ? lib.entries.indexOf(Library.find(lib.entries, sp.ref)) : -1;
     const key = want + '|' + cur + '|' + lib.entries.length;
     if (sel.dataset.key === key) return;
@@ -1224,11 +1228,26 @@
     $('add-why').hidden = ok;
     $('add-why').textContent = full ? 'That’s the most one tour can have (' + MAX_SPOTS + '). Remove one to add another.'
       : long ? 'This tour’s link is as long as phones can open (' + qrUrl.length.toLocaleString() + ' characters). Use shorter links, or Export merged photosphere (under Share it), before adding more.'
-      : 'Choose a 360° photo in step 1 first.';
+      : 'Pick a room (a 360° photo) first.';
   }
   document.querySelectorAll('.add-kind').forEach(b => {
     b.querySelector('.ak-ico').innerHTML = ICONS[b.dataset.kind];
     b.addEventListener('click', () => addSpot(b.dataset.kind));
+  });
+  // Style A's Class library tab: add a library entry at the crosshair, with its link (and number) already filled in
+  document.addEventListener('maker:addFromLibrary', e => {
+    const en = e.detail && e.detail.entry;
+    if (!en || !lib || spots.length >= MAX_SPOTS || qrUrl.length > LINK_MAX) return;
+    const kind = en.type && en.type !== 'unknown' && en.type !== 'pano' ? en.type : (HotSpots.guessKind(en.link) || 'link');
+    addSpot(kind);
+    const sp = spots[spots.length - 1];
+    sp.src = en.link; sp.ref = Library.refFor(lib.entries, en);
+    if (en.name && kind !== 'text') sp.label = en.name;
+    renderSpots();
+    openCard(spots.length - 1, false);
+    selectCard(spots.length - 1, false);
+    sendSpots();
+    spotsChanged(false);
   });
   function addSpot(kind) {
     if (spots.length >= MAX_SPOTS || qrUrl.length > LINK_MAX) return;
@@ -1242,6 +1261,10 @@
 
   // ------------------------------------------------------------- QR code
   function renderQr(f) {
+    drawQr(f);
+    announce('state', { photo: panoOk, url: qrUrl, title: (f && f.title) || '' });
+  }
+  function drawQr(f) {
     const ready = f && f.pano && panoOk !== false;
     ['copy', 'dl', 'print', 'embed'].forEach(id => { $(id).disabled = !ready; });
     $('open').classList.toggle('disabled', !ready);
@@ -1509,7 +1532,7 @@
 
   // ---------------------------------------------------------------- class link library
   async function loadLib(fresh) {
-    if (!libValue) { lib = null; $('lib-actions').hidden = true; $('lib-n').textContent = ''; $('lib-report').innerHTML = ''; renderSpots(); refresh(); return; }
+    if (!libValue) { lib = null; $('lib-actions').hidden = true; $('lib-n').textContent = ''; $('lib-report').innerHTML = ''; renderSpots(); refresh(); announce('library', { entries: [] }); return; }
     status('lib-status', 'wait', 'Loading the link library…');
     try {
       const got = await Library.load(libValue, fresh);
@@ -1537,6 +1560,7 @@
       status('lib-status', 'err', escapeHtml(e.message));
     }
     renderSpots(); refresh();
+    announce('library', { entries: lib ? lib.entries : [] });
   }
   $('in-lib').addEventListener('change', () => {
     libValue = Library.idFrom($('in-lib').value);
@@ -1555,7 +1579,7 @@
   });
 
   // "Check every link": what each link is, and whether a phone will be able to use it, before any pupil does
-  const LIB_TYPE_NAME = { image: 'Picture', video: 'Video', audio: 'Sound', model: '3D model', link: 'Web page', doc: 'Document' };
+  const LIB_TYPE_NAME = { image: 'Picture', video: 'Video', audio: 'Sound', model: '3D model', link: 'Web page', doc: 'Document', pano: 'Room (360° photo)' };
   const KIND_NAME = { image: 'Picture', video: 'Video', audio: 'Sound', model: '3D model', link: 'Web page', doc: 'Document', '': 'File' };
   const withTimeout = (p, ms) => Promise.race([p, new Promise(res => setTimeout(() => res({ state: 'unknown', msg: 'It took too long to answer. Try opening it.' }), ms))]);
   function loads(kind, url) {
@@ -1625,7 +1649,7 @@
           const dup = isDup(r.en);
           const res = r.res || { state: 'wait', kind: '…', msg: '' };
           const st = r.res ? stateOf(r) : 'wait';
-          const shows = r.en.type && r.en.type !== 'unknown' ? LIB_TYPE_NAME[r.en.type] + ' cards' : 'Every card';
+          const shows = r.en.type === 'pano' ? 'Pick your room' : r.en.type && r.en.type !== 'unknown' ? LIB_TYPE_NAME[r.en.type] + ' cards' : 'Every card';
           return '<tr class="lr-' + st + '"><td>' + escapeHtml(r.en.num || '–') + '</td><td><a href="' + escapeHtml(Media.expand(r.en.link)) + '" target="_blank" rel="noopener">' + escapeHtml(r.en.name || 'Row ' + r.en.row) + '</a></td><td>' + escapeHtml(shows) + '</td>' +
             '<td>' + escapeHtml(res.kind || '') + '</td><td><b>' + (STATE_WORD[st] || 'Checking…') + '</b> ' + (res.msg || '') +
             (dup ? ' <b>The same ' + (r.en.num && seen.get('n' + r.en.num) > 1 ? 'number' : 'name') + ' is used twice</b>, so pupils could get the wrong one.' : '') + '</td></tr>';

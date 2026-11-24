@@ -86,7 +86,7 @@
   // The Type column: exactly these words, written as here or with a capital first letter ("Image", "Video").
   // Each is the kind of card the link shows on.
   const TYPES = [['image', 'image'], ['video', 'video'], ['sound', 'audio'],
-    ['3D', 'model'], ['link', 'link'], ['document', 'doc']];
+    ['3D', 'model'], ['link', 'link'], ['document', 'doc'], ['room', 'pano']];   // room = a 360° photo (added 25 Nov)
   const TYPE_LIST = TYPES.map(t => t[0]);
   /** The card type for a Type cell: '' when empty, null when it isn't one of the TYPES */
   function typeFrom(word) {

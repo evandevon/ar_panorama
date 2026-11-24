@@ -19,6 +19,7 @@ A free, no-sign-in tool for teachers (made by Ev, a NSW primary teacher). It is 
 
 | Job | Share these |
 |---|---|
+| The maker's layout (style A): top bar, side panel, dialogs | make.html, js/maker-a.js, css/maker.css (create.js for what the fields do) |
 | Viewer looks / start card / buttons | index.html, css/style.css, js/viewer.js (relevant section) |
 | A spot behaving wrongly in the room | js/spots.js (relevant section), maybe js/viewer.js "video spots" |
 | Spot options in the maker (tick boxes etc.) | js/create.js "spot cards", make.html, css/create.css |
@@ -69,7 +70,19 @@ Ev found the maker too busy, so controls are grouped (CSS at the end of create.c
 - **Step 4:** "Use the QR code" (Copy link filled; Open, Print, Save PNG) and "Other ways to share" (Embed, Export merged photosphere, short link, show the link), each a `.share-group` with a `.group-h` heading.
 Colour meaning stays: ember = actions, teal = selected/focus, tints = which kind of setting. axe: no violations.
 
-## Maker layout: three columns (24 Nov)
+## The maker is "style A" now (25 Nov); the classic maker is the backup
+
+Ev chose design direction A (a workplane like Tinkercad, mock-ups on the "Kid-friendly 360° Maker mock-ups" design canvas) so pupils can make tours.
+- **make.html** is the new page. It keeps **every element id js/create.js uses**, so create.js still does all the work (links, preview, QR code, library). The layout is new: top bar (logo, tour name `#in-title`, Room, Settings, Try it, Share) · the room (`.preview-panel`) · the side panel `#a-side` (tiles `.add-kind` and a **Class library** tab, then **In your room** `#spot-list`, then Extra tools: masking and 3D brightness). The photo, tour settings (line up, keep sounds, the class link library, a link to the classic maker), Try it and Share are `<dialog class="a-dialog">`s inside `#form` (so create.js's `input` listener still sees them).
+- **js/maker-a.js** only shows and hides things. create.js tells it what's happening with `document` events (`announce()` in create.js): `maker:state {photo, url, title}` (end of `renderQr`, which now wraps `drawQr`), `maker:spots {count}`, `maker:card {index}` (openCard; −1 = closed), `maker:library {entries}`. It sends `maker:addFromLibrary {entry}` (create.js adds the entry at the crosshair with `sp.ref`). Nothing listens in the classic page.
+- While a card is open the side panel is in **editing** mode (`.a-side.editing`): only that card shows, with **Done** (`#a-back`, also Esc) above it, which clicks the open card's toggle.
+- **Pick your room** opens by itself when there's no photo. Library rows with Type **room** (new type word, `pano` card type; appended to `Library.TYPES`, never shown on cards) are listed as **Rooms from your teacher**; relative site paths are made absolute (`pickRoom`). **Keep working on a tour** turns any tour link with `?p=` into `make.html` + its query.
+- **Try it** loads the real tour link (`#open`'s href) in an iframe inside a phone frame; closing the dialog removes the iframe (stops sound). **Share** holds the old QR panel: Print it (big), Copy link, Save picture, and "More ways to share" (Open, Embed, short link, merge, show the link).
+- **css/maker.css** (after create.css, only on make.html, which has `class="style-a"` on `<html>` and `<body>`): light theme by overriding the tokens on `:root.style-a`, kind colours `--k-image` … `--k-doc` (`[data-kind]` sets `--kc`), and it undoes create.css's column layout (`grid-area: auto`; `#form.a-app` is a flex column, not `display: contents`; body/html sizing below 1000 px). ≥1000 px: room and side panel fill the window, the side panel scrolls.
+- **Backup:** `make-classic.html` + `js/create-classic.js` + `css/create-classic.css` are frozen copies of the maker from just before this change (24 Nov, v20261124g), with their own file names so later edits to create.js/create.css can't break them. To bring the classic maker back as the main one: copy make-classic.html over make.html (it already loads its own create-classic.js and create-classic.css), or just send people to make-classic.html. It isn't updated with new features. (A git tag couldn't be pushed from the work environment; the commit before "style A" is the other way back.)
+- Tests: tests/tlib.py, tlibsheet.py and tlibtype.py open the Settings dialog to reach the library and press Done between cards; tests/tmakera.py covers the rooms, the library tab and the dialogs (axe on each).
+
+## Maker layout: three columns (24 Nov, now the classic maker)
 
 At ≥1280 px (create.css "Three columns"): the body is the left column (`--side`: header, 1 Choose your 360° photo, 2 Name it, 3 Share it), the preview is fixed in the middle (`left: --side; right: --side2`), and `.step-spots` (**Add things to the room**, badge "+", no number) is fixed on the right (`--side2`) with its own scroll. In that column flex `order` puts the Add box first, then the list ("In the room"), then Tools for the whole tour. 900–1279 px keeps the two-column layout (everything on the left); narrower is one column (photo, name, preview, add, share). Steps were renumbered (Name it 3→2, Share it 4→3) and the Name it section now comes before Add things in the page (tab order: photo, name, add, preview, share). The maker is meant for computers; tours are viewed on phones.
 The **Class link library** is teacher setup, so it's a folded panel (`details.panel.disc.lib-panel#lib-box`, grid area `lib`) at the top of the left column (first in narrow layouts), not in the whole-tour tools; each card's chooser (`.sp-lib`) is unchanged.
@@ -175,7 +188,7 @@ The keying runs in a WebGL fragment shader (`FRAG` in videomaker.js):
 - **Teacher-facing words:** plain English, no jargon. Say "see-through" not "alpha" and "stencil" not "matte". Australian spelling: colour, centre.
 - **Accessibility:** labels on everything, keyboard paths, focus styles, and the WCAG AA contrast ratios we checked. The timeline trim dots are role=slider. axe-core showed no violations on all pages; keep it that way.
 - **Privacy:** nothing is uploaded and nothing stored except in the link. Never put student media in the repo or deliverables.
-- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261124g**.
+- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261125a**.
 - **Dragging the view:** `bindDrag` (viewer.js) calls preventDefault on mouse pointerdown, clears any text selection, and blocks `dragstart`. Without this, a drag on the dimmed area round the phone frame selected spot labels, and a later press on that selection started a browser text-drag that cancelled the look-around drag after a moment.
 - **Colours: "Ember and slate" (dark).** Use the tokens, never raw hex:
 
