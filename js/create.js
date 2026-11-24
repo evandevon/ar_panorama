@@ -222,7 +222,7 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && pinnedTip) { showTip(pinnedTip, false); pinnedTip.focus(); pinnedTip = null; } });
 
   function checkPanoLink(link) {
-    if (Media.youTube(link)) return 'That’s a YouTube link. Paste a link to a 360° <b>photo</b> here — YouTube goes in step 2 for sound.';
+    if (Media.youTube(link)) return 'That’s a YouTube link. Paste a link to a 360° <b>photo</b> here — YouTube goes in <b>Add things to the room</b>, as a Sound.';
     if (/photos\.app\.goo\.gl|photos\.google\.com/i.test(link)) return 'Google Photos links can’t be used. Download the photo and put it in Google Drive, then share that link.';
     if (/drive\.google\.com\/drive\/(u\/\d+\/)?folders/i.test(link)) return 'That’s a link to a folder. Open the photo itself in Drive and use <b>Share → Copy link</b>.';
     if (/^gd:|^yt:/.test(link)) return '';
@@ -1223,7 +1223,7 @@
     document.querySelectorAll('.add-kind').forEach(b => { b.disabled = !ok; });
     $('add-why').hidden = ok;
     $('add-why').textContent = full ? 'That’s the most one tour can have (' + MAX_SPOTS + '). Remove one to add another.'
-      : long ? 'This tour’s link is as long as phones can open (' + qrUrl.length.toLocaleString() + ' characters). Use shorter links, or Export merged photosphere (step 4), before adding more.'
+      : long ? 'This tour’s link is as long as phones can open (' + qrUrl.length.toLocaleString() + ' characters). Use shorter links, or Export merged photosphere (under Share it), before adding more.'
       : 'Choose a 360° photo in step 1 first.';
   }
   document.querySelectorAll('.add-kind').forEach(b => {

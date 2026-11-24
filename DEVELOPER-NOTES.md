@@ -69,6 +69,10 @@ Ev found the maker too busy, so controls are grouped (CSS at the end of create.c
 - **Step 4:** "Use the QR code" (Copy link filled; Open, Print, Save PNG) and "Other ways to share" (Embed, Export merged photosphere, short link, show the link), each a `.share-group` with a `.group-h` heading.
 Colour meaning stays: ember = actions, teal = selected/focus, tints = which kind of setting. axe: no violations.
 
+## Maker layout: three columns (24 Nov)
+
+At ≥1280 px (create.css "Three columns"): the body is the left column (`--side`: header, 1 Choose your 360° photo, 2 Name it, 3 Share it), the preview is fixed in the middle (`left: --side; right: --side2`), and `.step-spots` (**Add things to the room**, badge "+", no number) is fixed on the right (`--side2`) with its own scroll. In that column flex `order` puts the Add box first, then the list ("In the room"), then Tools for the whole tour. 900–1279 px keeps the two-column layout (everything on the left); narrower is one column (photo, name, preview, add, share). Steps were renumbered (Name it 3→2, Share it 4→3) and the Name it section now comes before Add things in the page (tab order: photo, name, add, preview, share). The maker is meant for computers; tours are viewed on phones.
+
 ## Pictures behind 3D models (spots.js `pics3D`)
 
 A picture (pinned, or a flat in-room card since 28 Oct — `pinGeom` then uses the same level-card corners as the CSS card3d: half-width tan (w/2)/FLAT_K; not floating, not a floor plan) with an overlapping 3D spot on a higher z is drawn as a WebGL sheet instead of relying on its page element (which gets `.in3d`: the img goes see-through, the frame stays for taps, handles and caption). The sheet is a 16×16 grid in a plane square on to the centre of the pinned corners, with vertex positions from the square-to-quad homography of the corners' gnomonic coordinates, so it matches the CSS warp exactly. Distance: just behind the 3D things it's under (far reach ×1.03), within [22, 96·min cos] for masked pictures (behind the masks' cut-out sphere) or [1.5, 18] for "not hidden by masks". Material: transparent, depthWrite false, so opaque models in front win on depth. Texture: CORS image load, then Drive download with the site's key, else `no3D` + maker message and it stays a page element. `overlapsOf` lets pinned pictures and 3D spots be ordered against each other; merge.js paints such pictures before the models.
@@ -170,7 +174,7 @@ The keying runs in a WebGL fragment shader (`FRAG` in videomaker.js):
 - **Teacher-facing words:** plain English, no jargon. Say "see-through" not "alpha" and "stencil" not "matte". Australian spelling: colour, centre.
 - **Accessibility:** labels on everything, keyboard paths, focus styles, and the WCAG AA contrast ratios we checked. The timeline trim dots are role=slider. axe-core showed no violations on all pages; keep it that way.
 - **Privacy:** nothing is uploaded and nothing stored except in the link. Never put student media in the repo or deliverables.
-- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261124e**.
+- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261124f**.
 - **Dragging the view:** `bindDrag` (viewer.js) calls preventDefault on mouse pointerdown, clears any text selection, and blocks `dragstart`. Without this, a drag on the dimmed area round the phone frame selected spot labels, and a later press on that selection started a browser text-drag that cancelled the look-around drag after a moment.
 - **Colours: "Ember and slate" (dark).** Use the tokens, never raw hex:
 

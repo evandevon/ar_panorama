@@ -31,13 +31,13 @@ body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 va
 #form { display: contents; }
 .grid { display: grid; gap: 16px; padding-top: 20px; padding-bottom: 12px;
         grid-template-columns: minmax(0, 1fr);
-        grid-template-areas: "photo" "preview" "spots" "title" "share"; }
+        grid-template-areas: "photo" "title" "preview" "spots" "share"; }
 .grid > *, #form > * { min-width: 0; }
 .step-photo { grid-area: photo; } .step-spots { grid-area: spots; } .step-title { grid-area: title; }
 .preview-panel { grid-area: preview; } .qr-panel { grid-area: share; }
 @media (min-width: 900px) {
   .grid { grid-template-columns: minmax(340px, 420px) minmax(0, 1fr); align-items: start;
-          grid-template-areas: "photo preview" "spots preview" "title preview" "share preview"; }
+          grid-template-areas: "photo preview" "title preview" "spots preview" "share preview"; }
   .preview-panel { position: sticky; top: 16px; }
 }
 
@@ -295,7 +295,7 @@ textarea + .field-err { top: 8px; transform: none; }
   .masthead { padding: 18px 0 20px; }
   .masthead .wrap, .grid, .foot { max-width: none; }
   .masthead h1 { font-size: 1.75rem; }
-  .grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "photo" "spots" "title" "share"; padding-top: 16px; }
+  .grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "photo" "title" "spots" "share"; padding-top: 16px; }
   .preview-panel { position: fixed; top: 0; bottom: 0; left: var(--side); right: 0; z-index: 5;
     display: flex; flex-direction: column; margin: 0; padding: 14px 18px 12px; border: 0; border-left: 1px solid var(--line); border-radius: 0; }
   .preview-panel > h2 { margin-bottom: 8px; }
@@ -496,3 +496,28 @@ ul.tips { margin: 8px 0 0; padding-left: 20px; color: var(--ink-soft); font-size
 .qr-panel .warn { margin-top: 14px; }
 
 @media (prefers-reduced-motion: reduce) { .disc > summary::after, .howto > summary::before { transition: none; } }
+
+/* ===================================================================== Three columns (24 Nov)
+   On wide computer screens: setting up and sharing on the left (photo, name, QR code), the preview in the middle,
+   and adding and changing things on the right, next to the preview where they're dragged about.
+   Narrower windows keep the two-column layout above (everything on the left). */
+@media (min-width: 1280px) {
+  :root { --side: clamp(330px, 24vw, 400px); --side2: clamp(370px, 27vw, 450px); }
+  .preview-panel { right: var(--side2); }
+  .step-spots { position: fixed; top: 0; bottom: 0; right: 0; z-index: 6; width: var(--side2); margin: 0;
+    display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain;
+    border: 0; border-left: 1px solid var(--line); border-top: 4px solid var(--step); border-radius: 0; padding: 16px 16px 28px; }
+  .step-spots > * { flex: none; }
+  /* adding comes first, then the list (newest at the bottom), then the tools */
+  .step-spots > h2 { order: 0; } .step-spots > .help.flush { order: 1; } .step-spots > .add-row { order: 2; margin-top: 4px; }
+  .step-spots > #spots-empty { order: 3; margin-top: 14px; } .step-spots > .spot-list { order: 3; margin-top: 14px; } .step-spots > .tools { order: 4; }
+  .step-spots > .spot-list:not(:empty)::before { content: "In the room"; display: block; margin: 0 0 8px;
+    font: 700 .74rem/1.2 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+  .add-kinds { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
+}
+@media (min-width: 1280px) {
+  /* a shorter header, so Share it isn't pushed far down the left column */
+  .masthead { padding: 14px 0 14px; }
+  .masthead h1 { font-size: 1.45rem; margin-bottom: 4px; }
+  .masthead .lede { font-size: .88rem; line-height: 1.45; margin: 0; }
+}
