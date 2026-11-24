@@ -31,13 +31,13 @@ body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 va
 #form { display: contents; }
 .grid { display: grid; gap: 16px; padding-top: 20px; padding-bottom: 12px;
         grid-template-columns: minmax(0, 1fr);
-        grid-template-areas: "photo" "title" "preview" "spots" "share"; }
+        grid-template-areas: "lib" "photo" "title" "preview" "spots" "share"; }
 .grid > *, #form > * { min-width: 0; }
 .step-photo { grid-area: photo; } .step-spots { grid-area: spots; } .step-title { grid-area: title; }
 .preview-panel { grid-area: preview; } .qr-panel { grid-area: share; }
 @media (min-width: 900px) {
   .grid { grid-template-columns: minmax(340px, 420px) minmax(0, 1fr); align-items: start;
-          grid-template-areas: "photo preview" "title preview" "spots preview" "share preview"; }
+          grid-template-areas: "lib preview" "photo preview" "title preview" "spots preview" "share preview"; }
   .preview-panel { position: sticky; top: 16px; }
 }
 
@@ -295,7 +295,7 @@ textarea + .field-err { top: 8px; transform: none; }
   .masthead { padding: 18px 0 20px; }
   .masthead .wrap, .grid, .foot { max-width: none; }
   .masthead h1 { font-size: 1.75rem; }
-  .grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "photo" "title" "spots" "share"; padding-top: 16px; }
+  .grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "lib" "photo" "title" "spots" "share"; padding-top: 16px; }
   .preview-panel { position: fixed; top: 0; bottom: 0; left: var(--side); right: 0; z-index: 5;
     display: flex; flex-direction: column; margin: 0; padding: 14px 18px 12px; border: 0; border-left: 1px solid var(--line); border-radius: 0; }
   .preview-panel > h2 { margin-bottom: 8px; }
@@ -521,3 +521,10 @@ ul.tips { margin: 8px 0 0; padding-left: 20px; color: var(--ink-soft); font-size
   .masthead h1 { font-size: 1.45rem; margin-bottom: 4px; }
   .masthead .lede { font-size: .88rem; line-height: 1.45; margin: 0; }
 }
+
+/* Class link library: teacher setup, a folded box at the top of the left column (24 Nov) */
+.lib-panel { grid-area: lib; margin: 0; padding: 0; border: 1px solid color-mix(in srgb, var(--select) 40%, var(--line)); background: var(--card); }
+.lib-panel > summary { min-height: 56px; padding: 10px 16px; }
+.lib-panel[open] > summary { border-bottom-color: var(--line); }
+.lib-panel > .disc-body { padding: 4px 16px 16px; }
+.lib-ico { margin-right: 4px; }

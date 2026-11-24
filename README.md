@@ -175,7 +175,7 @@ A teacher can put every link a class might use in one **Google Sheet**, so pupil
 1. Make a Google Sheet with these four columns, in this order: **Number | Type | Name | Link**. (In the maker, **Copy the heading row** copies the headings, ready to paste into cell A1.) Put one link per row. Any link that works elsewhere in the maker works here, including Google Drive.
 2. **Type** is one of: **image**, **video**, **sound**, **3D**, **link**, **document** (a capital first letter is fine). The link then only shows on that kind of card. Leave Type empty to show it on every card.
 3. Share the sheet as **Anyone with the link → Viewer**.
-4. In the maker, under **Add things to the room → Tools for the whole tour**, open **Class link library** and paste the sheet's address. (A CSV file works too, such as `links/example.csv` in the GitHub folder, or its GitHub page's address.)
+4. In the maker, open **Class link library** (at the top of the left column) and paste the sheet's address. (A CSV file works too, such as `links/example.csv` in the GitHub folder, or its GitHub page's address.)
 5. Press **Check every link**. Each one is opened and marked ✓ OK, ⚠ Check, ✗ Problem, or ? (web pages: open them to look).
 6. Press **Copy a maker link for pupils** and give them that link. Each card then has **Choose from the class link library**.
 

@@ -64,7 +64,7 @@ A-Frame 1.8.0 (THREE is `AFRAME.THREE`), qrcode.js, PDF.js, gifenc (ESM, lazy-im
 Ev found the maker too busy, so controls are grouped (CSS at the end of create.css, "Grouping"):
 - **Spot cards** (`spotCard` markup): Type / library / Link / Label first, then `.sc-box` groups, each `role=group` with a `.sc-box-h` heading and a tint (`--t-play` sky: Appears, Plays, Hidden, Loop, Volume · `--t-look` violet: see-through, 3D Spins and Bright flat colours · `--t-place` gold: place line, Smaller/Bigger/Move/Show me, float position grid, 3D turn buttons, *Where it overlaps*), then **More options** (`details.sc-more.disc`, dashed: float, floor plan + its settings, pin corners, disappear, hidden by masks). A box hides itself with `:has()` when every row in it is `hidden`, so syncCard only hides rows. Moved: the z row from More options to Size and place (no longer counted in "(n on)"); `.sp-spin-row` / `.sp-flat-row` from `.sp-turn` to How it looks (syncCard now hides them for non-models).
 - **Fold-outs** (`details.disc`): one style everywhere: a box, `.disc-t` title + `.disc-sub` one-line description, a CSS chevron, content in `.disc-body`. Used for Compare photospheres, Masking, Class link library, Tips, Make the QR code simpler, Show the link, and a card's More options. Small "How lining up works" help keeps `.howto` (plain link with a chevron).
-- **Step 2:** list → **Add at the crosshair** (ember-tinted solid box, the main action) → "Tools for the whole tour" (`.tools`: Masking, 3D brightness `.tool-box`, Class link library, Tips).
+- **Step 2:** list → **Add at the crosshair** (ember-tinted solid box, the main action) → "Tools for the whole tour" (`.tools`: Masking, 3D brightness `.tool-box`, Tips; the Class link library moved to the left column, see below).
 - **Step 3:** each option in an `.opt-box`, tinted with the step colour while ticked.
 - **Step 4:** "Use the QR code" (Copy link filled; Open, Print, Save PNG) and "Other ways to share" (Embed, Export merged photosphere, short link, show the link), each a `.share-group` with a `.group-h` heading.
 Colour meaning stays: ember = actions, teal = selected/focus, tints = which kind of setting. axe: no violations.
@@ -72,6 +72,7 @@ Colour meaning stays: ember = actions, teal = selected/focus, tints = which kind
 ## Maker layout: three columns (24 Nov)
 
 At ≥1280 px (create.css "Three columns"): the body is the left column (`--side`: header, 1 Choose your 360° photo, 2 Name it, 3 Share it), the preview is fixed in the middle (`left: --side; right: --side2`), and `.step-spots` (**Add things to the room**, badge "+", no number) is fixed on the right (`--side2`) with its own scroll. In that column flex `order` puts the Add box first, then the list ("In the room"), then Tools for the whole tour. 900–1279 px keeps the two-column layout (everything on the left); narrower is one column (photo, name, preview, add, share). Steps were renumbered (Name it 3→2, Share it 4→3) and the Name it section now comes before Add things in the page (tab order: photo, name, add, preview, share). The maker is meant for computers; tours are viewed on phones.
+The **Class link library** is teacher setup, so it's a folded panel (`details.panel.disc.lib-panel#lib-box`, grid area `lib`) at the top of the left column (first in narrow layouts), not in the whole-tour tools; each card's chooser (`.sp-lib`) is unchanged.
 
 ## Pictures behind 3D models (spots.js `pics3D`)
 
@@ -174,7 +175,7 @@ The keying runs in a WebGL fragment shader (`FRAG` in videomaker.js):
 - **Teacher-facing words:** plain English, no jargon. Say "see-through" not "alpha" and "stencil" not "matte". Australian spelling: colour, centre.
 - **Accessibility:** labels on everything, keyboard paths, focus styles, and the WCAG AA contrast ratios we checked. The timeline trim dots are role=slider. axe-core showed no violations on all pages; keep it that way.
 - **Privacy:** nothing is uploaded and nothing stored except in the link. Never put student media in the repo or deliverables.
-- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261124f**.
+- **Cache busting:** every CSS/JS include has `?v=YYYYMMDDx`. Bump it on every change, or teachers keep seeing old code (this bit us once). The current value is **20261124g**.
 - **Dragging the view:** `bindDrag` (viewer.js) calls preventDefault on mouse pointerdown, clears any text selection, and blocks `dragstart`. Without this, a drag on the dimmed area round the phone frame selected spot labels, and a later press on that selection started a browser text-drag that cancelled the look-around drag after a moment.
 - **Colours: "Ember and slate" (dark).** Use the tokens, never raw hex:
 

@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>360° QR Experience Maker</title>
   <meta name="description" content="Paste a link to a 360° photo and some audio, and get a QR code that opens it on any phone. No sign-in.">
-  <link rel="stylesheet" href="css/create.css?v=20261124f">
+  <link rel="stylesheet" href="css/create.css?v=20261124g">
   <script src="vendor/qrcode.js"></script>
-  <script src="js/settings.js?v=20261124f"></script>
-  <script src="js/sources.js?v=20261124f"></script>
-  <script src="js/library.js?v=20261124f"></script>
-  <script src="js/spots.js?v=20261124f"></script>
+  <script src="js/settings.js?v=20261124g"></script>
+  <script src="js/sources.js?v=20261124g"></script>
+  <script src="js/library.js?v=20261124g"></script>
+  <script src="js/spots.js?v=20261124g"></script>
 </head>
 <body>
 <header class="masthead">
@@ -24,6 +24,25 @@
 <main class="wrap grid">
   <!-- The form's sections are laid out individually (display: contents), so they can go in different columns (create.css "Layout") -->
   <form id="form" autocomplete="off" onsubmit="return false">
+    <!-- Teacher setup: the class link library (create.js "class link library"); each card's chooser uses it -->
+      <details class="panel disc lib-box lib-panel" id="lib-box">
+          <summary><span class="disc-t"><span class="lib-ico" aria-hidden="true">📚</span> Class link library <span class="lib-n" id="lib-n"></span></span><span class="disc-sub">For teachers: list the class’s links in a Google Sheet once, then pupils choose from it</span></summary>
+          <div class="disc-body">
+        <p class="help">A teacher can put every link the class might use in a <b>Google Sheet</b> with four columns, in this order: <b>Number | Type | Name | Link</b> (one link per row, under a heading row). <b>Type</b> is one of <b>image</b>, <b>video</b>, <b>sound</b>, <b>3D</b>, <b>link</b> or <b>document</b> (a capital first letter is fine): the link then only shows on that kind of card. Leave Type empty to offer it on every card. Share the sheet as <b>Anyone with the link → Viewer</b> and paste its address here. The QR code then only holds short numbers like <b>#3</b>, and fixing a link in the sheet fixes every tour that uses it.</p>
+        <p><button type="button" class="btn small ghost" id="lib-heading">Copy the heading row</button> <span class="help-inline" id="lib-heading-out">— then click cell A1 of a new Google Sheet and paste</span></p>
+        <label for="in-lib">Google Sheet link</label>
+        <input id="in-lib" type="url" inputmode="url" placeholder="https://docs.google.com/spreadsheets/d/…" aria-describedby="lib-status">
+        <p class="status" id="lib-status" role="status" aria-live="polite"></p>
+        <div class="actions lib-actions" id="lib-actions" hidden>
+          <button type="button" class="btn small" id="lib-check">Check every link</button>
+          <button type="button" class="btn small ghost" id="lib-reload">Reload the sheet</button>
+          <button type="button" class="btn small ghost" id="lib-share">Copy a maker link for pupils</button>
+          <a class="btn small ghost" id="lib-open" target="_blank" rel="noopener">Open the sheet</a>
+        </div>
+        <div class="lib-report" id="lib-report" aria-live="polite"></div>
+        </div>
+        </details>
+
     <section class="panel step-photo" aria-labelledby="h-photo">
       <h2 id="h-photo"><span class="num" aria-hidden="true">1</span> Choose your 360° photo</h2>
       <label for="in-pano">Link to a 360° photo</label>
@@ -126,23 +145,6 @@
         </div>
         <p class="help" id="bright-help">Lights every 3D model at once. Match them to the photo: darker for a dim room, brighter for a sunny one.</p>
       </div>
-      <details class="disc lib-box" id="lib-box">
-          <summary><span class="disc-t">Class link library <span class="lib-n" id="lib-n"></span></span><span class="disc-sub">Pupils choose links from a Google Sheet</span></summary>
-          <div class="disc-body">
-        <p class="help">A teacher can put every link the class might use in a <b>Google Sheet</b> with four columns, in this order: <b>Number | Type | Name | Link</b> (one link per row, under a heading row). <b>Type</b> is one of <b>image</b>, <b>video</b>, <b>sound</b>, <b>3D</b>, <b>link</b> or <b>document</b> (a capital first letter is fine): the link then only shows on that kind of card. Leave Type empty to offer it on every card. Share the sheet as <b>Anyone with the link → Viewer</b> and paste its address here. The QR code then only holds short numbers like <b>#3</b>, and fixing a link in the sheet fixes every tour that uses it.</p>
-        <p><button type="button" class="btn small ghost" id="lib-heading">Copy the heading row</button> <span class="help-inline" id="lib-heading-out">— then click cell A1 of a new Google Sheet and paste</span></p>
-        <label for="in-lib">Google Sheet link</label>
-        <input id="in-lib" type="url" inputmode="url" placeholder="https://docs.google.com/spreadsheets/d/…" aria-describedby="lib-status">
-        <p class="status" id="lib-status" role="status" aria-live="polite"></p>
-        <div class="actions lib-actions" id="lib-actions" hidden>
-          <button type="button" class="btn small" id="lib-check">Check every link</button>
-          <button type="button" class="btn small ghost" id="lib-reload">Reload the sheet</button>
-          <button type="button" class="btn small ghost" id="lib-share">Copy a maker link for pupils</button>
-          <a class="btn small ghost" id="lib-open" target="_blank" rel="noopener">Open the sheet</a>
-        </div>
-        <div class="lib-report" id="lib-report" aria-live="polite"></div>
-        </div>
-        </details>
       <details class="disc">
           <summary><span class="disc-t">Tips</span><span class="disc-sub">Moving, background sound, things behind a dot</span></summary>
           <div class="disc-body">
@@ -272,6 +274,6 @@
   <p>Want a person or object standing in the room, with the room showing around them? Make a see-through video from green-screen footage with the <a href="videomaker.html">See-through Video Maker</a>.</p>
 </footer>
 
-<script src="js/create.js?v=20261124f"></script>
+<script src="js/create.js?v=20261124g"></script>
 </body>
 </html>
