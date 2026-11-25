@@ -245,7 +245,7 @@
     $('qr-title').textContent = f.title || 'A 360° experience';
 
     if (!f.pano) {
-      showEmpty('Paste a 360° photo link to see it here.');
+      showEmpty('Pick a room to start.');
       status('pano-status');
       panoOk = null; setNavEnabled(panoOk === true); loadedKey = '';
       renderQr(null);
@@ -526,8 +526,19 @@
     });
   }
 
+  // style A (js/maker-a.js) loads after this file, so it asks for the current state when it starts
+  document.addEventListener('maker:hello', () => {
+    announceSpots();
+    announce('state', { photo: panoOk, url: qrUrl, title: $('in-title').value.trim() });
+  });
+  // style A (js/maker-a.js): how many things, and how many a mask could hide
+  function announceSpots() {
+    announce('spots', { count: spots.length,
+      visual: spots.filter(o => o.src.trim() && !['audio', 'link'].includes(HotSpots.kindOf(o))).length });
+  }
   function spotsChanged(reloadPreview) {
     syncBright();
+    announceSpots();
     saveToAddress(readForm());
     if (reloadPreview) sendSpots();
     renderQr(readForm());
@@ -573,7 +584,7 @@
     updateAdd();
     $('spots-empty').hidden = spots.length > 0;
     syncBright();
-    announce('spots', { count: spots.length });
+    announceSpots();
   }
 
   // Tells js/maker-a.js (the style A page) what's going on; nothing listens in the classic maker
@@ -981,6 +992,8 @@
 
   function syncCard(li, sp, i) {
     const q = c => li.querySelector(c);
+    li.classList.toggle('no-src', !sp.src.trim());
+    li.dataset.kind = sp.type || HotSpots.kindOf(sp) || '';
     const yt = Media.youTube(sp.src);
     const guess = HotSpots.guessKind(sp.src);
     const kind = HotSpots.kindOf(sp);
@@ -1060,7 +1073,9 @@
     moreBox.hidden = more.every(c => c.hidden);
     // layer order: for anything that sits in the room (not floating), saying where it is in the stack
     const zRow = q('.sp-z-row'), z = sp.z || 0;
-    zRow.hidden = !sp.src.trim() || !!sp.float || (sp.hidden && !sp.stacked) || kind === 'audio';
+    const inRoom = o => o.src.trim() && !o.float && !(o.hidden && !o.stacked) && HotSpots.kindOf(o) !== 'audio';
+    const overlaps = inRoom(sp) && spots.some(o => o !== sp && inRoom(o) && HotSpots.angOverlap(HotSpots.angBox(sp), HotSpots.angBox(o), 0.04));
+    zRow.hidden = !inRoom(sp) || (!overlaps && !z);
     // 3D models only: spinning and flat colours (in "How it looks")
     q('.sp-spin-row').hidden = q('.sp-flat-row').hidden = !isModel || !sp.src.trim();
     q('.sp-z-out').textContent = z > 0 ? 'in front' + (z > 1 ? ' (' + z + ' steps)' : '') : z < 0 ? 'behind' + (z < -1 ? ' (' + -z + ' steps)' : '') : 'as placed';
@@ -1120,7 +1135,7 @@
       if (html && isDriveMedia(sp) && !isDrivePlayer(sp)) {
         html += ' It’s downloaded from Google Drive when the tour opens, so it must be shared as <b>Anyone with the link</b>. Keep it small (under about 20 MB) so it’s quick on phones.';
       }
-      el.className = 'status sp-status ' + k; el.innerHTML = html;
+      el.className = 'status sp-status ' + k + (/Anyone with the link/.test(html || '') ? ' share' : ''); el.innerHTML = html;
     };
     if (!sp.src.trim()) return set('', '');
     if (sp.error) return set('err', escapeHtml(sp.error));

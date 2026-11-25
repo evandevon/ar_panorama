@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>360° Tour Maker</title>
   <meta name="description" content="Make a 360° tour in your browser: choose a 360° photo, add pictures, videos, sounds and words, and print a QR code. No sign-in.">
-  <link rel="stylesheet" href="css/create.css?v=20261125b">
-  <link rel="stylesheet" href="css/maker.css?v=20261125b">
+  <link rel="stylesheet" href="css/create.css?v=20261125c">
+  <link rel="stylesheet" href="css/maker.css?v=20261125c">
   <script src="vendor/qrcode.js"></script>
-  <script src="js/settings.js?v=20261125b"></script>
-  <script src="js/sources.js?v=20261125b"></script>
-  <script src="js/library.js?v=20261125b"></script>
-  <script src="js/spots.js?v=20261125b"></script>
+  <script src="js/settings.js?v=20261125c"></script>
+  <script src="js/sources.js?v=20261125c"></script>
+  <script src="js/library.js?v=20261125c"></script>
+  <script src="js/spots.js?v=20261125c"></script>
 </head>
 <body class="style-a">
 <!--
@@ -51,13 +51,14 @@
           <button type="button" id="shape-phone" aria-pressed="true">Phone</button>
           <button type="button" id="shape-wide" aria-pressed="false">Wide</button>
         </div>
-        <p class="a-hint">Drag to look around. Drag things to move them, and pull their corners to resize them.</p>
+        <p class="a-hint" id="a-hint">Pick a room to start.</p>
       </div>
       <div class="frame-nav phone" id="frame-nav" role="group" aria-label="Turn the room">
         <button type="button" class="nav-btn nav-up" data-dir="up" aria-label="Look up" title="Look up (hold to keep turning)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 15 6-6 6 6"/></svg></button>
         <button type="button" class="nav-btn nav-left" data-dir="left" aria-label="Look left" title="Look left (hold to keep turning)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 6-6 6 6 6"/></svg></button>
         <div class="frame phone" id="frame">
           <div class="empty" id="empty">Pick a room to start.</div>
+          <button type="button" class="a-btn a-primary a-pick-room" id="a-pick-room">Pick a room</button>
           <div class="phone-window" id="phone-window" aria-hidden="true"></div>
         </div>
         <button type="button" class="nav-btn nav-right" data-dir="right" aria-label="Look right" title="Look right (hold to keep turning)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6"/></svg></button>
@@ -372,7 +373,7 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden><span id="toast-text"></span><button type="button" class="toast-btn" id="toast-btn">Undo</button></div>
 
-<script src="js/create.js?v=20261125b"></script>
-<script src="js/maker-a.js?v=20261125b"></script>
+<script src="js/create.js?v=20261125c"></script>
+<script src="js/maker-a.js?v=20261125c"></script>
 </body>
 </html>

@@ -4,9 +4,9 @@
  *   panel, and big panels (<dialog>) for picking the room, settings, trying the tour and sharing it.
  * Loaded by: make.html, after js/create.js. js/create.js still does all the work (links, preview, QR code); this file
  *   only shows and hides things. It listens for create.js's events:
- *     maker:state {photo, url, title} · maker:spots {count} · maker:card {index} · maker:library {entries}
+ *     maker:state {photo, url, title} · maker:spots {count, visual} · maker:card {index} · maker:library {entries}
  *   and sends one: maker:addFromLibrary {entry}.
- * Sections: dialogs · pick your room · the side panel · class library tab · try it · share
+ * Sections: dialogs · pick your room · the side panel · only what's useful now · class library tab · try it · share
  * The classic maker (make-classic.html) doesn't load this file.
  */
 (function () {
@@ -72,9 +72,28 @@
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && side.classList.contains('editing') && !document.querySelector('dialog[open]')) $('a-back').click();
   });
+  // ------------------------------------------------------------- only what's useful now
+  // The page carries classes for where the pupil is up to; maker.css hides or greys what doesn't help yet:
+  //   has-room (a photo is showing) · has-things (anything added) · has-visual (something a mask could hide)
+  let things = 0;
+  function syncStage() {
+    const room = state.photo === true;
+    document.body.classList.toggle('has-room', room);
+    document.body.classList.toggle('has-things', things > 0);
+    $('shape-phone').disabled = $('shape-wide').disabled = !room;
+    $('a-hint').textContent = !room ? 'Pick a room to start.'
+      : !things ? 'Drag to look around. Then press a tile to add something where the + is.'
+      : 'Drag to look around. Drag things to move them, and pull their corners to resize them.';
+    // Compare two photos is for after the first photo
+    $('compare-box').hidden = !room && !$('in-pano2').value.trim();
+  }
   document.addEventListener('maker:spots', e => {
-    $('a-count').textContent = e.detail.count ? '(' + e.detail.count + ')' : '';
+    things = e.detail.count;
+    $('a-count').textContent = things ? '(' + things + ')' : '';
+    document.body.classList.toggle('has-visual', e.detail.visual > 0);
+    syncStage();
   });
+  $('a-pick-room').addEventListener('click', () => openDialog('a-room'));
 
   // The top bar's buttons wake up once there's a room
   document.addEventListener('maker:state', e => {
@@ -84,6 +103,7 @@
     $('a-try-btn').disabled = !has || !state.url;
     $('a-share-btn').disabled = !has || !state.url;
     if (has && pickedRoom) { pickedRoom = false; closeDialog('a-room'); }
+    syncStage();
   });
 
   // ------------------------------------------------------------- class library tab (and rooms from the teacher)
@@ -189,6 +209,8 @@
 
   // ------------------------------------------------------------- first visit: pick a room
   // (after create.js has read the page address, which may already hold a tour)
+  syncStage();
+  document.dispatchEvent(new CustomEvent('maker:hello'));
   setTimeout(() => {
     if (!$('in-pano').value.trim()) openDialog('a-room');
   }, 0);

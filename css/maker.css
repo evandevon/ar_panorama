@@ -240,3 +240,28 @@
   .style-a .a-share-body { display: block; padding: 0; }
   html.style-a, body.style-a, .style-a .a-app { height: auto; overflow: visible; background: #fff; }
 }
+
+/* ---------------------------------------------------------------- only what's useful now (25 Nov)
+   js/maker-a.js puts has-room / has-things / has-visual on <body>; js/create.js puts no-src on a card without its link.
+   Hidden: things that make no sense yet. Greyed (disabled): things that will work in a moment, so pupils see they exist. */
+/* before a room: the empty room has a button; facing and Start from this view wait */
+.a-pick-room { display: none; position: absolute; left: 50%; top: calc(50% + 34px); transform: translateX(-50%); }
+body.style-a:not(.has-room) .a-pick-room { display: inline-flex; }
+body.style-a:not(.has-room) .facing { display: none; }
+.style-a .frame .empty { font-size: 1.15rem; font-weight: 800; color: #e9eef5; }
+.style-a .shape button:disabled { opacity: .45; cursor: not-allowed; }
+/* masking only once there's something it could hide (3D brightness already waits for a 3D model) */
+body.style-a:not(.has-visual) .a-more-tools { display: none; }
+/* In your room: no heading and no "Nothing yet" until there's a room */
+body.style-a:not(.has-room) .a-inroom { display: none; }
+
+/* a thing's card: the tile already chose its type, and nothing but the link matters until it has one */
+.style-a .spot-card .sc-type { display: none; }
+.style-a .spot-card.no-src .sc-field:has(.sp-label), .style-a .spot-card.no-src .sc-box, .style-a .spot-card.no-src .sc-more { display: none; }
+.style-a .spot-card.no-src .sc-body::after { content: "Its other settings appear here once it has a link."; display: block; margin-top: 12px;
+  padding: 10px 12px; border: 2px dashed var(--line); border-radius: 12px; color: var(--ink-soft); font-size: .88rem; font-weight: 700; }
+.style-a .spot-card.no-src[data-kind="text"] .sc-body::after { content: "Its other settings appear here once you’ve typed something."; }
+/* tick messages: only the ones that remind about sharing (problems still show, with a red ! on the link) */
+.style-a .sp-status.ok:not(.share) { display: none; }
+/* while editing, Done closes the card, so the card's own open/close arrow isn't needed */
+.style-a .a-side.editing .spot-card.open .sc-toggle .chev { display: none; }

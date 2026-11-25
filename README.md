@@ -84,7 +84,8 @@ A tour can have up to 20 things. iPhone photos (HEIC) and TIFFs won't show on mo
 1. Turn the room until the **+** (crosshair) is where you want it. The **arrow buttons** round the room turn it too.
 2. Press a tile on the right (**Make your own**), or a link your teacher chose (**Class library**). Its settings open, ready for the link.
 3. In the room, **drag** it to move it and **pull its corners** to resize it. Or use **Smaller**, **Bigger** and **Move to crosshair** in its settings.
-4. Press **Done** (or Esc) to go back to the tiles. Everything you've added is listed under **In your room**: press one to change it.
+4. Paste its link (or choose it from the class library). The rest of its settings appear once it has a link.
+5. Press **Done** (or Esc) to go back to the tiles. Everything you've added is listed under **In your room**: press one to change it.
 
 Handy:
 - **📱 Phone** view shows exactly how much a phone held upright can see. Size videos in that view.
@@ -124,7 +125,7 @@ Press a thing under **In your room** (or click it in the room) to open its setti
 - **How it looks** (purple): see-through video, and spinning or flat colours for 3D models.
 - **Size and place** (gold): Smaller, Bigger, Move to crosshair, Show me, turning a 3D model, and which one is in front.
 
-Boxes that don't apply to that kind of thing are left out.
+The maker only shows what's useful at the moment: boxes that don't apply to that kind of thing are left out, and **Where it overlaps** only appears when it overlaps something. **Masking** appears once there's something it could hide.
 
 **More options** (the dashed box at the bottom) has things most tours never need:
 - **Pin corners:** drag each of the four corners onto a point in the photo (the corners of a window or blackboard). It's warped to fit, so it looks painted on the wall.
