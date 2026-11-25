@@ -76,14 +76,20 @@
     history.replaceState(null, '', q.toString() ? '?' + q : location.pathname);
   }
 
+  // A tour's own link writes its photo short ("panoramas/room.jpg", "gd:…"); the photo box wants a full address
+  function fullLink(v) {
+    let s = Media.expand(String(v || '').trim());
+    if (s && !/^[a-z][\w+.-]*:/i.test(s)) { try { s = new URL(s, here.href).href; } catch (e) { /* leave it */ } }
+    return s;
+  }
   function loadFromAddress() {
     const q = new URLSearchParams(location.search);
-    $('in-pano').value = q.get('p') || '';
+    $('in-pano').value = fullLink(q.get('p'));
     $('in-title').value = q.get('t') || '';
     $('in-align').checked = q.get('al') === '1';
     $('in-bg').checked = q.get('bg') === '1';
     $('in-bright').value = Number(q.get('mb')) || 1;
-    $('in-pano2').value = q.get('p2') || '';
+    $('in-pano2').value = fullLink(q.get('p2'));
     $('in-yaw2').value = Number(q.get('y2')) || 0;
     $('in-n1').value = q.get('n1') || '';
     $('in-n2').value = q.get('n2') || '';
@@ -115,9 +121,11 @@
     if (f.bg && !preview) q.push(['bg', '1']);
     if (f.bright !== 1 && hasModels()) q.push(['mb', f.bright]);
     compareParams(f, true).forEach(p => q.push(p));
-    // links chosen from the class library are written as "#3" (only while the library is in use)
+    // The class library goes in every tour link once the maker has one (25 Nov, Ev's request), even when nothing comes
+    // from it yet, so a pupil who comes back to the tour (Keep working on a tour) still has it. The viewer only reads
+    // the sheet when the tour holds "#3" numbers. Links chosen from it are written as "#3" while it's loaded.
     const useLib = !!(lib && libValue) && spots.some(sp => sp.ref && sp.src.trim());
-    if (!preview && useLib) q.push(['lib', libValue]);
+    if (!preview && libValue) q.push(['lib', libValue]);
     if (!preview) spots.filter(sp => sp.src.trim()).forEach(sp => q.push(['s', HotSpots.encode(useLib ? sp : Object.assign({}, sp, { ref: '' }), true)]));
     if (!preview) layers.forEach(l => q.push(['f', encodeLayer(l)]));
     if (preview) q.push(['preview', '1']);

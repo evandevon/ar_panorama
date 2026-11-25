@@ -175,6 +175,7 @@ A teacher can put every link a class might use in one **Google Sheet**, so pupil
 6. Press **Copy a maker link for pupils** and give them that link. They get a **Class library** tab beside the tiles, with your links as buttons (filtered by type), and each thing's settings has **Choose from the class link library**.
 
 Good to know:
+- Once a pupil opens your maker link, every tour they make carries your sheet in its link. When they come back with **Keep working on a tour**, the Class library is still there, even if they haven't used it yet.
 - Fixing a link in the sheet fixes every tour that uses it, even printed ones.
 - Never change or reuse a row's number once tours use it.
 - If the sheet is deleted or unshared, those things go missing from tours.
